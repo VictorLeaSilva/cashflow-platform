@@ -36,6 +36,22 @@ Na raiz do projeto, execute:
 
 Os testes de compatibilidade iniciam containers PostgreSQL e Kafka via Testcontainers, portanto precisam de um ambiente Docker funcional.
 
+## Qualidade e hooks locais
+
+O `./mvnw verify` é o gate G2: formatação (Spotless), estilo (Checkstyle), regras de arquitetura (ArchUnit), testes, SpotBugs/FindSecBugs e cobertura (JaCoCo). Se a formatação falhar, corrija com:
+
+```bash
+./mvnw spotless:apply
+```
+
+Ative os hooks versionados (uma vez por clone):
+
+```bash
+git config core.hooksPath .githooks
+```
+
+O `pre-commit` roda gitleaks (se instalado) e a checagem de formatação; o `pre-push` roda `./mvnw -q verify -DskipITs`. Os hooks são contornáveis, por isso o CI repete tudo.
+
 ## Método de desenvolvimento
 
 O projeto utiliza **Spec Driven Development (SDD)**, com implementação e revisão por tarefa.

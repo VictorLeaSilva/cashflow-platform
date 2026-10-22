@@ -1,0 +1,5 @@
+#!/usr/bin/env bash
+# G2 (rápido): build sem testes de integração. O CI repete tudo e é a autoridade.
+set -euo pipefail
+cd "$(git rev-parse --show-toplevel)"
+./mvnw -q verify -DskipITs

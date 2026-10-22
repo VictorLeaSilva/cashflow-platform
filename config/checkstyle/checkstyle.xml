@@ -1,0 +1,57 @@
+<?xml version="1.0"?>
+<!DOCTYPE module PUBLIC
+    "-//Checkstyle//DTD Checkstyle Configuration 1.3//EN"
+    "https://checkstyle.org/dtds/configuration_1_3.dtd">
+<!--
+  Configuração mínima (04-quality-standards §2.1). A formatação é responsabilidade do Spotless;
+  aqui ficam nomes, imports e complexidade. Exceções: @SuppressWarnings("checkstyle:NomeDaRegra")
+  com justificativa no código e referência de tarefa (04 §5).
+-->
+<module name="Checker">
+  <property name="charset" value="UTF-8"/>
+  <property name="severity" value="warning"/>
+
+  <module name="SuppressWarningsFilter"/>
+
+  <module name="NewlineAtEndOfFile"/>
+
+  <module name="TreeWalker">
+    <module name="SuppressWarningsHolder"/>
+
+    <!-- Nomes -->
+    <module name="PackageName">
+      <property name="format" value="^[a-z]+(\.[a-z][a-z0-9]*)*$"/>
+    </module>
+    <module name="TypeName"/>
+    <module name="MethodName"/>
+    <module name="MemberName"/>
+    <module name="ParameterName"/>
+    <module name="LocalVariableName"/>
+    <module name="StaticVariableName"/>
+    <module name="ConstantName"/>
+
+    <!-- Imports -->
+    <module name="AvoidStarImport"/>
+    <module name="UnusedImports"/>
+    <module name="RedundantImport"/>
+
+    <!-- Complexidade e tamanho (limites da spec; exceção só justificada) -->
+    <module name="CyclomaticComplexity">
+      <property name="max" value="10"/>
+    </module>
+    <module name="MethodLength">
+      <property name="max" value="50"/>
+    </module>
+    <module name="ParameterNumber">
+      <property name="max" value="6"/>
+    </module>
+
+    <!-- Higiene -->
+    <module name="NeedBraces"/>
+    <module name="EmptyStatement"/>
+    <module name="EqualsHashCode"/>
+    <module name="ModifierOrder"/>
+    <module name="MissingSwitchDefault"/>
+    <module name="FallThrough"/>
+  </module>
+</module>
