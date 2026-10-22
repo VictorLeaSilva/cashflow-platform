@@ -1,4 +1,3 @@
-
 package br.com.fluxocaixa.lancamentos;
 
 import org.junit.jupiter.api.Tag;
@@ -9,7 +8,6 @@ import org.springframework.boot.test.context.SpringBootTest;
 @Tag("RNF-009")
 class LancamentosApplicationTest {
 
-    @Test
-    void contextLoads() {
-    }
+  @Test
+  void contextLoads() {}
 }
