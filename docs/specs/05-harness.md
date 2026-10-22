@@ -52,7 +52,7 @@ Falha (exit ≠ 0) se qualquer item falhar; grava `docs/specs/reviews/T-xxx.veri
 6. **Artefatos:** arquivos de "Saídas" existem.
 
 ## 5. Revisão independente
-Executada por um revisor **sem o contexto de raciocínio do implementador** (outra sessão/subagente). Entradas: arquivo da tarefa, seções de spec referenciadas, `git diff`, log do `verify-task.sh`. Saída: `docs/specs/reviews/T-xxx.md`.
+Executada por um revisor **sem o contexto de raciocínio do implementador** (outra sessão/subagente). Entradas: arquivo da tarefa, seções de spec referenciadas, `git diff`, log do `verify-task.sh`. Saída: `docs/specs/reviews/T-xxx.md`. Registros de execução do implementador (evidências) usam `T-xxx.evidence.md`; `T-xxx.md` é exclusivo do revisor independente.
 
 ### Rubrica
 | # | Item | Falha quando |

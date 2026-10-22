@@ -31,11 +31,12 @@ Princípio: **o CI é a autoridade**; hooks locais só aceleram o feedback. Nenh
 ### 2.2 Regras de arquitetura (ArchUnit) — viram testes
 - `domain` não depende de Spring, Jackson, JDBC nem Kafka.
 - `application` não depende de `adapter.*`.
-- `lancamentos-service` e `consolidado-service` não se referenciam (nem por pacote).
-- Proibido `float`/`double` em `domain`/`application`.
-- Proibido `Instant.now()`, `LocalDate.now()`, `System.currentTimeMillis()` fora do provedor de `Clock`.
-- Proibido `System.out`, `printStackTrace`, `@SuppressWarnings` sem justificativa.
-- Controllers retornam DTOs (records), nunca entidades de domínio.
+- `lancamentos-service` e `consolidado-service` não se referenciam: barrado no classpath pelo enforcer (T-001) e por regra ArchUnit de pacote.
+- Proibido `float`/`double` (e seus *wrappers*) em campos e retornos de método de `domain`/`application`.
+- Proibido chamar `now()` do `java.time` sem `Clock` e `System.currentTimeMillis()`.
+- Proibido `System.out`/`System.err` e `printStackTrace`.
+- `@SuppressWarnings` sem justificativa: ArchUnit não lê comentários; verificado na revisão (R3/R8).
+- Controllers retornam DTOs (records), nunca entidades de domínio: regra adicionada na T-013, quando existirem controllers.
 
 ### 2.3 Testes
 | Tipo | Ferramenta | Escopo |
@@ -53,7 +54,7 @@ Princípio: **o CI é a autoridade**; hooks locais só aceleram o feedback. Nenh
 Nomes: `*Test` (unitário), `*IT` (integração, Failsafe). Todo teste carrega `@Tag` do requisito.
 
 ### 2.4 Cobertura (JaCoCo, unit+IT)
-**Piso (bloqueia):** `domain`+`application` ≥ 85 % linhas; projeto ≥ 80 % linhas. **Meta (reportada, não bloqueia):** `domain`+`application` ≥ 90 % linhas e ≥ 85 % ramos. Cobertura **não substitui** os testes de risco do §2.7. Exclusões apenas: configuração, classe `main`, código gerado.
+**Piso (bloqueia):** `domain`+`application` ≥ 85 % linhas; projeto ≥ 80 % linhas. **Meta (reportada, não bloqueia):** `domain`+`application` ≥ 90 % linhas e ≥ 85 % ramos. Cobertura **não substitui** os testes de risco do §2.7. Exclusões apenas: configuração, classe `main`, código gerado. A regra por pacote (`domain`/`application` ≥ 85 %) é adicionada ao JaCoCo na T-010/T-020, quando os pacotes existirem; até lá vale o piso do projeto (80 %).
 
 ### 2.5 Segurança
 | Ferramenta | Papel | Regra |
