@@ -1,0 +1,11 @@
+# ajuda a manter finais de linha consistentes entre Windows e Linux, algo importante para o Maven Wrapper e para builds em ambientes diferentes
+* text=auto eol=lf
+
+*.bat text eol=crlf
+*.cmd text eol=crlf
+
+*.png binary
+*.jpg binary
+*.jpeg binary
+*.gif binary
+*.pdf binary

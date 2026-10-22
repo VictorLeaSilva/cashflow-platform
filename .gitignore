@@ -1,0 +1,19 @@
+
+# Maven: arquivos gerados durante o build
+**/target/
+
+# IDEs
+.idea/
+.vscode/
+*.iml
+.classpath
+.project
+.settings/
+
+# Logs
+*.log
+
+# Variáveis de ambiente e segredos locais
+.env
+.env.*
+!.env.example
