@@ -1,0 +1,85 @@
+# Infraestrutura local (T-004). Na raiz do repositório:
+#   cp .env.example .env
+#   docker compose --env-file .env -f deploy/docker-compose.yml up -d
+# Sem as variáveis, o compose falha cedo pedindo as senhas (nenhum segredo fica no repositório).
+# Profiles: "tools" (UI do Kafka, opcional); "observability" e "apps" entram nas T-032 e T-035.
+name: fluxo-caixa
+
+services:
+  postgres:
+    image: postgres:17.11-alpine
+    environment:
+      POSTGRES_USER: ${POSTGRES_SUPERUSER:-postgres}
+      POSTGRES_PASSWORD: ${POSTGRES_SUPERUSER_PASSWORD:?defina POSTGRES_SUPERUSER_PASSWORD (.env.example)}
+      LANCAMENTOS_OWNER_PASSWORD: ${LANCAMENTOS_OWNER_PASSWORD:?defina LANCAMENTOS_OWNER_PASSWORD}
+      LANCAMENTOS_APP_PASSWORD: ${LANCAMENTOS_APP_PASSWORD:?defina LANCAMENTOS_APP_PASSWORD}
+      CONSOLIDADO_OWNER_PASSWORD: ${CONSOLIDADO_OWNER_PASSWORD:?defina CONSOLIDADO_OWNER_PASSWORD}
+      CONSOLIDADO_APP_PASSWORD: ${CONSOLIDADO_APP_PASSWORD:?defina CONSOLIDADO_APP_PASSWORD}
+    ports:
+      - "${POSTGRES_PORT:-5432}:5432"
+    volumes:
+      - postgres-data:/var/lib/postgresql/data
+      - ./init:/docker-entrypoint-initdb.d:ro
+    healthcheck:
+      # Saudável só depois que o init criou os bancos (o servidor temporário do init não escuta TCP).
+      test: ["CMD-SHELL", "PGPASSWORD=\"$$POSTGRES_PASSWORD\" psql -h 127.0.0.1 -U \"$$POSTGRES_USER\" -d consolidado -tAc 'select 1' >/dev/null"]
+      interval: 5s
+      timeout: 5s
+      retries: 20
+
+  kafka:
+    image: apache/kafka:3.9.1
+    environment:
+      KAFKA_NODE_ID: 1
+      KAFKA_PROCESS_ROLES: broker,controller
+      KAFKA_CONTROLLER_QUORUM_VOTERS: 1@kafka:9093
+      KAFKA_CONTROLLER_LISTENER_NAMES: CONTROLLER
+      # INTERNAL: entre contêineres (kafka:29092); EXTERNAL: serviços rodando no host (localhost:9092).
+      KAFKA_LISTENERS: INTERNAL://:29092,EXTERNAL://:9092,CONTROLLER://:9093
+      KAFKA_ADVERTISED_LISTENERS: INTERNAL://kafka:29092,EXTERNAL://localhost:${KAFKA_PORT:-9092}
+      KAFKA_LISTENER_SECURITY_PROTOCOL_MAP: INTERNAL:PLAINTEXT,EXTERNAL:PLAINTEXT,CONTROLLER:PLAINTEXT
+      KAFKA_INTER_BROKER_LISTENER_NAME: INTERNAL
+      KAFKA_AUTO_CREATE_TOPICS_ENABLE: "false"
+      KAFKA_OFFSETS_TOPIC_REPLICATION_FACTOR: 1
+      KAFKA_TRANSACTION_STATE_LOG_REPLICATION_FACTOR: 1
+      KAFKA_TRANSACTION_STATE_LOG_MIN_ISR: 1
+      KAFKA_GROUP_INITIAL_REBALANCE_DELAY_MS: 0
+    ports:
+      - "${KAFKA_PORT:-9092}:9092"
+    volumes:
+      - kafka-data:/var/lib/kafka/data
+    healthcheck:
+      test: ["CMD-SHELL", "/opt/kafka/bin/kafka-broker-api-versions.sh --bootstrap-server kafka:29092 >/dev/null 2>&1"]
+      interval: 10s
+      timeout: 10s
+      retries: 12
+      start_period: 15s
+
+  # Execução única: cria o tópico e a DLT (03 §4, §7.2) e termina com exit 0.
+  kafka-init:
+    image: apache/kafka:3.9.1
+    depends_on:
+      kafka:
+        condition: service_healthy
+    volumes:
+      - ./kafka/create-topics.sh:/create-topics.sh:ro
+    entrypoint: ["/bin/bash", "/create-topics.sh"]
+    environment:
+      BOOTSTRAP: kafka:29092
+    restart: "no"
+
+  kafka-ui:
+    image: kafbat/kafka-ui:v1.3.0
+    profiles: ["tools"]
+    depends_on:
+      kafka:
+        condition: service_healthy
+    environment:
+      KAFKA_CLUSTERS_0_NAME: local
+      KAFKA_CLUSTERS_0_BOOTSTRAPSERVERS: kafka:29092
+    ports:
+      - "${KAFKA_UI_PORT:-8090}:8080"
+
+volumes:
+  postgres-data:
+  kafka-data:

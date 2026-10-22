@@ -9,4 +9,7 @@ updates:
     directory: "/"
     schedule:
       interval: weekly
-  # docker-compose (deploy/) é adicionado na T-004, quando o arquivo existir.
+  - package-ecosystem: docker-compose
+    directory: "/deploy"
+    schedule:
+      interval: weekly
