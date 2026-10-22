@@ -66,7 +66,7 @@ Hexagonal enxuta por serviço, empacotada por feature:
 | A4 | Retroatividade: `dataReferencia` ≥ hoje(SP) − 30 dias (`lancamentos.max-backdate-days`); data futura é proibida (A11). |
 | A5 | Estorno é **total** e **único** por lançamento; estorno de estorno é proibido (estornos parciais/múltiplos de um legado: ver §6.1). |
 | A6 | Débito não é limitado por saldo (saldo negativo permitido). É decisão de negócio **e** de arquitetura: autorizar débito pelo saldo exigiria consultar o Consolidado de forma síncrona, violando P6/RNF-001. |
-| A7 | Valor máximo por lançamento: `10000000.00` (configurável). |
+| A7 | Valor máximo por lançamento: `10000000.00` (configurável em `lancamentos.max-valor`; Q-007). |
 | A8 | Lançamentos nunca são editados nem excluídos. |
 | A9 | Sem cache distribuído e sem réplica de leitura até haver medição que justifique. |
 | A10 | "Perda de requisições" é definida em RNF-002. |
