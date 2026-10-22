@@ -43,7 +43,7 @@
     <spotless-maven-plugin.version>3.10.2</spotless-maven-plugin.version>
     <google-java-format.version>1.30.0</google-java-format.version>
     <maven-checkstyle-plugin.version>3.6.0</maven-checkstyle-plugin.version>
-    <checkstyle.version>10.21.4</checkstyle.version>
+    <checkstyle.version>14.3.0</checkstyle.version>
     <spotbugs-maven-plugin.version>4.10.3.0</spotbugs-maven-plugin.version>
     <findsecbugs.version>1.14.0</findsecbugs.version>
     <jacoco-maven-plugin.version>0.8.14</jacoco-maven-plugin.version>
