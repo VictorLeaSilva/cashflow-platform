@@ -1,11 +1,15 @@
 // TESTE NORMAL (smoke): valida o contrato ponta a ponta com carga mínima.
 // Uso: loadtest/run.sh smoke
-// Requisitos exercitados: RF-001, RF-002, RF-003 (via lançamentos), RF-004, RF-005, RF-007, RNF-003 (convergência).
+// Requisitos exercitados: RF-001, RF-002, RF-004, RF-005, RF-007, RNF-003 (convergência) e RNF-005 (401/403).
 import http from 'k6/http';
 import { check, group } from 'k6';
 import {
-  LANC, CONS, params, uuid, postLancamento, consolidadoRange, totalQtd, waitFor, businessDate,
+  LANC, CONS, TOKEN_READONLY, params, uuid, postLancamento, consolidadoRange, totalQtd, waitFor, businessDate,
 } from './lib/common.js';
+
+if (!TOKEN_READONLY) {
+  throw new Error('TOKEN_READONLY ausente. Use loadtest/run.sh.');
+}
 
 export const options = {
   vus: 1,
@@ -60,6 +64,22 @@ export default function () {
       responseCallback: http.expectedStatuses(401),
     });
     check(semToken, { 'sem token → 401': (r) => r.status === 401 });
+
+    // Token válido, porém só com scope de leitura: escrita deve ser negada.
+    const semScope = http.post(
+      `${LANC}/api/v1/lancamentos`,
+      JSON.stringify({ tipo: 'CREDITO', valor: '1.00' }),
+      {
+        headers: {
+          Authorization: `Bearer ${TOKEN_READONLY}`,
+          'Content-Type': 'application/json',
+          'Idempotency-Key': uuid(),
+        },
+        timeout: '2s',
+        responseCallback: http.expectedStatuses(403),
+      },
+    );
+    check(semScope, { 'sem scope de escrita → 403': (r) => r.status === 403 });
   });
 
   group('consulta de lançamentos', () => {

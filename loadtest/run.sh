@@ -1,7 +1,7 @@
 #!/usr/bin/env bash
 # Executa os testes k6 com token de desenvolvimento e registra resultado + ambiente.
 # Uso: loadtest/run.sh smoke|load
-# Variáveis: LANC_URL, CONS_URL, MERCHANT_ID, READ_RPS, WRITE_RPS, DURATION
+# Variáveis: LANC_URL, CONS_URL, MERCHANT_ID, TOKEN_TTL, READ_RPS, WRITE_RPS, DURATION
 set -euo pipefail
 cd "$(dirname "$0")/.."
 
@@ -12,8 +12,11 @@ for bin in k6 java git; do
 done
 
 MERCHANT_ID="${MERCHANT_ID:-$(uuidgen | tr 'A-Z' 'a-z')}"   # comerciante novo = base limpa
+TOKEN_TTL="${TOKEN_TTL:-3600}"   # deve exceder seed + DURATION; um 401 no meio da carga conta como falha
 TOKEN="$(java scripts/DevToken.java --merchant "$MERCHANT_ID" \
-  --scopes lancamentos:write,lancamentos:read,consolidado:read --ttl 3600)"
+  --scopes lancamentos:write,lancamentos:read,consolidado:read --ttl "$TOKEN_TTL")"
+TOKEN_READONLY="$(java scripts/DevToken.java --merchant "$MERCHANT_ID" \
+  --scopes lancamentos:read,consolidado:read --ttl "$TOKEN_TTL")"
 
 OUT="docs/performance/results"
 mkdir -p "$OUT"
@@ -34,6 +37,7 @@ STAMP="$(date -u +%Y%m%dT%H%M%SZ)"
 
 k6 run \
   -e TOKEN="$TOKEN" \
+  -e TOKEN_READONLY="$TOKEN_READONLY" \
   -e LANC_URL="${LANC_URL:-http://localhost:8081}" \
   -e CONS_URL="${CONS_URL:-http://localhost:8082}" \
   -e READ_RPS="${READ_RPS:-50}" \

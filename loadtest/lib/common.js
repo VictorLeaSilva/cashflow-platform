@@ -7,6 +7,7 @@ import { sleep } from 'k6';
 export const LANC = __ENV.LANC_URL || 'http://localhost:8081';
 export const CONS = __ENV.CONS_URL || 'http://localhost:8082';
 const TOKEN = __ENV.TOKEN;
+export const TOKEN_READONLY = __ENV.TOKEN_READONLY || ''; // sem scope de escrita (prova de 403)
 if (!TOKEN) {
   throw new Error('TOKEN ausente. Use loadtest/run.sh, que gera o token com scripts/DevToken.java.');
 }
