@@ -39,7 +39,7 @@
     <project.reporting.outputEncoding>UTF-8</project.reporting.outputEncoding>
 
     <!-- Versões pinadas dos gates de qualidade (T-002). Dependabot propõe atualizações. -->
-    <maven-enforcer-plugin.version>3.5.0</maven-enforcer-plugin.version>
+    <maven-enforcer-plugin.version>3.6.3</maven-enforcer-plugin.version>
     <spotless-maven-plugin.version>3.10.2</spotless-maven-plugin.version>
     <google-java-format.version>1.30.0</google-java-format.version>
     <maven-checkstyle-plugin.version>3.6.0</maven-checkstyle-plugin.version>
