@@ -43,9 +43,9 @@ O projeto utiliza **Spec Driven Development (SDD)**, com implementação e revis
 Antes de implementar uma tarefa, consulte:
 
 1. [`AGENTS.md`](AGENTS.md) — instruções para agentes de código.
-2. [`docs/specs/00-constitution.md`](docs/specs/00-constitution.md) — princípios e convenções.
-3. A especificação da tarefa correspondente em `docs/specs/tasks/`.
-4. [`docs/specs/05-harness.md`](docs/specs/05-harness.md) — processo de verificação e revisão.
+2. [`docs/specs/00-constitution.md`](docs/specs/00-constitution.md) — princípios arquiteturais e convenções do projeto.
+3. [`docs/specs/tasks/`](docs/specs/tasks) — tarefas disponíveis. Consulte o arquivo correspondente à tarefa que será implementada, por exemplo, `T-002.md`.
+4. [`docs/specs/05-harness.md`](docs/specs/05-harness.md) — processo de verificação, testes e revisão.
 
 O gate automatizado por tarefa será disponibilizado conforme o planejamento definido nas especificações.
 
