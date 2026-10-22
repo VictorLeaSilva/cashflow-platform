@@ -36,6 +36,24 @@ Na raiz do projeto, execute:
 
 Os testes de compatibilidade iniciam containers PostgreSQL e Kafka via Testcontainers, portanto precisam de um ambiente Docker funcional.
 
+## Infraestrutura local
+
+PostgreSQL (bancos `lancamentos` e `consolidado`, cada um com roles próprios) e Kafka em modo KRaft (tópico `cashflow.lancamentos.v1` e a DLT, com 3 partições). Na raiz do projeto:
+
+```bash
+cp .env.example .env
+```
+
+```bash
+docker compose --env-file .env -f deploy/docker-compose.yml up -d --wait
+```
+
+```bash
+deploy/verify-local.sh
+```
+
+O `verify-local.sh` confere se os serviços estão saudáveis, se cada serviço só acessa o próprio banco e se os tópicos existem. A UI do Kafka é opcional: acrescente `--profile tools` ao `up` e acesse `http://localhost:8090`. Para apagar tudo, inclusive os volumes, use `docker compose --env-file .env -f deploy/docker-compose.yml down -v`.
+
 ## Qualidade e hooks locais
 
 O `./mvnw verify` é o gate G2: formatação (Spotless), estilo (Checkstyle), regras de arquitetura (ArchUnit), testes, SpotBugs/FindSecBugs e cobertura (JaCoCo). Se a formatação falhar, corrija com:
