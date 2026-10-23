@@ -1,7 +1,8 @@
-
 {
   "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://fluxocaixa.com.br/contracts/events/lancamento-registrado.v1.schema.json",
   "title": "LancamentoRegistrado.v1",
+  "description": "Fato financeiro registrado em Lançamentos (03 §4). tipoOriginal e referenciaLancamentoId existem se e somente se tipo = ESTORNO.",
   "type": "object",
   "additionalProperties": false,
   "required": [
@@ -9,6 +10,7 @@
     "eventType",
     "schemaVersion",
     "occurredAt",
+    "comercianteId",
     "lancamentoId",
     "tipo",
     "valor",
@@ -29,6 +31,10 @@
       "type": "string",
       "format": "date-time"
     },
+    "comercianteId": {
+      "type": "string",
+      "format": "uuid"
+    },
     "lancamentoId": {
       "type": "string",
       "format": "uuid"
@@ -43,6 +49,41 @@
     "dataReferencia": {
       "type": "string",
       "format": "date"
+    },
+    "tipoOriginal": {
+      "enum": ["CREDITO", "DEBITO"]
+    },
+    "referenciaLancamentoId": {
+      "type": "string",
+      "format": "uuid"
+    },
+    "traceId": {
+      "type": "string",
+      "minLength": 1,
+      "maxLength": 64
+    }
+  },
+  "if": {
+    "properties": {
+      "tipo": {
+        "const": "ESTORNO"
+      }
+    },
+    "required": ["tipo"]
+  },
+  "then": {
+    "required": ["tipoOriginal", "referenciaLancamentoId"]
+  },
+  "else": {
+    "not": {
+      "anyOf": [
+        {
+          "required": ["tipoOriginal"]
+        },
+        {
+          "required": ["referenciaLancamentoId"]
+        }
+      ]
     }
   }
 }
