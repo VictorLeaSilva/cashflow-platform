@@ -108,7 +108,7 @@ CREATE TABLE outbox_event (
   event_type VARCHAR(100) NOT NULL,
   schema_version INTEGER NOT NULL,
   payload JSONB NOT NULL,
-  created_at TIMESTAMPTZ NOT NULL DEFAULT now(),
+  created_at TIMESTAMPTZ NOT NULL DEFAULT now(),  -- gravado com o instante do evento (Clock, Q-032)
   published_at TIMESTAMPTZ,
   attempt_count INTEGER NOT NULL DEFAULT 0,
   last_error TEXT,
