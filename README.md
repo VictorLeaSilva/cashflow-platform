@@ -2,7 +2,13 @@
 
 Controle de **lançamentos** (créditos e débitos) e **consolidado diário**, com dois serviços independentes comunicando-se por eventos. Case do desafio de Arquiteto de Soluções.
 
-> Estado: **fundação (T-001)**. A documentação de arquitetura e as especificações estão em [`docs/specs/`](docs/specs/). Este README é provisório e será finalizado na T-043.
+> Estado: fundação e gates de qualidade (T-001, T-002), infraestrutura local (T-004) e documentação de arquitetura (T-005). Este README é provisório e será finalizado na T-043.
+
+## Documentação
+
+- [`docs/architecture/architecture.md`](docs/architecture/architecture.md): visão geral, diagramas C4, arquitetura-alvo AWS (**apenas desenho**; o case é implementado e provado só localmente, tarefa a tarefa) e tabela de requisitos não funcionais.
+- [`docs/architecture/decisions/`](docs/architecture/decisions/): decisões de arquitetura (ADR-001 a ADR-010), com alternativas rejeitadas e trade-offs.
+- [`docs/specs/`](docs/specs/): especificação (constituição, domínios e capacidades, requisitos, contratos, padrões de qualidade, backlog).
 
 ## Módulos
 
@@ -81,8 +87,13 @@ Antes de implementar uma tarefa, consulte:
 3. [`docs/specs/tasks/`](docs/specs/tasks) — tarefas disponíveis. Consulte o arquivo correspondente à tarefa que será implementada, por exemplo, `T-002.md`.
 4. [`docs/specs/05-harness.md`](docs/specs/05-harness.md) — processo de verificação, testes e revisão.
 
-O gate automatizado por tarefa será disponibilizado conforme o planejamento definido nas especificações.
+O gate automatizado por tarefa (`scripts/verify-task.sh`) chega com a T-003; até lá, a verificação de cada tarefa é o `./mvnw verify`, os scripts da própria tarefa e a revisão independente.
 
 ## Status
 
-Projeto em desenvolvimento. Esta versão documenta a fundação do repositório; contratos, regras de negócio, testes e infraestrutura serão evoluídos nas próximas tarefas.
+Projeto em desenvolvimento.
+
+- **Integrado:** build reproduzível e gates de qualidade (T-001, T-002); infraestrutura local com PostgreSQL e Kafka (T-004).
+- **Em revisão:** documentação de arquitetura com ADRs e arquitetura-alvo (T-005), aguardando aprovação.
+- **Próximo:** domínio, persistência e idempotência de Lançamentos (T-010 a T-012), seguidos das APIs, do publicador e do Consolidado. A ordem está em [`docs/specs/06-tasks.md`](docs/specs/06-tasks.md).
+- Os serviços ainda não expõem endpoints.
