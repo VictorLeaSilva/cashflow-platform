@@ -215,8 +215,8 @@ Arquivos: `lancamentos-service/src/main/resources/openapi/lancamentos-v1.yaml` e
 |---|---|---|---|
 | POST | `/lancamentos` (`Idempotency-Key` obrigatório) | `lancamentos:write` | 201, 400, 401, 403, 406, 409 (Q-013, Q-015), 413, 415, 422 |
 | POST | `/lancamentos/{id}/estornos` (`Idempotency-Key` obrigatório) | `lancamentos:write` | 201, 400 (Q-018), 401, 403, 404, 406, 409 (já estornado; Q-013), 413, 415 (Q-017), 422 |
-| GET | `/lancamentos` (filtros, `page`, `size ≤ 100`) | `lancamentos:read` | 200, 400, 401, 403 |
-| GET | `/lancamentos/{id}` | `lancamentos:read` | 200, 401, 403, 404 |
+| GET | `/lancamentos` (filtros, `page`, `size ≤ 100`; Q-023..Q-025) | `lancamentos:read` | 200, 400, 401, 403, 406 |
+| GET | `/lancamentos/{id}` | `lancamentos:read` | 200, 400 (Q-026), 401, 403, 404, 406 |
 | GET | `/consolidado?dataInicio&dataFim` | `consolidado:read` | 200, 400, 401, 403 |
 | GET | `/consolidado/{data}` | `consolidado:read` | 200, 400, 401, 403 |
 
@@ -243,7 +243,7 @@ Erros: RFC 9457 com `type`, `title`, `status`, `detail`, `instance`, `errors[]` 
 ### 5.1 Formatos de resposta, portas e token de desenvolvimento
 Portas: Lançamentos `8081` (gestão `9081`); Consolidado `8082` (gestão `9082`). Serviços do compose: `postgres`, `kafka`, `lancamentos`, `consolidado`.
 
-`POST /lancamentos` e `POST /lancamentos/{id}/estornos` (201): `{ id, comercianteId, tipo, valor, descricao, dataOcorrencia, dataReferencia, referenciaLancamentoId|null, tipoOriginal|null, identificadorExterno|null, criadoEm }` (`tipoOriginal` só no estorno, Q-020). Listagem: `{ itens: [...], page, size, total }`.
+`POST /lancamentos` e `POST /lancamentos/{id}/estornos` (201): `{ id, comercianteId, tipo, valor, descricao, dataOcorrencia, dataReferencia, referenciaLancamentoId|null, tipoOriginal|null, identificadorExterno|null, criadoEm }` (`tipoOriginal` só no estorno, Q-020). Listagem: `{ itens: [...], page, size, total }`, com `page` começando em 0 (padrão 0), `size` de 1 a 100 (padrão 20) e ordem `dataReferencia` decrescente e `id` crescente (Q-024). `GET /lancamentos/{id}` devolve o mesmo objeto do 201.
 
 `GET /consolidado?dataInicio&dataFim` (200):
 ```json
