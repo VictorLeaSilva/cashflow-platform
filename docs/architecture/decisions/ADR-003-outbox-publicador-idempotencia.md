@@ -21,6 +21,7 @@ Cada lançamento precisa chegar ao Consolidado, mas o registro não pode depende
 | ETL/consolidação em lote | Consolidado deixaria de refletir o dia corrente; frescor (RNF-003) não seria atendido |
 | Publicar *after-commit* em memória | Evento perdido se o processo cair entre o *commit* e o envio |
 | Idempotência em Redis | Outra peça a operar e sem atomicidade com o lançamento |
+| Só `identificador_externo` único (sem `Idempotency-Key`) | O campo é opcional e de negócio (referência do sistema de origem); não cobre o estorno nem clientes que não o enviam, e não distingue "mesma requisição repetida" de "requisição diferente com a mesma referência" |
 | Guardar o corpo da resposta na chave | A resposta não existe no momento do `INSERT` da chave; colunas anuláveis e reescrita complicam a concorrência |
 
 ## Consequências

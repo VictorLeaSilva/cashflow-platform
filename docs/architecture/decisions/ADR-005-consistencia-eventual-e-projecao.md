@@ -11,7 +11,7 @@ Com integração assíncrona (ADR-003), o Consolidado é uma **projeção** deri
 - **Projeção só de movimento diário aditivo** (D-06): `consolidado_diario` guarda, por comerciante e dia, os totais de créditos, débitos, estornos de crédito, estornos de débito e a quantidade. Cada evento soma deltas com um *upsert* atômico (`INSERT ... ON CONFLICT DO UPDATE SET total = total + EXCLUDED.total`), na mesma transação do registro em `evento_processado` (deduplicação por `eventId`).
 - **Saldo acumulado calculado na leitura:** `saldoAnterior` = soma dos `saldoDia` anteriores ao intervalo; `saldoAcumulado` = janela sobre o intervalo. Nada de saldo de fechamento materializado.
 - **Estorno é um lançamento compensatório na data do estorno** (D-07): o original nunca é alterado e dias passados nunca são reescritos.
-- Como somas são comutativas e a deduplicação é atômica, **aplicar os mesmos eventos em qualquer ordem e com duplicatas produz a mesma projeção** (AC-008.3, provado com teste de propriedade na T-020). Essa garantia vale **só** para esta projeção aditiva.
+- Como somas são comutativas e a deduplicação é atômica, **aplicar os mesmos eventos em qualquer ordem e com duplicatas produz a mesma projeção** (AC-008.3, a ser provado com teste de propriedade na T-020). Essa garantia vale **só** para esta projeção aditiva.
 
 ## Alternativas rejeitadas
 | Alternativa | Por que não |

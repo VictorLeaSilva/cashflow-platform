@@ -15,20 +15,26 @@ Um comerciante registra **lançamentos** (créditos e débitos) e consulta o **s
 |---|---|---|
 | Serviço de lançamentos e serviço de consolidado | Dois executáveis independentes, um banco lógico cada (ADR-001, ADR-002) | P2 |
 | Lançamentos não pode cair se o Consolidado cair | Nenhuma chamada síncrona entre serviços; outbox transacional + Kafka (ADR-003) | P6 |
-| 50 req/s no Consolidado em pico, perda ≤ 5 % | Leitura por chave em projeção pré-agregada; serviços *stateless* escaláveis; prova com k6 (RNF-002, T-033) | P8 |
+| 50 req/s no Consolidado em pico, perda ≤ 5 % | Leitura por chave em projeção pré-agregada; serviços *stateless* escaláveis; a provar com k6 (RNF-002, T-033) | P8 |
 | Dinheiro e saldo corretos | `BigDecimal`/`NUMERIC`; fatos imutáveis; idempotência fim a fim (ADR-003, ADR-005) | P3, P4, P5 |
 | Segurança | JWT, *scopes*, isolamento por comerciante, critérios de integração (ADR-007) | — |
 | Documentação e decisões | ADR-001..010, specs em `docs/specs/` | P7, P9 |
 
 ### 1.2 Case local × arquitetura-alvo
 
-| | **Case local** (implementado e provado) | **Arquitetura-alvo AWS** (apenas desenho) |
+| | **Case local** (implementado e provado aos poucos, tarefa a tarefa) | **Arquitetura-alvo AWS** (apenas desenho) |
 |---|---|---|
 | O que é | Código, testes, `docker compose` com PostgreSQL e Kafka, k6, `scripts/demo.sh` | Diagrama e decisões para produção (§6, ADR-010) |
-| Evidência | `./mvnw verify`, `deploy/verify-local.sh`, resultados versionados do k6 | Justificativa e trade-offs; números rotulados como **meta** |
+| Evidência | Hoje: `./mvnw verify` (gates da T-002) e `deploy/verify-local.sh` (T-004). Depois: testes de integração e E2E, resultados do k6 em `docs/performance/` (T-033), `demo.sh` (T-035) | Justificativa e trade-offs; números rotulados como **meta** |
 | Nuvem | Nenhuma: não há conta AWS, IaC nem deploy | ECS, RDS, MSK, Cognito, CloudWatch — só no desenho |
 
-Tudo o que este documento afirma como **funcionando** refere-se ao case local. O que é só do alvo está marcado como tal.
+Este documento usa três estados, e nada é afirmado além do estado indicado:
+
+| Estado | Significado | Exemplos hoje |
+|---|---|---|
+| **Provado** | Existe no repositório e há verificação executada | Gates de qualidade e regras ArchUnit (T-002); bancos, roles por `CONNECT`, tópico e DLT (T-004) |
+| **A provar (T-xxx)** | Faz parte do case local; será implementado e provado na tarefa indicada | APIs, publicador, consumidor, JWT, métricas, carga de 50 req/s |
+| **Só desenho** | Existe apenas na arquitetura-alvo; não será provado no case | Multi-AZ, *failover*, RPO/RTO, WAF, Cognito, CloudWatch |
 
 ## 2. Domínios e capacidades
 
@@ -70,26 +76,26 @@ flowchart TB
     cli["Cliente HTTP<br/>(Swagger UI, demo.sh, k6)"]
 
     subgraph L["lancamentos-service :8081"]
-      lapi["API REST<br/>POST/GET /api/v1/lancamentos"]
-      lpub["Publicador outbox<br/>(polling 500 ms, pool JDBC dedicado)"]
+      lapi["API REST<br/>POST/GET /api/v1/lancamentos<br/>(a provar: T-013..T-015)"]
+      lpub["Publicador outbox<br/>(polling 500 ms, pool JDBC dedicado)<br/>(a provar: T-016)"]
     end
 
     subgraph C["consolidado-service :8082"]
-      capi["API REST<br/>GET /api/v1/consolidado"]
-      ccons["Consumidor Kafka<br/>(dedup por eventId, DLT)"]
+      capi["API REST<br/>GET /api/v1/consolidado<br/>(a provar: T-023)"]
+      ccons["Consumidor Kafka<br/>(dedup por eventId, DLT)<br/>(a provar: T-022)"]
     end
 
-    subgraph PG["PostgreSQL 17 (1 instância)"]
-      dbl[("banco lancamentos<br/>lancamento, outbox_event, idempotency_key<br/>roles lancamentos_owner / lancamentos_app")]
-      dbc[("banco consolidado<br/>consolidado_diario, evento_processado<br/>roles consolidado_owner / consolidado_app")]
+    subgraph PG["PostgreSQL 17, 1 instância (provado: T-004)"]
+      dbl[("banco lancamentos, roles owner/app<br/>tabelas lancamento, outbox_event,<br/>idempotency_key (a provar: T-011)")]
+      dbc[("banco consolidado, roles owner/app<br/>tabelas consolidado_diario,<br/>evento_processado (a provar: T-021)")]
     end
 
-    subgraph K["Kafka (KRaft, 1 broker)"]
+    subgraph K["Kafka KRaft, 1 broker (provado: T-004)"]
       t["cashflow.lancamentos.v1<br/>(3 partições, chave = comercianteId)"]
       dlt["cashflow.lancamentos.v1.DLT<br/>(retenção 30 dias)"]
     end
 
-    prom["Prometheus + Grafana<br/>(previsto, T-032)"]
+    prom["Prometheus + Grafana<br/>(a provar: T-032)"]
 
     cli --> lapi
     cli --> capi
@@ -104,7 +110,7 @@ flowchart TB
     C -.-> prom
 ```
 
-**Estado atual do case:** a infraestrutura (PostgreSQL com bancos/roles isolados, Kafka com tópico e DLT) sobe e é verificada por `deploy/verify-local.sh` (T-004). Os serviços estão sendo implementados na ordem do backlog (`docs/specs/06-tasks.md`).
+**Estado atual do case:** o diagrama mostra o case local completo, mas hoje só a infraestrutura está **provada**: PostgreSQL com bancos e roles isolados por `CONNECT`, Kafka com tópico e DLT, verificados por `deploy/verify-local.sh` (T-004). Os serviços ainda têm apenas a classe de inicialização; cada elemento marcado "a provar" entra na tarefa indicada, na ordem do backlog (`docs/specs/06-tasks.md`).
 
 ## 5. Fluxos principais
 
@@ -128,7 +134,7 @@ sequenceDiagram
     Note over C,S: consolidado converge sem perda nem duplicidade
 ```
 
-Com o **Kafka** fora, o comportamento é o mesmo do ponto de vista do cliente: o `POST` segue 201 e quem acumula é a **outbox**, que drena quando o broker volta (`03 §7`).
+Com o **Kafka** fora, o comportamento é o mesmo do ponto de vista do cliente: o `POST` segue 201 e quem acumula é a **outbox**, que drena quando o broker volta (`03 §7`). Os dois cenários são o comportamento **projetado**; a prova é o teste E2E da T-031 e a demo da T-035.
 
 ## 6. Arquitetura-alvo AWS (apenas desenho)
 
@@ -178,7 +184,9 @@ flowchart TB
 
 | Componente | Responsabilidade | RNF atendido | Meta |
 |---|---|---|---|
+| Route 53 + ACM | DNS da API e certificados TLS da borda | RNF-005, RNF-011 | — |
 | WAF + ALB | TLS, filtragem, *rate limit* por cliente, distribuição entre AZs | RNF-005, RNF-010 | — |
+| VPC (sub-redes públicas para o ALB, privadas para ECS/RDS/MSK, *security groups* por serviço) | Isolamento de rede; só o ALB é exposto | RNF-005, RNF-011 | — |
 | ECS Fargate (≥ 2 *tasks* por serviço em 2+ AZs, *auto scaling*) | Executar os serviços *stateless* e escalar horizontalmente | RNF-001, RNF-002, RNF-010, RNF-011 | Lançamentos 99,9 %/mês; Consolidado 99,5 %/mês |
 | RDS PostgreSQL Multi-AZ + PITR | Fonte de verdade e projeção; *failover* automático | RNF-004, RNF-011 | RPO 5 min; RTO 30 min |
 | MSK (3 AZs, RF 3, `min.insync` 2) | Transporte durável de eventos, acúmulo durante falhas | RNF-001, RNF-003, RNF-007, RNF-011 | RPO 5 min |
@@ -188,32 +196,34 @@ flowchart TB
 
 ## 7. Do case local ao alvo
 
-| Peça do case local | Representa no alvo | Provado localmente? |
+Estados conforme §1.2: **provado**, **a provar (T-xxx)** e **só desenho**.
+
+| Peça do case local | Representa no alvo | Estado no case local |
 |---|---|---|
-| Processos/contêineres dos serviços | ECS Fargate com ≥ 2 *tasks* por serviço | Comportamento da aplicação: sim. Multi-AZ e *auto scaling*: **não** |
-| PostgreSQL 17 no compose, 2 bancos e 4 roles | RDS PostgreSQL Multi-AZ com a mesma topologia | Isolamento por roles: **sim** (T-004). *Failover*, PITR, RPO/RTO: **não** |
-| Kafka KRaft com 1 broker | MSK com 3 brokers em 3 AZs | Tópico, DLT, acúmulo e replay: sim (T-016, T-022, T-031). Replicação entre AZs: **não** |
-| Chave de dev + `DevToken.java` | Cognito | Validação de JWT, *scopes* e isolamento: sim (T-013). IdP gerenciado: **não** |
-| Sem borda | ALB + WAF com *rate limit* | **Não** |
-| `.env` local | Secrets Manager + KMS | **Não** |
-| Prometheus + Grafana (T-032) | CloudWatch | Métricas e alertas: sim. CloudWatch: **não** |
-| k6 local (T-033) | Carga contra o ambiente real | Mede o código, não a infraestrutura-alvo |
+| Serviços (`lancamentos-service`, `consolidado-service`) | ECS Fargate com ≥ 2 *tasks* por serviço | Comportamento da aplicação: **a provar** (T-010..T-023, E2E na T-031). Multi-AZ e *auto scaling*: **só desenho** |
+| PostgreSQL 17 no compose, 2 bancos e 4 roles | RDS PostgreSQL Multi-AZ com a mesma topologia | Bancos e isolamento de `CONNECT` entre roles: **provado** (T-004). Imutabilidade por *grants* em `lancamento`: **a provar** (T-011). *Failover*, PITR, RPO/RTO: **só desenho** |
+| Kafka KRaft com 1 broker | MSK com 3 brokers em 3 AZs | Tópico e DLT com 3 partições: **provado** (T-004). Publicação, acúmulo, consumo e reprocessamento: **a provar** (T-016, T-022, T-031). Replicação entre AZs: **só desenho** |
+| Chave de dev + `scripts/DevToken.java` | Cognito | Validação de JWT, *scopes* e isolamento por comerciante: **a provar** (T-013, T-015, T-023). IdP gerenciado: **só desenho** |
+| Sem borda | Route 53 + ALB + WAF com *rate limit* | **Só desenho** |
+| `.env` local (fora do Git) | Secrets Manager + KMS | Senhas fora do repositório: **provado** (T-004, compose falha sem as variáveis). Gestão de segredos e KMS: **só desenho** |
+| Prometheus + Grafana | CloudWatch | Métricas e alertas: **a provar** (T-032). CloudWatch: **só desenho** |
+| k6 local | Carga contra o ambiente real | Carga de 50 req/s: **a provar** (T-033); mede o código, não a infraestrutura-alvo |
 
 ## 8. Requisitos não funcionais: mecanismo e verificação
 
-| RNF | Mecanismo | Como é verificado | Tarefa |
+| RNF | Mecanismo | Como será verificado | Estado hoje |
 |---|---|---|---|
-| RNF-001 Isolamento de falha | Nenhuma chamada síncrona; outbox + Kafka; eventos acumulam no Kafka com o Consolidado parado | Teste E2E com o Consolidado parado; demo | T-031, T-035 |
-| RNF-002 Capacidade do Consolidado (50 req/s, falha < 5 %) | Leitura por chave em projeção pré-agregada; pools dimensionados; serviço *stateless* | k6 `load.js` com *thresholds* | T-033 |
-| RNF-003 Frescor da projeção (meta p95 ≤ 5 s) | Publicador a cada 500 ms; consumidor contínuo | Métrica `consolidado_event_lag_seconds` durante a carga | T-022, T-033 |
-| RNF-004 Integridade e não duplicidade | `Idempotency-Key` + FK diferida; `eventId` + `evento_processado`; índices únicos | Testes de concorrência, idempotência e propriedade | T-011, T-012, T-021 |
-| RNF-005 Segurança | JWT validado, *scopes*, comerciante só do token, gates de segurança | Testes 401/403/404 cruzado; CodeQL, Dependency-Check, Trivy | T-013, T-015, T-023, T-034 |
-| RNF-006 Observabilidade | Métricas de fluxo, logs JSON com `traceId`, alertas (ADR-008) | Testes de actuator; regras carregando | T-032 |
-| RNF-007 Resiliência a falha do broker | Outbox cresce, pool dedicado do publicador, *backoff* | Teste E2E com Kafka fora | T-016, T-031 |
-| RNF-008 Qualidade | Gates G1–G3, ArchUnit, cobertura | `./mvnw verify` e CI | T-002 (**provado**), T-003 |
-| RNF-009 Operabilidade local | Compose + README em ≤ 5 comandos | Seguir o README do zero | T-004 (**infra provada**), T-043 |
-| RNF-010 Escalabilidade | Serviços *stateless*; escala horizontal no alvo | k6 informativo a 100 e 200 req/s | T-033 |
-| RNF-011 Disponibilidade e DR (**metas**) | Multi-AZ, PITR, MSK replicado (§6, ADR-010) | Só desenho; restauração testada quando houver ambiente | T-005 (desenho) |
+| RNF-001 Isolamento de falha | Nenhuma chamada síncrona; outbox + Kafka; eventos acumulam no Kafka com o Consolidado parado | Teste E2E com o Consolidado parado; demo | **A provar** (T-031, T-035) |
+| RNF-002 Capacidade do Consolidado (50 req/s, falha < 5 %) | Leitura por chave em projeção pré-agregada; pools dimensionados; serviço *stateless* | k6 `load.js` com *thresholds* | **A provar** (T-033) |
+| RNF-003 Frescor da projeção (meta p95 ≤ 5 s) | Publicador a cada 500 ms; consumidor contínuo | Métrica `consolidado_event_lag_seconds` durante a carga | **A provar** (T-022, T-033) |
+| RNF-004 Integridade e não duplicidade | `Idempotency-Key` + FK diferida; `eventId` + `evento_processado`; índices únicos | Testes de concorrência, idempotência e propriedade | **A provar** (T-011, T-012, T-021) |
+| RNF-005 Segurança | JWT validado, *scopes*, comerciante só do token, gates de segurança | Testes 401/403/404 cruzado; CodeQL, Dependency-Check, Trivy | **A provar** (T-013, T-015, T-023, T-034) |
+| RNF-006 Observabilidade | Métricas de fluxo, logs JSON com `traceId`, alertas (ADR-008) | Testes de actuator; regras carregando | **A provar** (T-032) |
+| RNF-007 Resiliência a falha do broker | Outbox cresce, pool dedicado do publicador, *backoff* | Teste E2E com Kafka fora | **A provar** (T-016, T-031) |
+| RNF-008 Qualidade | Gates G1–G3, ArchUnit, cobertura | `./mvnw verify` e CI | **Provado** para G1/G2 (T-002); harness da T-003 a provar |
+| RNF-009 Operabilidade local | Compose + README em ≤ 5 comandos | Seguir o README do zero | Infraestrutura **provada** (T-004); fluxo completo **a provar** (T-043) |
+| RNF-010 Escalabilidade | Serviços *stateless*; escala horizontal no alvo | k6 informativo a 100 e 200 req/s | **A provar** (T-033); escala no alvo é **só desenho** |
+| RNF-011 Disponibilidade e DR (**metas**) | Multi-AZ, PITR, MSK replicado (§6, ADR-010) | Restauração testada quando houver ambiente | **Só desenho** (T-005) |
 
 ## 9. Decisões (ADRs)
 
