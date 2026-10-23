@@ -1,0 +1,6 @@
+# Somente testes. Carregado junto com o application.yml principal (classpath:/config/ tem
+# precedência), sem substituí-lo. Testes sem banco (contextLoads) não executam migrações; os ITs de
+# persistência religam o Flyway e apontam para o container (support/PostgresLancamentos).
+spring:
+  flyway:
+    enabled: false
