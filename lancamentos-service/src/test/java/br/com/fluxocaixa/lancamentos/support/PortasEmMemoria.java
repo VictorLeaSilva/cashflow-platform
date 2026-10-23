@@ -7,10 +7,13 @@ import br.com.fluxocaixa.lancamentos.application.port.out.FiltroDeHistorico;
 import br.com.fluxocaixa.lancamentos.application.port.out.IdGenerator;
 import br.com.fluxocaixa.lancamentos.application.port.out.IdempotencyKeyRepository;
 import br.com.fluxocaixa.lancamentos.application.port.out.LancamentoRepository;
+import br.com.fluxocaixa.lancamentos.application.port.out.OutboxPendente;
 import br.com.fluxocaixa.lancamentos.application.port.out.OutboxRepository;
 import br.com.fluxocaixa.lancamentos.domain.Lancamento;
 import br.com.fluxocaixa.lancamentos.domain.TipoLancamento;
+import java.time.Instant;
 import java.util.ArrayList;
+import java.util.Collection;
 import java.util.Comparator;
 import java.util.LinkedHashMap;
 import java.util.List;
@@ -256,6 +259,37 @@ public class PortasEmMemoria {
     @Override
     public synchronized void inserir(EventoOutbox evento) {
       eventos.add(Objects.requireNonNull(evento));
+    }
+
+    /** O publicador (T-016) fica desligado na fatia web: só leitura, para as métricas. */
+    @Override
+    public synchronized long contarPendentes() {
+      return eventos.size();
+    }
+
+    @Override
+    public Optional<Instant> maisAntigoPendente() {
+      return Optional.empty();
+    }
+
+    @Override
+    public List<OutboxPendente> travarPendentes(int limite) {
+      throw new UnsupportedOperationException("publicador desligado na fatia web");
+    }
+
+    @Override
+    public void marcarPublicados(Collection<UUID> eventIds, Instant publicadoEm) {
+      throw new UnsupportedOperationException("publicador desligado na fatia web");
+    }
+
+    @Override
+    public void registrarFalhas(Map<UUID, String> falhasPorEvento) {
+      throw new UnsupportedOperationException("publicador desligado na fatia web");
+    }
+
+    @Override
+    public int excluirPublicadosAntesDe(Instant instante, int limite) {
+      throw new UnsupportedOperationException("publicador desligado na fatia web");
     }
   }
 

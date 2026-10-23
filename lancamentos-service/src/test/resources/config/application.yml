@@ -13,3 +13,9 @@ spring:
           public-key-location: classpath:jwt/chave-publica-de-teste.pem
           issuer-uri: https://teste.fluxocaixa.local
           audiences: lancamentos-api
+# Publicador da outbox (T-016) desligado: testes sem Kafka não iniciam o laço; os ITs do
+# publicador chamam o caso de uso diretamente ou ligam o laço explicitamente.
+lancamentos:
+  outbox:
+    publisher:
+      enabled: false

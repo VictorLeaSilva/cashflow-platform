@@ -14,6 +14,23 @@ spring:
     url: jdbc:postgresql://localhost:${POSTGRES_PORT:5432}/lancamentos
     username: lancamentos_app
     password: ${LANCAMENTOS_APP_PASSWORD:}
+    # Pool da API (03 §7.1); o publicador da outbox tem pool próprio (PublicadorConfig, T-016).
+    hikari:
+      pool-name: api
+      maximum-pool-size: 10
+  kafka:
+    # Broker local do compose (T-004); outro ambiente informa KAFKA_BOOTSTRAP_SERVERS.
+    bootstrap-servers: ${KAFKA_BOOTSTRAP_SERVERS:localhost:${KAFKA_PORT:9092}}
+    producer:
+      # 03 §7.1: idempotente, acks=all e timeouts curtos para o publicador falhar rápido.
+      acks: all
+      key-serializer: org.apache.kafka.common.serialization.StringSerializer
+      value-serializer: org.apache.kafka.common.serialization.StringSerializer
+      properties:
+        "[enable.idempotence]": true
+        "[max.block.ms]": 3000
+        "[request.timeout.ms]": 5000
+        "[delivery.timeout.ms]": 10000
   flyway:
     # O Flyway migra como lancamentos_owner, dono do banco e das tabelas.
     user: lancamentos_owner
@@ -38,3 +55,14 @@ lancamentos:
   max-valor: 10000000.00
   max-backdate-days: 30
   max-future-skew: 60s
+  # Publicador e limpeza da outbox (03 §7.1, Q-028, Q-029): valores iniciais, revistos na T-033.
+  outbox:
+    retention-days: 7
+    cleanup-interval: 1h
+    publisher:
+      enabled: true
+      interval: 500ms
+      max-backoff: 30s
+      batch-size: 100
+      transaction-timeout: 15s
+      pool-size: 2
