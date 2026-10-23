@@ -70,11 +70,11 @@ No case local os dois tipos são simulados pelo `DevToken.java`; o case não tem
 - Exigência de autorização mais fina (ex.: por loja ou por operador dentro do comerciante).
 - Integradores exigirem mTLS obrigatório.
 
-## Decidido depois da redação inicial (Q-008, 2026-10-23)
+## Decidido depois da redação inicial (Q-008, Q-012, Q-014; 2026-10-23)
 - **Token válido sem `merchant_id` (ou com valor que não é UUID):** rejeitado com **401** (`problem+json`, `WWW-Authenticate: Bearer error="invalid_token"`): sem comerciante não há identidade utilizável nesta API. Aplicado na T-013.
 - **Tolerância de relógio para `exp`/`nbf`:** padrão do Spring Security (60 s), sem nova chave de configuração.
-- **`X-Request-Id` fora do formato (Q-014, proposta na spec da T-013):** substituído por um gerado, não rejeitado; só a `Idempotency-Key` inválida dá 400.
-- **Chave de desenvolvimento (Q-012, proposta na spec da T-013):** gerada pelo `DevToken.java` em `deploy/dev-keys/` (fora do Git); nenhuma chave no repositório.
+- **`X-Request-Id` fora do formato (Q-014, aprovado em 2026-10-23):** substituído por um gerado, não rejeitado; só a `Idempotency-Key` inválida dá 400.
+- **Chave de desenvolvimento (Q-012, aprovado em 2026-10-23):** gerada pelo `DevToken.java` em `deploy/dev-keys/` (fora do Git); nenhuma chave no repositório.
 
 ## Referências
 RF-010, RNF-005; `03 §1` (D-11), `03 §5`, `03 §6`; `04 §2.6`; `01 §4`; T-013, T-015, T-023, T-034.
