@@ -12,6 +12,7 @@ import static br.com.fluxocaixa.lancamentos.adapter.in.web.Chamadas.obterComo;
 import static br.com.fluxocaixa.lancamentos.adapter.in.web.Chamadas.postar;
 import static br.com.fluxocaixa.lancamentos.adapter.in.web.Chamadas.problema;
 import static org.assertj.core.api.Assertions.assertThat;
+import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.head;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.header;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.jsonPath;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.status;
@@ -214,6 +215,7 @@ class GetLancamentosWebTest extends IntegracaoWeb {
         "page=abc|page|formato-invalido",
         "page=99999999999|page|formato-invalido",
         "size=0|size|formato-invalido",
+        "size=99999999999|size|tamanho-maximo",
         "size=abc|size|formato-invalido",
         "tipos=CREDITO|tipos|parametro-desconhecido",
         "tipo=CREDITO&tipo=DEBITO|tipo|parametro-repetido"
@@ -267,6 +269,25 @@ class GetLancamentosWebTest extends IntegracaoWeb {
     mvc.perform(obterComo(escrita, id)).andExpect(problema(403, "acesso-negado", URL + "/" + id));
     mvc.perform(listar("")).andExpect(status().isOk());
     mvc.perform(obter(id)).andExpect(status().isOk());
+  }
+
+  /**
+   * O Spring MVC atende HEAD com os handlers de GET: a regra de scope precisa valer também para
+   * HEAD, senão um token só de escrita sonda a existência dos próprios lançamentos (ADR-007).
+   */
+  @Test
+  void headExigeOMesmoScopeDeLeituraQueGet() throws Exception {
+    String id = registrar("{\"tipo\":\"CREDITO\",\"valor\":\"1.00\"}", "seg-head");
+    String escrita = TokensDeTeste.valido(COMERCIANTE, TokensDeTeste.ESCRITA);
+    String leitura = TokensDeTeste.valido(COMERCIANTE, TokensDeTeste.LEITURA);
+
+    mvc.perform(head(URL + "/" + id).header("Authorization", "Bearer " + escrita))
+        .andExpect(status().isForbidden());
+    mvc.perform(head(URL).header("Authorization", "Bearer " + escrita))
+        .andExpect(status().isForbidden());
+    mvc.perform(head(URL + "/" + id)).andExpect(status().isUnauthorized());
+    mvc.perform(head(URL + "/" + id).header("Authorization", "Bearer " + leitura))
+        .andExpect(status().isOk());
   }
 
   @Test

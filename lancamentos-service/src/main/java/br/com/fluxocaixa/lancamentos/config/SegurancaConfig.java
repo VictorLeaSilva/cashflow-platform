@@ -81,10 +81,13 @@ public class SegurancaConfig {
               rotas
                   .requestMatchers(HttpMethod.POST, "/api/v1/lancamentos/*/estornos")
                   .hasAuthority(ESCRITA);
-              // Escrita não inclui leitura (ADR-007, T-015).
-              rotas
-                  .requestMatchers(HttpMethod.GET, "/api/v1/lancamentos", "/api/v1/lancamentos/*")
-                  .hasAuthority(LEITURA);
+              // Escrita não inclui leitura (ADR-007, T-015). O Spring MVC atende HEAD com os
+              // handlers de GET, então a regra vale para os dois métodos.
+              for (HttpMethod leitura : List.of(HttpMethod.GET, HttpMethod.HEAD)) {
+                rotas
+                    .requestMatchers(leitura, "/api/v1/lancamentos", "/api/v1/lancamentos/*")
+                    .hasAuthority(LEITURA);
+              }
               rotas.anyRequest().authenticated();
             })
         .oauth2ResourceServer(

@@ -143,7 +143,7 @@ paths:
         '403':
           $ref: '#/components/responses/AcessoNegado'
         '404':
-          $ref: '#/components/responses/LancamentoNaoEncontrado'
+          $ref: '#/components/responses/LancamentoNaoEncontradoNoDetalhe'
         '406':
           $ref: '#/components/responses/NaoAceitavel'
         '500':
@@ -253,10 +253,11 @@ components:
       name: page
       in: query
       required: false
-      description: Página, a partir de 0.
+      description: Página, a partir de 0; acima de 2147483647 responde 400.
       schema:
         type: integer
         minimum: 0
+        maximum: 2147483647
         default: 0
     Size:
       name: size
@@ -1093,6 +1094,28 @@ components:
                 page: 5
                 size: 20
                 total: 2
+
+    LancamentoNaoEncontradoNoDetalhe:
+      description: |
+        Inexistente ou de outro comerciante; as duas situações respondem igual, sem revelar
+        existência.
+      headers:
+        X-Request-Id:
+          $ref: '#/components/headers/XRequestId'
+      content:
+        application/problem+json:
+          schema:
+            $ref: '#/components/schemas/Problema'
+          examples:
+            nao-encontrado:
+              value:
+                type: /erros/lancamento-nao-encontrado
+                title: Not Found
+                status: 404
+                detail: lançamento não encontrado para este comerciante
+                instance: /api/v1/lancamentos/7d2f6c1a-3b4e-4f5a-9c8d-1e2f3a4b5c6d
+                requestId: cliente-req-8f2c1
+                timestamp: '2026-10-23T15:00:00Z'
 
     RequisicaoInvalidaDoDetalhe:
       description: Id fora da forma canônica ou parâmetro de query (o detalhe não aceita nenhum).

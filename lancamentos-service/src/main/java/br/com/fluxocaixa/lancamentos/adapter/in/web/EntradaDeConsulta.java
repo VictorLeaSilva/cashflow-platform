@@ -5,6 +5,7 @@ import static br.com.fluxocaixa.lancamentos.adapter.in.web.EntradaDeLancamento.e
 import br.com.fluxocaixa.lancamentos.application.port.out.FiltroDeHistorico;
 import br.com.fluxocaixa.lancamentos.domain.LancamentoInvalidoException.ErroCampo;
 import br.com.fluxocaixa.lancamentos.domain.TipoLancamento;
+import java.math.BigInteger;
 import java.time.LocalDate;
 import java.time.format.DateTimeFormatter;
 import java.time.format.DateTimeParseException;
@@ -114,43 +115,43 @@ final class EntradaDeConsulta {
     }
   }
 
+  /** Até {@link Integer#MAX_VALUE} (declarado no OpenAPI); acima disso, formato inválido. */
   private static int page(String valor, List<ErroCampo> erros) {
     if (valor == null) {
       return PAGE_PADRAO;
     }
-    Integer page = inteiro(valor);
-    if (page == null) {
-      erros.add(erro(PAGE, FORMATO_INVALIDO, "page deve ser um inteiro maior ou igual a 0"));
+    if (!soDigitos(valor) || acimaDe(valor, Integer.MAX_VALUE)) {
+      erros.add(
+          erro(PAGE, FORMATO_INVALIDO, "page deve ser um inteiro de 0 a " + Integer.MAX_VALUE));
       return PAGE_PADRAO;
     }
-    return page;
+    return Integer.parseInt(valor);
   }
 
+  /** Qualquer número acima de 100, por maior que seja, é {@code tamanho-maximo}. */
   private static int size(String valor, List<ErroCampo> erros) {
     if (valor == null) {
       return SIZE_PADRAO;
     }
-    Integer size = inteiro(valor);
-    if (size != null && size > SIZE_MAXIMO) {
-      erros.add(erro(SIZE, "tamanho-maximo", "size deve ser no máximo " + SIZE_MAXIMO));
-    } else if (size == null || size == 0) {
+    if (!soDigitos(valor) || new BigInteger(valor).signum() == 0) {
       erros.add(erro(SIZE, FORMATO_INVALIDO, "size deve ser um inteiro de 1 a " + SIZE_MAXIMO));
-    } else {
-      return size;
+      return SIZE_PADRAO;
     }
-    return SIZE_PADRAO;
+    if (acimaDe(valor, SIZE_MAXIMO)) {
+      erros.add(erro(SIZE, "tamanho-maximo", "size deve ser no máximo " + SIZE_MAXIMO));
+      return SIZE_PADRAO;
+    }
+    return Integer.parseInt(valor);
   }
 
-  /** Só dígitos (sem sinal nem espaço); {@code null} se não for um {@code int} não negativo. */
-  private static Integer inteiro(String valor) {
-    if (valor.isEmpty() || !valor.chars().allMatch(c -> c >= '0' && c <= '9')) {
-      return null;
-    }
-    try {
-      return Integer.valueOf(valor);
-    } catch (NumberFormatException e) {
-      return null;
-    }
+  /** Só dígitos: sem sinal, espaço nem separador. */
+  private static boolean soDigitos(String valor) {
+    return !valor.isEmpty() && valor.chars().allMatch(c -> c >= '0' && c <= '9');
+  }
+
+  /** Comparação exata, sem transbordo, de um texto só de dígitos. */
+  private static boolean acimaDe(String digitos, long limite) {
+    return new BigInteger(digitos).compareTo(BigInteger.valueOf(limite)) > 0;
   }
 
   private static void exigirSemErros(List<ErroCampo> erros) {
