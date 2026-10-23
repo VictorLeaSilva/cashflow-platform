@@ -1,5 +1,6 @@
 package br.com.fluxocaixa.lancamentos.adapter.in.web;
 
+import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.get;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.post;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.content;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.header;
@@ -55,6 +56,25 @@ final class Chamadas {
 
   static MockHttpServletRequestBuilder estornarComo(String token, Object id, String chave) {
     return autenticar(post(urlDoEstorno(id)).accept(MediaType.APPLICATION_JSON), token, chave);
+  }
+
+  /** GET de detalhe (texto livre, para os testes de formato), como {@link #COMERCIANTE}. */
+  static MockHttpServletRequestBuilder obter(Object id) {
+    return obterComo(TokensDeTeste.valido(COMERCIANTE, TokensDeTeste.LEITURA), id);
+  }
+
+  static MockHttpServletRequestBuilder obterComo(String token, Object id) {
+    return autenticar(get(URL + "/" + id).accept(MediaType.APPLICATION_JSON), token, null);
+  }
+
+  /** GET do histórico com a query informada (sem o {@code ?}), como {@link #COMERCIANTE}. */
+  static MockHttpServletRequestBuilder listar(String query) {
+    return listarComo(TokensDeTeste.valido(COMERCIANTE, TokensDeTeste.LEITURA), query);
+  }
+
+  static MockHttpServletRequestBuilder listarComo(String token, String query) {
+    String url = query == null || query.isEmpty() ? URL : URL + "?" + query;
+    return autenticar(get(url).accept(MediaType.APPLICATION_JSON), token, null);
   }
 
   private static MockHttpServletRequestBuilder autenticar(

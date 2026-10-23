@@ -7,7 +7,7 @@ import static br.com.fluxocaixa.lancamentos.adapter.in.web.Chamadas.erroDeCampo;
 import static br.com.fluxocaixa.lancamentos.adapter.in.web.Chamadas.postar;
 import static br.com.fluxocaixa.lancamentos.adapter.in.web.Chamadas.problema;
 import static org.assertj.core.api.Assertions.assertThat;
-import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.get;
+import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.delete;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.header;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.jsonPath;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.status;
@@ -318,7 +318,7 @@ class PostLancamentoWebTest extends IntegracaoWeb {
   @Test
   void metodoNaoSuportadoRespondeProblemJsonPadrao() throws Exception {
     mvc.perform(
-            get(URL)
+            delete(URL)
                 .header(
                     "Authorization",
                     "Bearer " + TokensDeTeste.valido(COMERCIANTE, TokensDeTeste.ESCRITA)))

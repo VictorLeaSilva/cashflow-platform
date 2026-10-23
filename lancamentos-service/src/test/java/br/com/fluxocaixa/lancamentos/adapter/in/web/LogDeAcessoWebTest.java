@@ -3,6 +3,7 @@ package br.com.fluxocaixa.lancamentos.adapter.in.web;
 import static br.com.fluxocaixa.lancamentos.adapter.in.web.Chamadas.COMERCIANTE;
 import static br.com.fluxocaixa.lancamentos.adapter.in.web.Chamadas.postarComo;
 import static org.assertj.core.api.Assertions.assertThat;
+import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.delete;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.get;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.status;
 
@@ -22,6 +23,7 @@ import tools.jackson.databind.json.JsonMapper;
 /** AC-T013.5: uma linha JSON de acesso por requisição, sem dados sensíveis. */
 @Tag("RNF-012")
 @Tag("RNF-005")
+@Tag("RF-004")
 @ExtendWith(OutputCaptureExtension.class)
 class LogDeAcessoWebTest extends IntegracaoWeb {
 
@@ -81,7 +83,7 @@ class LogDeAcessoWebTest extends IntegracaoWeb {
                 .header("X-Request-Id", "rid-log-415"))
         .andExpect(status().isUnsupportedMediaType());
     mvc.perform(
-            get("/api/v1/lancamentos")
+            delete("/api/v1/lancamentos")
                 .header("Authorization", "Bearer " + token)
                 .header("X-Request-Id", "rid-log-405"))
         .andExpect(status().isMethodNotAllowed());
@@ -107,6 +109,28 @@ class LogDeAcessoWebTest extends IntegracaoWeb {
         .containsEntry("metodo", "POST")
         .containsEntry("rota", "/api/v1/lancamentos/{id}/estornos");
     assertThat(saida.getAll()).doesNotContain(original.toString());
+  }
+
+  /** AC-T015.3: as consultas registram a rota padrão, sem o UUID nem a query. */
+  @Test
+  void consultasRegistramARotaPadraoSemIdNemQuery(CapturedOutput saida) throws Exception {
+    UUID id = UUID.randomUUID();
+    mvc.perform(Chamadas.obter(id).header("X-Request-Id", "rid-log-get-id"))
+        .andExpect(status().isNotFound());
+    mvc.perform(
+            Chamadas.listar("tipo=CREDITO&dataInicio=2026-10-01")
+                .header("X-Request-Id", "rid-log-get"))
+        .andExpect(status().isOk());
+
+    assertThat(linhasDeAcesso(saida, "rid-log-get-id").getFirst())
+        .containsEntry("metodo", "GET")
+        .containsEntry("status", 404)
+        .containsEntry("rota", "/api/v1/lancamentos/{id}");
+    assertThat(linhasDeAcesso(saida, "rid-log-get").getFirst())
+        .containsEntry("metodo", "GET")
+        .containsEntry("status", 200)
+        .containsEntry("rota", "/api/v1/lancamentos");
+    assertThat(saida.getAll()).doesNotContain(id.toString(), "dataInicio=2026-10-01");
   }
 
   @Test

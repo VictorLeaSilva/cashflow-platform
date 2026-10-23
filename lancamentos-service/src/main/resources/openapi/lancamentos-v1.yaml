@@ -88,6 +88,67 @@ paths:
         '500':
           $ref: '#/components/responses/Interno'
 
+    get:
+      operationId: listarLancamentos
+      summary: Histórico paginado dos lançamentos do comerciante
+      description: |
+        Lançamentos do comerciante do token, por `dataReferencia` decrescente e, no mesmo dia, por
+        `id` crescente (ordem estável, mas não cronológica dentro do dia). Todos os filtros são
+        opcionais e se combinam. Parâmetros fora desta lista, inclusive `comercianteId`, e
+        parâmetros repetidos respondem 400. Uma página além do fim devolve `itens` vazio com o
+        `total` real. Exige o scope `lancamentos:read`.
+      security:
+        - bearerAuth: [lancamentos:read]
+      parameters:
+        - $ref: '#/components/parameters/DataInicio'
+        - $ref: '#/components/parameters/DataFim'
+        - $ref: '#/components/parameters/TipoFiltro'
+        - $ref: '#/components/parameters/Page'
+        - $ref: '#/components/parameters/Size'
+        - $ref: '#/components/parameters/XRequestId'
+      responses:
+        '200':
+          $ref: '#/components/responses/Historico'
+        '400':
+          $ref: '#/components/responses/RequisicaoInvalidaDoHistorico'
+        '401':
+          $ref: '#/components/responses/NaoAutenticado'
+        '403':
+          $ref: '#/components/responses/AcessoNegado'
+        '406':
+          $ref: '#/components/responses/NaoAceitavel'
+        '500':
+          $ref: '#/components/responses/Interno'
+
+  /lancamentos/{id}:
+    get:
+      operationId: consultarLancamento
+      summary: Detalhe de um lançamento do comerciante
+      description: |
+        Mesma representação do 201 que criou o lançamento. Inexistente ou de outro comerciante
+        respondem 404 igual, sem revelar existência. Não aceita parâmetros de query. Exige o
+        scope `lancamentos:read`.
+      security:
+        - bearerAuth: [lancamentos:read]
+      parameters:
+        - $ref: '#/components/parameters/LancamentoIdConsulta'
+        - $ref: '#/components/parameters/XRequestId'
+      responses:
+        '200':
+          $ref: '#/components/responses/Consultado'
+        '400':
+          $ref: '#/components/responses/RequisicaoInvalidaDoDetalhe'
+        '401':
+          $ref: '#/components/responses/NaoAutenticado'
+        '403':
+          $ref: '#/components/responses/AcessoNegado'
+        '404':
+          $ref: '#/components/responses/LancamentoNaoEncontrado'
+        '406':
+          $ref: '#/components/responses/NaoAceitavel'
+        '500':
+          $ref: '#/components/responses/Interno'
+
   /lancamentos/{id}/estornos:
     post:
       operationId: estornarLancamento
@@ -150,6 +211,63 @@ components:
         `java scripts/DevToken.java --merchant <uuid> --scopes lancamentos:write --ttl 3600`.
 
   parameters:
+    LancamentoIdConsulta:
+      name: id
+      in: path
+      required: true
+      description: Id do lançamento, na forma canônica 8-4-4-4-12; outras formas respondem 400.
+      schema:
+        type: string
+        format: uuid
+        pattern: '^[0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{12}$'
+      example: 7d2f6c1a-3b4e-4f5a-9c8d-1e2f3a4b5c6d
+    DataInicio:
+      name: dataInicio
+      in: query
+      required: false
+      description: Data de referência mínima, inclusiva (AAAA-MM-DD). Ausente, sem limite inferior.
+      schema:
+        type: string
+        format: date
+      example: '2026-10-01'
+    DataFim:
+      name: dataFim
+      in: query
+      required: false
+      description: |
+        Data de referência máxima, inclusiva (AAAA-MM-DD). Ausente, sem limite superior. Anterior a
+        `dataInicio` responde 400 `intervalo-invalido`.
+      schema:
+        type: string
+        format: date
+      example: '2026-10-23'
+    TipoFiltro:
+      name: tipo
+      in: query
+      required: false
+      description: Um único tipo. Ausente, todos.
+      schema:
+        type: string
+        enum: [CREDITO, DEBITO, ESTORNO]
+    Page:
+      name: page
+      in: query
+      required: false
+      description: Página, a partir de 0.
+      schema:
+        type: integer
+        minimum: 0
+        default: 0
+    Size:
+      name: size
+      in: query
+      required: false
+      description: Itens por página, de 1 a 100; acima de 100 responde 400 `tamanho-maximo`.
+      schema:
+        type: integer
+        minimum: 1
+        maximum: 100
+        default: 20
     LancamentoId:
       name: id
       in: path
@@ -291,6 +409,28 @@ components:
           type: string
           format: date-time
 
+    PaginaDeLancamentos:
+      type: object
+      additionalProperties: false
+      required: [itens, page, size, total]
+      properties:
+        itens:
+          type: array
+          maxItems: 100
+          items:
+            $ref: '#/components/schemas/Lancamento'
+        page:
+          type: integer
+          minimum: 0
+        size:
+          type: integer
+          minimum: 1
+          maximum: 100
+        total:
+          type: integer
+          minimum: 0
+          description: Quantidade de lançamentos que atendem aos filtros.
+
     ErroDeCampo:
       type: object
       additionalProperties: false
@@ -298,10 +438,13 @@ components:
       properties:
         campo:
           type: string
-          description: Nome do campo ou do cabeçalho.
+          description: Nome do campo, do cabeçalho ou do parâmetro de query.
         codigo:
           type: string
-          description: Código estável do erro (ex. `obrigatorio`, `formato-invalido`).
+          description: |
+            Código estável do erro (ex. `obrigatorio`, `formato-invalido`, `tamanho-maximo`;
+            nas consultas, também `intervalo-invalido`, `parametro-desconhecido` e
+            `parametro-repetido`).
         mensagem:
           type: string
 
@@ -844,5 +987,184 @@ components:
                 status: 422
                 detail: a Idempotency-Key já foi usada em uma requisição diferente
                 instance: /api/v1/lancamentos/7d2f6c1a-3b4e-4f5a-9c8d-1e2f3a4b5c6d/estornos
+                requestId: cliente-req-8f2c1
+                timestamp: '2026-10-23T15:00:00Z'
+
+    Consultado:
+      description: O lançamento, na mesma representação do 201 que o criou.
+      headers:
+        X-Request-Id:
+          $ref: '#/components/headers/XRequestId'
+      content:
+        application/json:
+          schema:
+            $ref: '#/components/schemas/Lancamento'
+          examples:
+            credito:
+              summary: Crédito com descrição e identificador externo
+              value:
+                id: 3c9e1b2a-6d4f-4e8a-b1c2-d3e4f5a6b7c8
+                comercianteId: 0f8fad5b-d9cb-469f-a165-70867728950e
+                tipo: CREDITO
+                valor: '1250.00'
+                descricao: Venda à vista
+                dataOcorrencia: '2026-10-22T13:00:00Z'
+                dataReferencia: '2026-10-22'
+                referenciaLancamentoId: null
+                tipoOriginal: null
+                identificadorExterno: nf-2026-000123
+                criadoEm: '2026-10-22T13:00:01Z'
+            estorno:
+              summary: Estorno, com o tipo e a referência do original
+              value:
+                id: 9a8b7c6d-5e4f-4a3b-8c2d-1e0f9a8b7c6d
+                comercianteId: 0f8fad5b-d9cb-469f-a165-70867728950e
+                tipo: ESTORNO
+                valor: '100.00'
+                descricao: null
+                dataOcorrencia: '2026-10-23T15:00:00Z'
+                dataReferencia: '2026-10-23'
+                referenciaLancamentoId: 7d2f6c1a-3b4e-4f5a-9c8d-1e2f3a4b5c6d
+                tipoOriginal: CREDITO
+                identificadorExterno: null
+                criadoEm: '2026-10-23T15:00:00Z'
+
+    Historico:
+      description: Uma página do histórico do comerciante.
+      headers:
+        X-Request-Id:
+          $ref: '#/components/headers/XRequestId'
+      content:
+        application/json:
+          schema:
+            $ref: '#/components/schemas/PaginaDeLancamentos'
+          examples:
+            primeira-pagina:
+              summary: Primeira página com os padrões (page 0, size 20)
+              value:
+                itens:
+                  - id: 9a8b7c6d-5e4f-4a3b-8c2d-1e0f9a8b7c6d
+                    comercianteId: 0f8fad5b-d9cb-469f-a165-70867728950e
+                    tipo: ESTORNO
+                    valor: '100.00'
+                    descricao: null
+                    dataOcorrencia: '2026-10-23T15:00:00Z'
+                    dataReferencia: '2026-10-23'
+                    referenciaLancamentoId: 7d2f6c1a-3b4e-4f5a-9c8d-1e2f3a4b5c6d
+                    tipoOriginal: CREDITO
+                    identificadorExterno: null
+                    criadoEm: '2026-10-23T15:00:00Z'
+                  - id: 7d2f6c1a-3b4e-4f5a-9c8d-1e2f3a4b5c6d
+                    comercianteId: 0f8fad5b-d9cb-469f-a165-70867728950e
+                    tipo: CREDITO
+                    valor: '100.00'
+                    descricao: null
+                    dataOcorrencia: '2026-10-22T18:00:00Z'
+                    dataReferencia: '2026-10-22'
+                    referenciaLancamentoId: null
+                    tipoOriginal: null
+                    identificadorExterno: null
+                    criadoEm: '2026-10-22T18:00:00Z'
+                page: 0
+                size: 20
+                total: 2
+            filtrado-por-tipo:
+              summary: tipo=DEBITO&size=1, com mais itens nas próximas páginas
+              value:
+                itens:
+                  - id: 3c9e1b2a-6d4f-4e8a-b1c2-d3e4f5a6b7c8
+                    comercianteId: 0f8fad5b-d9cb-469f-a165-70867728950e
+                    tipo: DEBITO
+                    valor: '1250.00'
+                    descricao: Pagamento de fornecedor
+                    dataOcorrencia: '2026-10-23T12:15:00Z'
+                    dataReferencia: '2026-10-23'
+                    referenciaLancamentoId: null
+                    tipoOriginal: null
+                    identificadorExterno: nf-2026-000123
+                    criadoEm: '2026-10-23T15:00:01Z'
+                page: 0
+                size: 1
+                total: 3
+            pagina-vazia:
+              summary: Página além do fim (page=5), com o total real
+              value:
+                itens: []
+                page: 5
+                size: 20
+                total: 2
+
+    RequisicaoInvalidaDoDetalhe:
+      description: Id fora da forma canônica ou parâmetro de query (o detalhe não aceita nenhum).
+      headers:
+        X-Request-Id:
+          $ref: '#/components/headers/XRequestId'
+      content:
+        application/problem+json:
+          schema:
+            $ref: '#/components/schemas/Problema'
+          examples:
+            id-invalido:
+              value:
+                type: /erros/requisicao-invalida
+                title: Bad Request
+                status: 400
+                detail: a requisição tem erros; veja errors[]
+                instance: /api/v1/lancamentos/1-1-1-1-1
+                errors:
+                  - campo: id
+                    codigo: formato-invalido
+                    mensagem: id deve ser um UUID na forma 8-4-4-4-12, como 7d2f6c1a-3b4e-4f5a-9c8d-1e2f3a4b5c6d
+                requestId: cliente-req-8f2c1
+                timestamp: '2026-10-23T15:00:00Z'
+
+    RequisicaoInvalidaDoHistorico:
+      description: Parâmetros inválidos, desconhecidos ou repetidos; todos os erros em `errors[]`.
+      headers:
+        X-Request-Id:
+          $ref: '#/components/headers/XRequestId'
+      content:
+        application/problem+json:
+          schema:
+            $ref: '#/components/schemas/Problema'
+          examples:
+            size-acima-do-maximo:
+              value:
+                type: /erros/requisicao-invalida
+                title: Bad Request
+                status: 400
+                detail: a requisição tem erros; veja errors[]
+                instance: /api/v1/lancamentos
+                errors:
+                  - campo: size
+                    codigo: tamanho-maximo
+                    mensagem: size deve ser no máximo 100
+                requestId: cliente-req-8f2c1
+                timestamp: '2026-10-23T15:00:00Z'
+            parametro-desconhecido:
+              summary: comercianteId na query (vem só do token)
+              value:
+                type: /erros/requisicao-invalida
+                title: Bad Request
+                status: 400
+                detail: a requisição tem erros; veja errors[]
+                instance: /api/v1/lancamentos
+                errors:
+                  - campo: comercianteId
+                    codigo: parametro-desconhecido
+                    mensagem: parâmetro não previsto no contrato
+                requestId: cliente-req-8f2c1
+                timestamp: '2026-10-23T15:00:00Z'
+            intervalo-invalido:
+              value:
+                type: /erros/requisicao-invalida
+                title: Bad Request
+                status: 400
+                detail: a requisição tem erros; veja errors[]
+                instance: /api/v1/lancamentos
+                errors:
+                  - campo: dataInicio
+                    codigo: intervalo-invalido
+                    mensagem: dataInicio não pode ser posterior a dataFim
                 requestId: cliente-req-8f2c1
                 timestamp: '2026-10-23T15:00:00Z'

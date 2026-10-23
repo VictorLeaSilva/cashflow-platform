@@ -68,7 +68,8 @@ final class EntradaDeEstorno {
     return new EstornarLancamentoCommand(comercianteId, chave, original, requestId);
   }
 
-  private static UUID id(String id, List<ErroCampo> erros) {
+  /** Id canônico de caminho (Q-018), compartilhado com o detalhe da T-015. */
+  static UUID id(String id, List<ErroCampo> erros) {
     if (!uuidCanonico(id)) {
       erros.add(
           EntradaDeLancamento.erro(

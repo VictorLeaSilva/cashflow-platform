@@ -1,6 +1,7 @@
 package br.com.fluxocaixa.lancamentos.application.port.out;
 
 import br.com.fluxocaixa.lancamentos.domain.Lancamento;
+import java.util.List;
 import java.util.Optional;
 import java.util.UUID;
 
@@ -12,4 +13,13 @@ public interface LancamentoRepository {
 
   /** Busca pelo id, sempre restrito ao comerciante dono (RF-010): de outro comerciante, vazio. */
   Optional<Lancamento> buscarPorId(UUID comercianteId, UUID id);
+
+  /**
+   * Página do histórico do comerciante do filtro, por {@code dataReferencia} decrescente e {@code
+   * id} crescente (Q-024).
+   */
+  List<Lancamento> listar(FiltroDeHistorico filtro);
+
+  /** Quantidade de lançamentos que atendem ao filtro (sem paginação). */
+  long contar(FiltroDeHistorico filtro);
 }
