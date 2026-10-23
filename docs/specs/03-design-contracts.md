@@ -23,7 +23,7 @@ Cada linha vira (ou alimenta) um ADR em `docs/architecture/decisions/`.
 | D-12 | Cache | Nenhum | Redis/Caffeine | 50 req/s em leitura por PK é trivial; decidir com dado do k6 | k6 mostrar saturação |
 | D-13 | Contrato de evento | JSON + JSON Schema versionado | Avro + Schema Registry | Menos infraestrutura; validado nos dois lados. Custo: sem registro central | Muitos produtores/consumidores |
 | D-14 | Rebuild da projeção | Fora do MVP; estratégia em ADR-006 | Endpoints `/admin/rebuilds` | Kafka tem retenção finita; rebuild real depende da fonte de verdade (tabela `lancamento`). Escopo e risco altos para o ganho | Divergência real ou novo consumidor |
-| D-15 | Banco físico | 1 instância, 2 bancos, 2 *roles* (cada serviço só acessa o seu) | Instâncias separadas | Isolamento lógico verificável com custo baixo. Alvo AWS: ver ADR | Requisito de isolamento físico |
+| D-15 | Banco físico | 1 instância, 2 bancos, 2 *roles* (cada serviço só acessa o seu) | Instâncias separadas | Isolamento lógico verificável com custo baixo. Alvo AWS (desenho): mesma topologia em RDS PostgreSQL Multi-AZ, ADR-010 | Requisito de isolamento físico |
 | D-16 | Observabilidade | Micrometer/OTel/Prometheus/Grafana local; CloudWatch no alvo | Só logs | Mostra operação real sem exagero | — |
 
 ## 2. Fluxos
@@ -301,10 +301,10 @@ Alertas (arquivo de regras Prometheus): idade da outbox > 60 s por 5 min; `up{jo
 ├─ .github/workflows/         # ci, security, release, loadtest
 ├─ .githooks/
 └─ docs/
-   ├─ architecture/           # architecture.md, diagrams/, decisions/ (ADR-001..009), transition.md
+   ├─ architecture/           # architecture.md, diagrams/, decisions/ (ADR-001..010), transition.md
    ├─ specs/                  # 00..06, tasks/, reviews/, open-questions.md
    ├─ security/  cost/  performance/
 ```
 
 ## 10. ADRs previstos
-001 Monorepo e executáveis independentes · 002 PostgreSQL + JDBC · 003 Outbox transacional · 004 Kafka vs alternativas · 005 Consistência eventual e projeção comutativa · 006 Estratégia de rebuild (fora do MVP) · 007 Modelo de segurança · 008 Observabilidade · 009 Hexagonal enxuta + ArchUnit.
+001 Monorepo e dois executáveis independentes · 002 PostgreSQL + `JdbcClient` + Flyway; sem cache · 003 Outbox transacional, publicador por *polling* e idempotência HTTP · 004 Kafka vs alternativas; contrato JSON + JSON Schema · 005 Consistência eventual e projeção comutativa; estorno compensatório · 006 Estratégia de rebuild da projeção (fora do MVP) · 007 Modelo de segurança e critérios de integração · 008 Observabilidade · 009 Hexagonal enxuta + ArchUnit · 010 Plataforma-alvo AWS (desenho, não implementado).

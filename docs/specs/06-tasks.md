@@ -15,7 +15,7 @@ Ordem: *walking skeleton* (fundação e harness) → fatias verticais por servi�
 | T-002 | Gates de qualidade (Spotless, Checkstyle, SpotBugs+FindSecBugs, JaCoCo, esqueleto ArchUnit) + hooks + `ci.yml` | T-001 | RNF-008 | CI verde; violação proposital falha o build |
 | T-003 | Harness (verify-task.sh, check-traceability.sh, modelo de revisão, subagente revisor, allowlist de dependências) | T-002 | RNF-008 | Scripts testados com cenários de sucesso/falha |
 | T-004 | Infra local (compose: PostgreSQL com 2 bancos/roles, Kafka KRaft; `.env.example`; init SQL) | T-001 | RNF-009 | `compose up` saudável; roles isolados provados |
-| T-005 | Esqueleto da documentação de arquitetura: ADR-001..009 a partir de D-01..D-16, C4 contexto/contêineres, arquitetura-alvo AWS, tabela RNF → mecanismo | T-001 | Obrigatórios do enunciado | Cada D-xx em exatamente um ADR; diagramas renderizam |
+| T-005 | Esqueleto da documentação de arquitetura: ADR-001..010 a partir de D-01..D-16 e Q-005, C4 contexto/contêineres, arquitetura-alvo AWS (apenas desenho), tabelas local → alvo e RNF → mecanismo | T-001 | Obrigatórios do enunciado | Cada D-xx em exatamente um ADR; diagramas renderizam |
 | **Fase 1 — Lançamentos** |||||
 | T-010 | Domínio: `Lancamento`, `Dinheiro`, regras de estorno, `DataReferencia`; JSON Schema do evento alinhado à `03 §4` | T-002 | RF-001..003, RF-009, RNF-004 | Unit + jqwik |
 | T-011 | Persistência: Flyway V1, repositórios JDBC, constraints | T-004, T-010 | RF-003, RNF-004 | IT com Testcontainers |

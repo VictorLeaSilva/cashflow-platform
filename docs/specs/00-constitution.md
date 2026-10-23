@@ -87,7 +87,7 @@ O enunciado trata a arquitetura de transição como **diferencial e condicional*
 - **O desenho do MVP já comporta isso sem mudança:** `identificador_externo` único, `saldoAnterior` calculado na leitura (aceita uma base de abertura sem recálculo em cascata) e eventos versionados.
 
 ## 7. Fora de escopo (e onde aparece como evolução)
-Rebuild/replay administrativo (ADR-006, evolução), estorno parcial, multi-moeda, cache distribuído, CDC com Debezium, Schema Registry, IaC completa (apenas desenho-alvo e estimativa de custo), **frontend próprio** (decisão do dono do produto: a API é exercitada pela Swagger UI local, por `scripts/demo.sh` e por k6).
+Rebuild/replay administrativo (ADR-006, evolução), estorno parcial, multi-moeda, cache distribuído, CDC com Debezium, Schema Registry, IaC completa e qualquer recurso de nuvem (a arquitetura-alvo AWS é **apenas desenho** e estimativa de custo; o case é implementado e provado só localmente), **frontend próprio** (decisão do dono do produto: a API é exercitada pela Swagger UI local, por `scripts/demo.sh` e por k6).
 
 ## 8. Definição de Pronto global (release)
 - Todos os RF/RNF obrigatórios com ≥1 teste rastreado e verde.
