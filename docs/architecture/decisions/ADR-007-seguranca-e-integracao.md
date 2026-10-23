@@ -69,8 +69,8 @@ No case local os dois tipos são simulados pelo `DevToken.java`; o case não tem
 - Integradores exigirem mTLS obrigatório.
 
 ## Em aberto
-- **Token válido sem `merchant_id` (ou com valor que não é UUID):** a spec não define o status. Proposta: rejeitar com **401**, como token inválido para esta API. Decidir antes da T-013 e registrar em `open-questions.md`.
-- **Tolerância de relógio para `exp`/`nbf`:** usar o padrão do Spring Security (60 s) ou fixar outro valor; decidir na T-013, sem nova chave de configuração além das previstas na spec.
+- **Token válido sem `merchant_id` (ou com valor que não é UUID):** a spec não define o status. Proposta: rejeitar com **401**, como token inválido para esta API. Registrado como **Q-008** em `open-questions.md`; decidir antes da T-013.
+- **Tolerância de relógio para `exp`/`nbf`:** proposta na Q-008: padrão do Spring Security (60 s), sem nova chave de configuração.
 
 ## Referências
 RF-010, RNF-005; `03 §1` (D-11), `03 §5`, `03 §6`; `04 §2.6`; `01 §4`; T-013, T-015, T-023, T-034.
