@@ -104,12 +104,17 @@ final class LinhasSql {
 
   static void inserirIdempotencyKey(Connection conexao, UUID comercianteId, UUID lancamentoId)
       throws SQLException {
+    inserirIdempotencyKey(conexao, comercianteId, UUID.randomUUID().toString(), lancamentoId);
+  }
+
+  static void inserirIdempotencyKey(
+      Connection conexao, UUID comercianteId, String chave, UUID lancamentoId) throws SQLException {
     try (PreparedStatement ps =
         conexao.prepareStatement(
             "INSERT INTO idempotency_key (comerciante_id, chave, request_hash, lancamento_id)"
                 + " VALUES (?, ?, ?, ?)")) {
       ps.setObject(1, comercianteId);
-      ps.setString(2, UUID.randomUUID().toString());
+      ps.setString(2, chave);
       ps.setString(3, "a".repeat(64));
       ps.setObject(4, lancamentoId);
       ps.executeUpdate();

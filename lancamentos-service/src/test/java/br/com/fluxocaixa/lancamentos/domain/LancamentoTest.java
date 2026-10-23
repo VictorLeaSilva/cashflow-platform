@@ -209,6 +209,33 @@ class LancamentoTest {
         .doesNotContain("PDV-9");
   }
 
+  /** Q-011: a validação de campos não depende do relógio; as regras de data ficam no registro. */
+  @Test
+  void validarCamposIgnoraAsRegrasDeData() {
+    Lancamento.Novo antigo =
+        novo(TipoLancamento.CREDITO, "10.00", null, Instant.parse("2020-01-01T12:00:00Z"), null);
+
+    Lancamento.validarCampos(antigo, POLITICA);
+
+    assertThatThrownBy(() -> Lancamento.registrar(ID, antigo, POLITICA, AGORA))
+        .isInstanceOf(RegraDeNegocioException.class);
+  }
+
+  @Test
+  void validarCamposRejeitaOsMesmosCamposQueORegistro() {
+    Lancamento.Novo invalido =
+        novo(TipoLancamento.ESTORNO, "0.001", "x".repeat(256), null, "y".repeat(101));
+
+    assertThatThrownBy(() -> Lancamento.validarCampos(invalido, POLITICA))
+        .isInstanceOfSatisfying(
+            LancamentoInvalidoException.class,
+            e ->
+                assertThat(e.erros())
+                    .extracting(LancamentoInvalidoException.ErroCampo::campo)
+                    .containsExactlyInAnyOrder(
+                        "tipo", "valor", "descricao", "identificadorExterno"));
+  }
+
   static Lancamento.Novo novo(
       TipoLancamento tipo, String valor, String descricao, Instant ocorrencia, String externo) {
     return new Lancamento.Novo(
