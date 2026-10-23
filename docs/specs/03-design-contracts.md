@@ -48,7 +48,7 @@ sequenceDiagram
     loop a cada 500 ms
       P->>LDB: SELECT pendentes FOR UPDATE SKIP LOCKED
       P->>K: publica (acks=all, idempotent)
-      P->>LDB: UPDATE published_at; COMMIT
+      P->>LDB: UPDATE published_at e COMMIT
     end
 ```
 
