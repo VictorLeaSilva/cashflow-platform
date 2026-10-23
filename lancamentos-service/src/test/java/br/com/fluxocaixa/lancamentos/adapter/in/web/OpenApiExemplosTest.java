@@ -73,7 +73,7 @@ class OpenApiExemplosTest {
 
   @Test
   void cadaStatusTemExemploPreenchidoEValido() {
-    verificarExemplosDosStatus("/lancamentos");
+    verificarExemplosDosStatus("/lancamentos", "post");
   }
 
   private Set<String> exemplosDe(JsonNode operacao, String status) {
@@ -81,8 +81,8 @@ class OpenApiExemplosTest {
     return ContratoOpenApi.exemplos(conteudo.path("application/problem+json"), contrato).keySet();
   }
 
-  private void verificarExemplosDosStatus(String caminho) {
-    JsonNode respostas = contrato.operacao(caminho, "post").path("responses");
+  private void verificarExemplosDosStatus(String caminho, String metodo) {
+    JsonNode respostas = contrato.operacao(caminho, metodo).path("responses");
     respostas
         .properties()
         .forEach(
@@ -171,9 +171,41 @@ class OpenApiExemplosTest {
         .contains("id-invalido", "chave-ausente", "propriedade-desconhecida");
   }
 
+  /** AC-T015.4: as consultas declaram os status de 03 §5 (mais o 500) e têm os exemplos. */
+  @Test
+  void consultasDeclaramOsStatusEOsExemplos() {
+    JsonNode detalhe = contrato.operacao("/lancamentos/{id}", "get");
+    JsonNode historico = contrato.operacao("/lancamentos", "get");
+
+    assertThat(detalhe.path("responses").propertyNames())
+        .containsExactlyInAnyOrder("200", "400", "401", "403", "404", "406", "500");
+    assertThat(historico.path("responses").propertyNames())
+        .containsExactlyInAnyOrder("200", "400", "401", "403", "406", "500");
+    List<String> parametros = new ArrayList<>();
+    historico
+        .path("parameters")
+        .forEach(p -> parametros.add(contrato.resolver(p).path("name").asString()));
+    assertThat(parametros)
+        .contains("dataInicio", "dataFim", "tipo", "page", "size", "X-Request-Id");
+
+    assertThat(exemplosDeSucesso(detalhe)).contains("credito", "estorno");
+    assertThat(exemplosDeSucesso(historico))
+        .contains("primeira-pagina", "filtrado-por-tipo", "pagina-vazia");
+    assertThat(exemplosDe(historico, "400"))
+        .contains("size-acima-do-maximo", "parametro-desconhecido", "intervalo-invalido");
+    assertThat(exemplosDe(detalhe, "400")).contains("id-invalido");
+    verificarExemplosDosStatus("/lancamentos/{id}", "get");
+    verificarExemplosDosStatus("/lancamentos", "get");
+  }
+
+  private Set<String> exemplosDeSucesso(JsonNode operacao) {
+    JsonNode conteudo = contrato.resolver(operacao.path("responses").path("200")).path("content");
+    return ContratoOpenApi.exemplos(conteudo.path("application/json"), contrato).keySet();
+  }
+
   @Test
   void cadaStatusDoEstornoTemExemploPreenchidoEValido() {
-    verificarExemplosDosStatus(ESTORNO);
+    verificarExemplosDosStatus(ESTORNO, "post");
   }
 
   /** Controle negativo de {@code format}: sem a asserção ligada, este teste falharia. */

@@ -51,6 +51,7 @@ import org.springframework.security.web.access.AccessDeniedHandler;
 public class SegurancaConfig {
 
   static final String ESCRITA = "SCOPE_lancamentos:write";
+  static final String LEITURA = "SCOPE_lancamentos:read";
 
   /** Q-008: 60 s, o valor histórico do Spring Security, fixado aqui para não depender do padrão. */
   static final Duration TOLERANCIA_DE_RELOGIO = Duration.ofSeconds(60);
@@ -80,6 +81,13 @@ public class SegurancaConfig {
               rotas
                   .requestMatchers(HttpMethod.POST, "/api/v1/lancamentos/*/estornos")
                   .hasAuthority(ESCRITA);
+              // Escrita não inclui leitura (ADR-007, T-015). O Spring MVC atende HEAD com os
+              // handlers de GET, então a regra vale para os dois métodos.
+              for (HttpMethod leitura : List.of(HttpMethod.GET, HttpMethod.HEAD)) {
+                rotas
+                    .requestMatchers(leitura, "/api/v1/lancamentos", "/api/v1/lancamentos/*")
+                    .hasAuthority(LEITURA);
+              }
               rotas.anyRequest().authenticated();
             })
         .oauth2ResourceServer(

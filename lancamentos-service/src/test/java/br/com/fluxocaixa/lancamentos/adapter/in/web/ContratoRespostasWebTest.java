@@ -29,6 +29,7 @@ class ContratoRespostasWebTest extends IntegracaoWeb {
 
   private static final String PROBLEMA = MediaType.APPLICATION_PROBLEM_JSON_VALUE;
   private static final String ESTORNO = "/lancamentos/{id}/estornos";
+  private static final String DETALHE = "/lancamentos/{id}";
   private static final String CREDITO_COM_EXTERNO =
       "{\"tipo\":\"CREDITO\",\"valor\":\"1.00\",\"identificadorExterno\":\"nf-contrato\"}";
 
@@ -141,23 +142,56 @@ class ContratoRespostasWebTest extends IntegracaoWeb {
     verificarEstorno(estornar(outro, "contrato-est-500"), 500, PROBLEMA);
   }
 
+  /** AC-T015.4: as respostas reais das consultas validam contra as operações GET. */
+  @Test
+  void respostasDasConsultasValidamContraOContrato() throws Exception {
+    String escrita = TokensDeTeste.valido(COMERCIANTE, TokensDeTeste.ESCRITA);
+    String id = criarCredito("contrato-get-original");
+    mvc.perform(estornar(id, "contrato-get-estorno"));
+
+    verificar(DETALHE, "get", Chamadas.obter(id), 200, "application/json");
+    verificar(DETALHE, "get", Chamadas.obter("abc"), 400, PROBLEMA);
+    verificar(DETALHE, "get", Chamadas.obterComo(null, id), 401, PROBLEMA);
+    verificar(DETALHE, "get", Chamadas.obterComo(escrita, id), 403, PROBLEMA);
+    verificar(DETALHE, "get", Chamadas.obter(UUID.randomUUID()), 404, PROBLEMA);
+    verificar(DETALHE, "get", Chamadas.obter(id).accept(MediaType.APPLICATION_XML), 406, PROBLEMA);
+
+    verificar("/lancamentos", "get", Chamadas.listar(""), 200, "application/json");
+    verificar(
+        "/lancamentos", "get", Chamadas.listar("tipo=ESTORNO&size=1"), 200, "application/json");
+    verificar("/lancamentos", "get", Chamadas.listar("page=50"), 200, "application/json");
+    verificar("/lancamentos", "get", Chamadas.listar("size=101&x=1"), 400, PROBLEMA);
+    verificar("/lancamentos", "get", Chamadas.listarComo(null, ""), 401, PROBLEMA);
+    verificar("/lancamentos", "get", Chamadas.listarComo(escrita, ""), 403, PROBLEMA);
+    verificar(
+        "/lancamentos",
+        "get",
+        Chamadas.listar("").accept(MediaType.APPLICATION_XML),
+        406,
+        PROBLEMA);
+  }
+
   private String criarCredito(String chave) throws Exception {
     return Chamadas.campo(mvc.perform(postar(credito("4.00"), chave)).andReturn(), "id");
   }
 
   private MockHttpServletResponse verificar(
       MockHttpServletRequestBuilder requisicao, int status, String midia) throws Exception {
-    return verificar("/lancamentos", requisicao, status, midia);
+    return verificar("/lancamentos", "post", requisicao, status, midia);
   }
 
   private MockHttpServletResponse verificarEstorno(
       MockHttpServletRequestBuilder requisicao, int status, String midia) throws Exception {
-    return verificar(ESTORNO, requisicao, status, midia);
+    return verificar(ESTORNO, "post", requisicao, status, midia);
   }
 
   /** Corpo contra o schema do status; cabeçalhos declarados contra os schemas deles. */
   private MockHttpServletResponse verificar(
-      String caminho, MockHttpServletRequestBuilder requisicao, int status, String midia)
+      String caminho,
+      String metodo,
+      MockHttpServletRequestBuilder requisicao,
+      int status,
+      String midia)
       throws Exception {
     MvcResult resultado = mvc.perform(requisicao).andReturn();
     MockHttpServletResponse resposta = resultado.getResponse();
@@ -166,18 +200,19 @@ class ContratoRespostasWebTest extends IntegracaoWeb {
     assertThat(resposta.getContentType()).startsWith(midia);
     assertThat(
             contrato.validar(
-                contrato.schemaDaResposta(caminho, "post", status, midia),
+                contrato.schemaDaResposta(caminho, metodo, status, midia),
                 resposta.getContentAsString()))
         .as("corpo da resposta %s de %s contra o contrato", status, caminho)
         .isEmpty();
-    verificarCabecalhos(caminho, resposta, status);
+    verificarCabecalhos(caminho, metodo, resposta, status);
     return resposta;
   }
 
-  private void verificarCabecalhos(String caminho, MockHttpServletResponse resposta, int status) {
+  private void verificarCabecalhos(
+      String caminho, String metodo, MockHttpServletResponse resposta, int status) {
     JsonNode declarados =
         contrato
-            .resolver(contrato.operacao(caminho, "post").path("responses").path("" + status))
+            .resolver(contrato.operacao(caminho, metodo).path("responses").path("" + status))
             .path("headers");
     assertThat(declarados.has("X-Request-Id")).isTrue();
     for (String nome : List.copyOf(declarados.propertyNames())) {

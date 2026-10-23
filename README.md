@@ -97,6 +97,22 @@ Estorne esse lançamento usando o `id` devolvido. O estorno não tem corpo. Ele 
 curl -i -X POST http://localhost:8081/api/v1/lancamentos/<id>/estornos -H "Authorization: Bearer $TOKEN" -H "Idempotency-Key: estorno-1"
 ```
 
+As consultas exigem o scope `lancamentos:read`. Gere um token com os dois scopes:
+
+```bash
+TOKEN=$(java scripts/DevToken.java --merchant 0f8fad5b-d9cb-469f-a165-70867728950e --scopes lancamentos:write,lancamentos:read --ttl 3600)
+```
+
+Consulte o detalhe de um lançamento e o histórico. O histórico é paginado (`page` a partir de 0, `size` até 100) e aceita os filtros `dataInicio`, `dataFim` e `tipo`:
+
+```bash
+curl -i http://localhost:8081/api/v1/lancamentos/<id> -H "Authorization: Bearer $TOKEN"
+```
+
+```bash
+curl -i "http://localhost:8081/api/v1/lancamentos?dataInicio=2026-10-01&tipo=CREDITO&size=50" -H "Authorization: Bearer $TOKEN"
+```
+
 O contrato fica em [`lancamentos-v1.yaml`](lancamentos-service/src/main/resources/openapi/lancamentos-v1.yaml). Com o profile `local`, a Swagger UI fica em `http://localhost:8081/swagger-ui/index.html`.
 
 ## Qualidade e hooks locais

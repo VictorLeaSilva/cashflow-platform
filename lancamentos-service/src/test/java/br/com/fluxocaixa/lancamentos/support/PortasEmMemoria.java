@@ -3,6 +3,7 @@ package br.com.fluxocaixa.lancamentos.support;
 import br.com.fluxocaixa.lancamentos.application.IdentificadorExternoDuplicadoException;
 import br.com.fluxocaixa.lancamentos.application.LancamentoJaEstornadoException;
 import br.com.fluxocaixa.lancamentos.application.port.out.EventoOutbox;
+import br.com.fluxocaixa.lancamentos.application.port.out.FiltroDeHistorico;
 import br.com.fluxocaixa.lancamentos.application.port.out.IdGenerator;
 import br.com.fluxocaixa.lancamentos.application.port.out.IdempotencyKeyRepository;
 import br.com.fluxocaixa.lancamentos.application.port.out.LancamentoRepository;
@@ -10,6 +11,7 @@ import br.com.fluxocaixa.lancamentos.application.port.out.OutboxRepository;
 import br.com.fluxocaixa.lancamentos.domain.Lancamento;
 import br.com.fluxocaixa.lancamentos.domain.TipoLancamento;
 import java.util.ArrayList;
+import java.util.Comparator;
 import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
@@ -186,6 +188,38 @@ public class PortasEmMemoria {
     public synchronized Optional<Lancamento> buscarPorId(UUID comercianteId, UUID id) {
       return Optional.ofNullable(porId.get(id))
           .filter(lancamento -> lancamento.comercianteId().equals(comercianteId));
+    }
+
+    /**
+     * Mesma ordem do SQL (T-015): {@code dataReferencia} decrescente e {@code id} crescente; o
+     * texto canônico do UUID ordena como o PostgreSQL (bytes sem sinal), ao contrário de {@link
+     * UUID#compareTo}.
+     */
+    @Override
+    public synchronized List<Lancamento> listar(FiltroDeHistorico filtro) {
+      return filtrados(filtro).stream()
+          .sorted(
+              Comparator.comparing(Lancamento::dataReferencia)
+                  .reversed()
+                  .thenComparing(lancamento -> lancamento.id().toString()))
+          .skip(filtro.offset())
+          .limit(filtro.size())
+          .toList();
+    }
+
+    @Override
+    public synchronized long contar(FiltroDeHistorico filtro) {
+      return filtrados(filtro).size();
+    }
+
+    private List<Lancamento> filtrados(FiltroDeHistorico filtro) {
+      return porId.values().stream()
+          .filter(l -> l.comercianteId().equals(filtro.comercianteId()))
+          .filter(
+              l -> filtro.dataInicio() == null || !l.dataReferencia().isBefore(filtro.dataInicio()))
+          .filter(l -> filtro.dataFim() == null || !l.dataReferencia().isAfter(filtro.dataFim()))
+          .filter(l -> filtro.tipo() == null || l.tipo() == filtro.tipo())
+          .toList();
     }
   }
 
