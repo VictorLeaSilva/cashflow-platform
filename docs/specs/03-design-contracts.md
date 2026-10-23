@@ -213,7 +213,7 @@ Arquivos: `lancamentos-service/src/main/resources/openapi/lancamentos-v1.yaml` e
 
 | Método | Caminho | Scope | Respostas |
 |---|---|---|---|
-| POST | `/lancamentos` (`Idempotency-Key` obrigatório) | `lancamentos:write` | 201, 400, 401, 403, 406, 409 (Q-013), 413, 415, 422 |
+| POST | `/lancamentos` (`Idempotency-Key` obrigatório) | `lancamentos:write` | 201, 400, 401, 403, 406, 409 (Q-013, Q-015), 413, 415, 422 |
 | POST | `/lancamentos/{id}/estornos` (`Idempotency-Key`) | `lancamentos:write` | 201, 401, 403, 404, 409, 422 |
 | GET | `/lancamentos` (filtros, `page`, `size ≤ 100`) | `lancamentos:read` | 200, 400, 401, 403 |
 | GET | `/lancamentos/{id}` | `lancamentos:read` | 200, 401, 403, 404 |
