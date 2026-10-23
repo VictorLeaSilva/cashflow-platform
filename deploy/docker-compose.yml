@@ -38,7 +38,7 @@ services:
   # Broker de eventos (ADR-004): Kafka em modo KRaft, nó único, sem criação automática de tópicos.
   # Contínuo; porta no host ${KAFKA_PORT:-9092}.
   kafka:
-    image: apache/kafka:3.9.1
+    image: apache/kafka:4.3.1
     environment:
       KAFKA_NODE_ID: 1
       KAFKA_PROCESS_ROLES: broker,controller
@@ -68,7 +68,7 @@ services:
   # Criação dos tópicos (03 §4, §7.2): execução única, depois que o Kafka fica saudável. Roda
   # deploy/kafka/create-topics.sh (idempotente), que cria o tópico e a DLT e termina com exit 0.
   kafka-topicos:
-    image: apache/kafka:3.9.1
+    image: apache/kafka:4.3.1
     depends_on:
       kafka:
         condition: service_healthy
