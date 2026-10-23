@@ -69,6 +69,8 @@ class AuditoriaEstornoWebTest extends IntegracaoWeb {
         .containsEntry("dataReferencia", "2026-10-23");
     assertThat(linhas.getFirst().toString())
         .doesNotContain("9876.54", COMERCIANTE.toString(), token, "chave-secreta-aud");
+    // Nenhuma linha da requisição de estorno (acesso, auditoria ou erro) leva esses dados.
+    assertThat(saida.getAll()).doesNotContain(COMERCIANTE.toString(), token, "chave-secreta-aud");
   }
 
   @SuppressWarnings("unchecked")

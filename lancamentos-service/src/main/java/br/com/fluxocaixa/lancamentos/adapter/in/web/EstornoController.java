@@ -49,12 +49,12 @@ public class EstornoController {
       JwtAuthenticationToken autenticacao,
       HttpServletRequest requisicao)
       throws HttpMediaTypeNotSupportedException {
-    EntradaDeEstorno.validarCorpo(corpo, requisicao, leitorDoCorpo);
     EstornarLancamentoCommand comando =
         EntradaDeEstorno.comando(
             ComercianteJwtConverter.comerciante(autenticacao),
             chave,
             id,
+            EntradaDeEstorno.errosDoCorpo(corpo, requisicao, leitorDoCorpo),
             RequestIdFilter.requestIdDe(requisicao));
     EstornarLancamento.Resultado resultado = estornarLancamento.estornar(comando);
     LancamentoResponse resposta = LancamentoResponse.de(resultado.lancamento());

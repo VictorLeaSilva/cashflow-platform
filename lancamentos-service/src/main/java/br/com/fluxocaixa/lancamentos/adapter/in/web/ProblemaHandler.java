@@ -77,7 +77,7 @@ public class ProblemaHandler extends ResponseEntityExceptionHandler {
         requisicao,
         HttpStatus.UNPROCESSABLE_CONTENT,
         "idempotency-key-reuse",
-        "a Idempotency-Key já foi usada com outro corpo");
+        "a Idempotency-Key já foi usada em uma requisição diferente");
   }
 
   @ExceptionHandler(IdempotencyConflictException.class)
@@ -221,7 +221,7 @@ public class ProblemaHandler extends ResponseEntityExceptionHandler {
   }
 
   /** Erro de leitura do JSON traduzido para um item de {@code errors[]}. */
-  private static ErroCampo erroDeLeitura(HttpMessageNotReadableException erro) {
+  static ErroCampo erroDeLeitura(Throwable erro) {
     UnrecognizedPropertyException desconhecida = causa(erro, UnrecognizedPropertyException.class);
     if (desconhecida != null) {
       return new ErroCampo(

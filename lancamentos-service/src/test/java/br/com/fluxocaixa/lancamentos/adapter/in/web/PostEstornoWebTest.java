@@ -27,6 +27,7 @@ import org.hamcrest.Matchers;
 import org.junit.jupiter.api.Tag;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.params.ParameterizedTest;
+import org.junit.jupiter.params.provider.CsvSource;
 import org.junit.jupiter.params.provider.ValueSource;
 import org.springframework.http.MediaType;
 import org.springframework.test.web.servlet.MvcResult;
@@ -300,17 +301,39 @@ class PostEstornoWebTest extends IntegracaoWeb {
   }
 
   @ParameterizedTest
-  @ValueSource(strings = {"[]", "null", "\"texto\"", "{", "{\"a\":1,\"a\":2}"})
-  void corpoQueNaoEhObjetoVazioResponde400(String corpo) throws Exception {
+  @CsvSource(
+      delimiter = '|',
+      value = {
+        "[]|corpo|json-malformado",
+        "null|corpo|json-malformado",
+        "\"texto\"|corpo|json-malformado",
+        "{|corpo|json-malformado",
+        "{\"a\":1,\"a\":2}|a|propriedade-desconhecida"
+      })
+  void corpoQueNaoEhObjetoVazioResponde400(String corpo, String campo, String codigo)
+      throws Exception {
     UUID original = registrar(credito("10.00"), "original-malformado");
 
     mvc.perform(
             estornar(original, "estorno-malformado")
                 .contentType(MediaType.APPLICATION_JSON)
                 .content(corpo))
-        .andExpect(problema(400, "requisicao-invalida", urlDoEstorno(original)));
+        .andExpect(problema(400, "requisicao-invalida", urlDoEstorno(original)))
+        .andExpect(erroDeCampo(campo, codigo));
 
     assertThat(portas.quantidadeDeLancamentos()).isEqualTo(1);
+  }
+
+  /** Erros de cabeçalho, caminho e corpo voltam juntos (T-014, precedência dos erros). */
+  @Test
+  void errosDeCabecalhoCaminhoECorpoVoltamJuntos() throws Exception {
+    mvc.perform(
+            estornar("abc", null).contentType(MediaType.APPLICATION_JSON).content("{\"motivo\":1}"))
+        .andExpect(problema(400, "requisicao-invalida", urlDoEstorno("abc")))
+        .andExpect(jsonPath("$.errors.length()").value(3))
+        .andExpect(erroDeCampo("Idempotency-Key", "obrigatorio"))
+        .andExpect(erroDeCampo("id", "formato-invalido"))
+        .andExpect(erroDeCampo("motivo", "propriedade-desconhecida"));
   }
 
   @Test

@@ -149,10 +149,12 @@ class EstornoIntercaladoIT extends IntegracaoPostgres {
           new EstornarLancamentoCommand(comerciante, chave, originalId, null));
     }
 
+    /** Uma sessão bloqueada no INSERT de lançamento (o índice único), não qualquer espera. */
     private boolean alguemEsperaLock() {
       return jdbc.sql(
                   "SELECT count(*) FROM pg_stat_activity"
-                      + " WHERE datname = current_database() AND wait_event_type = 'Lock'")
+                      + " WHERE datname = current_database() AND wait_event_type = 'Lock'"
+                      + " AND query ILIKE '%INSERT INTO lancamento %'")
               .query(Long.class)
               .single()
           > 0;

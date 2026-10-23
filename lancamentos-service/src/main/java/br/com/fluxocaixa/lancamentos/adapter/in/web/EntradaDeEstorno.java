@@ -8,8 +8,6 @@ import java.util.List;
 import java.util.UUID;
 import org.springframework.http.InvalidMediaTypeException;
 import org.springframework.http.MediaType;
-import org.springframework.http.converter.HttpMessageNotReadableException;
-import org.springframework.http.server.ServletServerHttpRequest;
 import org.springframework.web.HttpMediaTypeNotSupportedException;
 import tools.jackson.core.JacksonException;
 import tools.jackson.databind.ObjectReader;
@@ -17,7 +15,7 @@ import tools.jackson.databind.ObjectReader;
 /**
  * Validação estrita da entrada do estorno (03 §5.2, RNF-013; Q-017, Q-018): rejeita, nunca corrige.
  * O corpo é opcional; quando presente, exige JSON (415) e só o objeto vazio (400). Os erros de
- * cabeçalho e de caminho voltam juntos em {@code errors[]}.
+ * cabeçalho, de caminho e de corpo voltam juntos em {@code errors[]}.
  */
 final class EntradaDeEstorno {
 
@@ -27,46 +25,43 @@ final class EntradaDeEstorno {
   private EntradaDeEstorno() {}
 
   /**
-   * Corpo, quando presente: {@code Content-Type} JSON e o objeto vazio.
+   * Erros do corpo, quando presente: só o objeto vazio é aceito. Os erros voltam para serem
+   * acumulados com os de cabeçalho e de caminho em {@link #comando}.
    *
+   * @return vazio se não houver corpo ou se ele for {@code {}}
    * @throws HttpMediaTypeNotSupportedException corpo com {@code Content-Type} que não é JSON (415)
-   * @throws HttpMessageNotReadableException JSON malformado ou com propriedade (400)
-   * @throws RequisicaoInvalidaException JSON válido que não é um objeto (400)
    */
-  static void validarCorpo(byte[] corpo, HttpServletRequest requisicao, ObjectReader leitor)
+  static List<ErroCampo> errosDoCorpo(
+      byte[] corpo, HttpServletRequest requisicao, ObjectReader leitor)
       throws HttpMediaTypeNotSupportedException {
     if (corpo == null || corpo.length == 0) {
-      return;
+      return List.of();
     }
     if (!ehJson(requisicao.getContentType())) {
       throw new HttpMediaTypeNotSupportedException(
           "envie o corpo como application/json ou não envie corpo");
     }
-    EstornarLancamentoRequest lido;
     try {
-      lido = leitor.readValue(corpo);
+      if (leitor.readValue(corpo) == null) {
+        return List.of(
+            EntradaDeLancamento.erro(
+                "corpo", "json-malformado", "o corpo, quando enviado, deve ser o objeto vazio {}"));
+      }
+      return List.of();
     } catch (JacksonException e) {
-      throw new HttpMessageNotReadableException(
-          "corpo do estorno inválido", e, new ServletServerHttpRequest(requisicao));
-    }
-    if (lido == null) {
-      throw new RequisicaoInvalidaException(
-          List.of(
-              EntradaDeLancamento.erro(
-                  "corpo",
-                  "json-malformado",
-                  "o corpo, quando enviado, deve ser o objeto vazio {}")));
+      return List.of(ProblemaHandler.erroDeLeitura(e));
     }
   }
 
   /**
-   * @throws RequisicaoInvalidaException com todos os erros de cabeçalho e de caminho
+   * @throws RequisicaoInvalidaException com todos os erros de cabeçalho, caminho e corpo
    */
   static EstornarLancamentoCommand comando(
-      UUID comercianteId, String chave, String id, String requestId) {
+      UUID comercianteId, String chave, String id, List<ErroCampo> errosDoCorpo, String requestId) {
     List<ErroCampo> erros = new ArrayList<>();
     EntradaDeLancamento.validarChave(chave, erros);
     UUID original = id(id, erros);
+    erros.addAll(errosDoCorpo);
     if (!erros.isEmpty()) {
       throw new RequisicaoInvalidaException(erros);
     }

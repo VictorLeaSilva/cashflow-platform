@@ -627,7 +627,7 @@ components:
                 type: /erros/idempotency-key-reuse
                 title: Unprocessable Content
                 status: 422
-                detail: a Idempotency-Key já foi usada com outro corpo
+                detail: a Idempotency-Key já foi usada em uma requisição diferente
                 instance: /api/v1/lancamentos
                 requestId: cliente-req-8f2c1
                 timestamp: '2026-10-23T15:00:00Z'
@@ -842,7 +842,7 @@ components:
                 type: /erros/idempotency-key-reuse
                 title: Unprocessable Content
                 status: 422
-                detail: a Idempotency-Key já foi usada com outro corpo
+                detail: a Idempotency-Key já foi usada em uma requisição diferente
                 instance: /api/v1/lancamentos/7d2f6c1a-3b4e-4f5a-9c8d-1e2f3a4b5c6d/estornos
                 requestId: cliente-req-8f2c1
                 timestamp: '2026-10-23T15:00:00Z'
