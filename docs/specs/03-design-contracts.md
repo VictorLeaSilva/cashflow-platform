@@ -130,7 +130,7 @@ CREATE TABLE idempotency_key (
 
 ### 3.1.1 Algoritmo de idempotência e concorrência
 Isolamento `READ COMMITTED`. Para `POST` (lançamento ou estorno):
-1. Validar JWT e payload (sem banco). Gerar `lancamentoId` (porta `IdGenerator`) e calcular `request_hash`.
+1. Validar JWT e os **campos** do payload (sem banco; erro → 400). Gerar `lancamentoId` (porta `IdGenerator`) e calcular `request_hash`. As regras que dependem do relógio (data futura, retroatividade; 422) **não** entram aqui: ficam no passo 4, para que um *replay* devolva sempre o original, mesmo depois de a data sair da janela (Q-011).
 2. `BEGIN`.
 3. `INSERT INTO idempotency_key (...) ON CONFLICT (comerciante_id, chave) DO NOTHING`.
    - **1 linha:** a chave é nossa; seguir.
@@ -138,7 +138,7 @@ Isolamento `READ COMMITTED`. Para `POST` (lançamento ou estorno):
      - Linha ausente (a concorrente deu *rollback*): repetir o passo 3 (até 3 vezes).
      - `request_hash` diferente: `ROLLBACK` e **422**.
      - `request_hash` igual: `ROLLBACK`, ler o lançamento por `lancamento_id` e responder **201** com o mesmo corpo e `Idempotent-Replayed: true`.
-4. Aplicar as regras, `INSERT` em `lancamento` (com o `lancamentoId` gerado) e em `outbox_event`.
+4. Aplicar as regras de negócio (inclusive as de data, 422, que desfazem a chave junto), `INSERT` em `lancamento` (com o `lancamentoId` gerado) e em `outbox_event`.
 5. `COMMIT`. A FK diferida garante que nenhuma chave é confirmada sem lançamento. Qualquer falha antes do `COMMIT` desfaz chave, lançamento e evento juntos (retry seguro).
 
 Resultado esperado: exatamente 1 lançamento, 1 evento e a mesma resposta em chamadas repetidas ou simultâneas.
