@@ -10,7 +10,8 @@ import org.springframework.context.annotation.Primary;
 
 /**
  * Relógio dos ITs (05 §7): substitui o {@code Clock} do sistema no contexto de teste. Fica parado
- * em {@link #AGORA}; um IT pode avançá-lo e deve restaurá-lo ao terminar.
+ * em {@link #AGORA}; um IT pode avançá-lo, e {@link IntegracaoPostgres} o restaura antes de cada
+ * teste.
  */
 @TestConfiguration(proxyBeanMethods = false)
 public class RelogioFixo {
