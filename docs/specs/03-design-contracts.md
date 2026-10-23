@@ -288,7 +288,7 @@ Dias sem movimento: zeros e `atualizadoEm: null`. `GET /consolidado/{data}` devo
 | Transação do lote | *timeout* de 15 s; falha libera o lote para a próxima tentativa |
 | Pools JDBC (Lançamentos) | API: máx. 10; **publicador: pool dedicado, máx. 2** (nunca compartilha conexões com a API) |
 | Consumidor (Consolidado) | concorrência 1 (até o nº de partições); `max.poll.records=100`; **pool dedicado, máx. 4**, separado do pool da API (máx. 10) |
-| Outbox | linhas publicadas removidas após `outbox.retention-days` (padrão 7); sem rejeição de escrita por tamanho (alerta por idade) |
+| Outbox | linhas publicadas removidas após `lancamentos.outbox.retention-days` (padrão 7); sem rejeição de escrita por tamanho (alerta por idade) |
 | Isolamento de capacidade do Consolidado | CPU/memória são compartilhadas entre API e consumidor (D-10); se o cenário de drenagem sob leitura (T-033) mostrar interferência, separar o consumidor em executável próprio |
 
 ### 7.2 Política de recuperação da DLT

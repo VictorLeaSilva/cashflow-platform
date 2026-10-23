@@ -24,7 +24,7 @@ Ordem: *walking skeleton* (fundação e harness) → fatias verticais por servi�
 | T-013 | API `POST /lancamentos` + JWT + Problem Details + OpenAPI contract-first com exemplos completos + filtro `X-Request-Id` + validação estrita de entrada + log de acesso + `scripts/DevToken.java` | T-012 | RF-001, RF-002, RF-007, RF-010, RNF-005, RNF-012, RNF-013, RNF-014 | Fatia web + validação de contrato e dos exemplos |
 | T-014 | Estorno (caso de uso + endpoint) | T-013 | RF-003 | AC-003.x |
 | T-015 | Consultas (detalhe e histórico) + isolamento | T-013, T-014 | RF-004, RF-010 | AC-004.x, AC-010.x |
-| T-016 | Publicador outbox (poller `SKIP LOCKED`, produtor Kafka com cabeçalho `x-request-id`, métricas) | T-012, T-004 | RNF-001, RNF-007, RNF-012 | IT: falha entre envio e marcação; Kafka fora |
+| T-016 | Publicador outbox (poller `SKIP LOCKED`, produtor Kafka com cabeçalho `x-request-id`, métricas) | T-012, T-004 | RNF-001, RNF-004, RNF-007, RNF-012 | IT: falha entre envio e marcação; Kafka fora |
 | **Fase 2 — Consolidado** |||||
 | T-020 | Domínio da projeção (aplicar evento → deltas) | T-002 | RF-008, RF-009 | Propriedades com semente: ordem/duplicatas |
 | T-021 | Persistência (Flyway, upsert aditivo, `evento_processado`) | T-004, T-020 | RF-008, RNF-004 | IT de concorrência no mesmo dia |
