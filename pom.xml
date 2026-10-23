@@ -268,6 +268,23 @@
                     </limit>
                   </limits>
                 </rule>
+                <!-- Piso por pacote (04 §2.4, T-010): domain e application >= 85 % de linhas. -->
+                <rule>
+                  <element>PACKAGE</element>
+                  <includes>
+                    <include>*.domain</include>
+                    <include>*.domain.*</include>
+                    <include>*.application</include>
+                    <include>*.application.*</include>
+                  </includes>
+                  <limits>
+                    <limit>
+                      <counter>LINE</counter>
+                      <value>COVEREDRATIO</value>
+                      <minimum>0.85</minimum>
+                    </limit>
+                  </limits>
+                </rule>
               </rules>
             </configuration>
           </execution>
