@@ -17,4 +17,6 @@
 .env
 .env.*
 !.env.example
+
+# Chaves JWT de desenvolvimento geradas por scripts/DevToken.java (Q-012)
 deploy/dev-keys/

@@ -1,0 +1,571 @@
+openapi: 3.1.0
+info:
+  title: Fluxo de Caixa - Lançamentos
+  version: 1.0.0
+  description: |
+    API de lançamentos (créditos e débitos) do case Fluxo de Caixa. Contrato *contract-first*
+    (03 §5): este arquivo é a fonte única, validado em teste (RNF-014). O comerciante vem só do
+    token (claim `merchant_id`, RF-010); valores monetários são strings decimais; erros seguem o
+    RFC 9457 (`application/problem+json`) com o catálogo de `type` abaixo.
+
+    Catálogo de erros (`type`): `/erros/requisicao-invalida` (400), `/erros/nao-autenticado`
+    (401), `/erros/acesso-negado` (403), `/erros/nao-aceitavel` (406),
+    `/erros/idempotency-conflict` e `/erros/identificador-externo-duplicado` (409),
+    `/erros/payload-muito-grande` (413), `/erros/tipo-de-midia-nao-suportado` (415),
+    `/erros/data-futura`, `/erros/data-retroativa-excedida` e `/erros/idempotency-key-reuse`
+    (422), `/erros/interno` (500).
+servers:
+  - url: /api/v1
+security:
+  - bearerAuth: []
+paths:
+  /lancamentos:
+    post:
+      operationId: registrarLancamento
+      summary: Registra um crédito ou débito
+      description: |
+        Registra um lançamento com idempotência por `Idempotency-Key` (escopo: comerciante +
+        chave). Repetir a mesma chave com o mesmo corpo devolve o mesmo 201 e o mesmo corpo, com
+        `Idempotent-Replayed: true`; com outro corpo, 422 `idempotency-key-reuse`. A data de
+        referência é calculada no fuso `America/Sao_Paulo`; retroatividade de até 30 dias e
+        tolerância de 60 s para o futuro. Exige o scope `lancamentos:write`.
+      security:
+        - bearerAuth: [lancamentos:write]
+      parameters:
+        - $ref: '#/components/parameters/IdempotencyKey'
+        - $ref: '#/components/parameters/XRequestId'
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/RegistrarLancamentoRequest'
+            examples:
+              credito:
+                summary: Crédito com o mínimo obrigatório
+                value:
+                  tipo: CREDITO
+                  valor: '100.00'
+              debito:
+                summary: Débito
+                value:
+                  tipo: DEBITO
+                  valor: '250.00'
+              retroativo:
+                summary: Lançamento de ontem (data com offset de São Paulo)
+                value:
+                  tipo: CREDITO
+                  valor: '80.50'
+                  dataOcorrencia: '2026-10-22T21:30:00-03:00'
+              com-texto-opcional:
+                summary: Com descrição e identificador do sistema de origem
+                value:
+                  tipo: DEBITO
+                  valor: '1250.00'
+                  descricao: Pagamento de fornecedor
+                  dataOcorrencia: '2026-10-23T09:15:00-03:00'
+                  identificadorExterno: nf-2026-000123
+      responses:
+        '201':
+          $ref: '#/components/responses/Criado'
+        '400':
+          $ref: '#/components/responses/RequisicaoInvalida'
+        '401':
+          $ref: '#/components/responses/NaoAutenticado'
+        '403':
+          $ref: '#/components/responses/AcessoNegado'
+        '406':
+          $ref: '#/components/responses/NaoAceitavel'
+        '409':
+          $ref: '#/components/responses/Conflito'
+        '413':
+          $ref: '#/components/responses/PayloadMuitoGrande'
+        '415':
+          $ref: '#/components/responses/TipoDeMidiaNaoSuportado'
+        '422':
+          $ref: '#/components/responses/RegraDeNegocio'
+        '500':
+          $ref: '#/components/responses/Interno'
+
+components:
+  securitySchemes:
+    bearerAuth:
+      type: http
+      scheme: bearer
+      bearerFormat: JWT
+      description: |
+        JWT RS256 com `iss`, `aud`, `exp` e o claim `merchant_id` (UUID). Localmente, gere com
+        `java scripts/DevToken.java --merchant <uuid> --scopes lancamentos:write --ttl 3600`.
+
+  parameters:
+    IdempotencyKey:
+      name: Idempotency-Key
+      in: header
+      required: true
+      description: Chave de idempotência do comando, escolhida pelo cliente.
+      schema:
+        type: string
+        pattern: '^[A-Za-z0-9._-]{1,64}$'
+      example: pedido-2026-10-23-001
+    XRequestId:
+      name: X-Request-Id
+      in: header
+      required: false
+      description: |
+        Identificador da requisição para suporte. Se ausente ou fora do formato, a API gera um
+        (nunca rejeita); o valor usado volta sempre no cabeçalho de resposta.
+      schema:
+        type: string
+        pattern: '^[A-Za-z0-9._-]{1,64}$'
+      example: cliente-req-8f2c1
+
+  headers:
+    XRequestId:
+      description: Request ID usado (o do cliente, se válido, ou um gerado).
+      schema:
+        type: string
+        pattern: '^[A-Za-z0-9._-]{1,64}$'
+    Location:
+      description: Caminho do lançamento criado.
+      schema:
+        type: string
+        format: uri-reference
+    IdempotentReplayed:
+      description: Presente com `true` quando a resposta é o replay de um registro anterior.
+      schema:
+        type: string
+        enum: ['true']
+    RetryAfter:
+      description: Segundos até repetir com segurança.
+      schema:
+        type: string
+        pattern: '^[0-9]+$'
+
+  schemas:
+    RegistrarLancamentoRequest:
+      type: object
+      additionalProperties: false
+      required: [tipo, valor]
+      properties:
+        tipo:
+          type: string
+          enum: [CREDITO, DEBITO]
+        valor:
+          type: string
+          description: Decimal positivo com até 2 casas, até 10000000.00.
+          pattern: '^[0-9]+(\.[0-9]{1,2})?$'
+        descricao:
+          type: string
+          minLength: 1
+          maxLength: 255
+          description: Sem caracteres de controle nem espaços nas pontas; normalizado em NFC.
+        dataOcorrencia:
+          type: string
+          format: date-time
+          description: |
+            Instante ISO-8601 com offset ou `Z`, com no máximo 6 casas nos segundos
+            (microssegundos); ausente, vale o instante do servidor.
+        identificadorExterno:
+          type: string
+          minLength: 1
+          maxLength: 100
+          description: Referência do sistema de origem; única por comerciante.
+
+    Lancamento:
+      type: object
+      additionalProperties: false
+      required:
+        - id
+        - comercianteId
+        - tipo
+        - valor
+        - descricao
+        - dataOcorrencia
+        - dataReferencia
+        - referenciaLancamentoId
+        - identificadorExterno
+        - criadoEm
+      properties:
+        id:
+          type: string
+          format: uuid
+        comercianteId:
+          type: string
+          format: uuid
+        tipo:
+          type: string
+          enum: [CREDITO, DEBITO, ESTORNO]
+        valor:
+          type: string
+          pattern: '^[0-9]+\.[0-9]{2}$'
+        descricao:
+          type: [string, 'null']
+        dataOcorrencia:
+          type: string
+          format: date-time
+        dataReferencia:
+          type: string
+          format: date
+        referenciaLancamentoId:
+          type: [string, 'null']
+          format: uuid
+        identificadorExterno:
+          type: [string, 'null']
+        criadoEm:
+          type: string
+          format: date-time
+
+    ErroDeCampo:
+      type: object
+      additionalProperties: false
+      required: [campo, codigo, mensagem]
+      properties:
+        campo:
+          type: string
+          description: Nome do campo ou do cabeçalho.
+        codigo:
+          type: string
+          description: Código estável do erro (ex. `obrigatorio`, `formato-invalido`).
+        mensagem:
+          type: string
+
+    Problema:
+      type: object
+      additionalProperties: false
+      required: [type, title, status, detail, instance, requestId, timestamp]
+      properties:
+        type:
+          type: string
+          enum:
+            - /erros/requisicao-invalida
+            - /erros/nao-autenticado
+            - /erros/acesso-negado
+            - /erros/nao-aceitavel
+            - /erros/idempotency-conflict
+            - /erros/identificador-externo-duplicado
+            - /erros/payload-muito-grande
+            - /erros/tipo-de-midia-nao-suportado
+            - /erros/data-futura
+            - /erros/data-retroativa-excedida
+            - /erros/idempotency-key-reuse
+            - /erros/interno
+        title:
+          type: string
+        status:
+          type: integer
+        detail:
+          type: string
+        instance:
+          type: string
+        errors:
+          type: array
+          items:
+            $ref: '#/components/schemas/ErroDeCampo'
+        requestId:
+          type: string
+          pattern: '^[A-Za-z0-9._-]{1,64}$'
+        traceId:
+          type: string
+          description: Presente quando houver tracing (T-032).
+        timestamp:
+          type: string
+          format: date-time
+
+  responses:
+    Criado:
+      description: Lançamento registrado (ou replay de um registro anterior com a mesma chave).
+      headers:
+        Location:
+          $ref: '#/components/headers/Location'
+        X-Request-Id:
+          $ref: '#/components/headers/XRequestId'
+        Idempotent-Replayed:
+          $ref: '#/components/headers/IdempotentReplayed'
+      content:
+        application/json:
+          schema:
+            $ref: '#/components/schemas/Lancamento'
+          examples:
+            credito:
+              summary: Crédito registrado agora
+              value:
+                id: 7d2f6c1a-3b4e-4f5a-9c8d-1e2f3a4b5c6d
+                comercianteId: 0f8fad5b-d9cb-469f-a165-70867728950e
+                tipo: CREDITO
+                valor: '100.00'
+                descricao: null
+                dataOcorrencia: '2026-10-23T15:00:00Z'
+                dataReferencia: '2026-10-23'
+                referenciaLancamentoId: null
+                identificadorExterno: null
+                criadoEm: '2026-10-23T15:00:00Z'
+            debito:
+              summary: Débito com descrição e identificador externo
+              value:
+                id: 3c9e1b2a-6d4f-4e8a-b1c2-d3e4f5a6b7c8
+                comercianteId: 0f8fad5b-d9cb-469f-a165-70867728950e
+                tipo: DEBITO
+                valor: '1250.00'
+                descricao: Pagamento de fornecedor
+                dataOcorrencia: '2026-10-23T12:15:00Z'
+                dataReferencia: '2026-10-23'
+                referenciaLancamentoId: null
+                identificadorExterno: nf-2026-000123
+                criadoEm: '2026-10-23T15:00:01Z'
+            replay-idempotente:
+              summary: Mesmo corpo do registro original (com Idempotent-Replayed true)
+              value:
+                id: 7d2f6c1a-3b4e-4f5a-9c8d-1e2f3a4b5c6d
+                comercianteId: 0f8fad5b-d9cb-469f-a165-70867728950e
+                tipo: CREDITO
+                valor: '100.00'
+                descricao: null
+                dataOcorrencia: '2026-10-23T15:00:00Z'
+                dataReferencia: '2026-10-23'
+                referenciaLancamentoId: null
+                identificadorExterno: null
+                criadoEm: '2026-10-23T15:00:00Z'
+
+    RequisicaoInvalida:
+      description: Entrada inválida; todos os erros de campo e de cabeçalho em `errors[]`.
+      headers:
+        X-Request-Id:
+          $ref: '#/components/headers/XRequestId'
+      content:
+        application/problem+json:
+          schema:
+            $ref: '#/components/schemas/Problema'
+          examples:
+            campos-invalidos:
+              summary: Chave ausente, valor com 3 casas e descrição com quebra de linha
+              value:
+                type: /erros/requisicao-invalida
+                title: Bad Request
+                status: 400
+                detail: a requisição tem erros; veja errors[]
+                instance: /api/v1/lancamentos
+                errors:
+                  - campo: Idempotency-Key
+                    codigo: obrigatorio
+                    mensagem: o cabeçalho Idempotency-Key é obrigatório
+                  - campo: valor
+                    codigo: casas-decimais
+                    mensagem: valor deve ter no máximo 2 casas decimais
+                  - campo: descricao
+                    codigo: caractere-de-controle
+                    mensagem: descricao não pode ter caracteres de controle
+                requestId: cliente-req-8f2c1
+                timestamp: '2026-10-23T15:00:00Z'
+            propriedade-desconhecida:
+              summary: comercianteId no corpo (vem só do token)
+              value:
+                type: /erros/requisicao-invalida
+                title: Bad Request
+                status: 400
+                detail: a requisição tem erros; veja errors[]
+                instance: /api/v1/lancamentos
+                errors:
+                  - campo: comercianteId
+                    codigo: propriedade-desconhecida
+                    mensagem: propriedade não prevista no contrato
+                requestId: 2b7e4f0c-1d3a-4c5b-8e9f-0a1b2c3d4e5f
+                timestamp: '2026-10-23T15:00:00Z'
+
+    NaoAutenticado:
+      description: Sem token ou token inválido; cabeçalho `WWW-Authenticate` com `Bearer`.
+      headers:
+        X-Request-Id:
+          $ref: '#/components/headers/XRequestId'
+        WWW-Authenticate:
+          schema:
+            type: string
+          example: Bearer error="invalid_token"
+      content:
+        application/problem+json:
+          schema:
+            $ref: '#/components/schemas/Problema'
+          examples:
+            token-invalido:
+              value:
+                type: /erros/nao-autenticado
+                title: Unauthorized
+                status: 401
+                detail: token ausente ou inválido
+                instance: /api/v1/lancamentos
+                requestId: cliente-req-8f2c1
+                timestamp: '2026-10-23T15:00:00Z'
+
+    AcessoNegado:
+      description: Token válido sem o scope `lancamentos:write`.
+      headers:
+        X-Request-Id:
+          $ref: '#/components/headers/XRequestId'
+        WWW-Authenticate:
+          schema:
+            type: string
+          example: Bearer error="insufficient_scope"
+      content:
+        application/problem+json:
+          schema:
+            $ref: '#/components/schemas/Problema'
+          examples:
+            sem-scope:
+              value:
+                type: /erros/acesso-negado
+                title: Forbidden
+                status: 403
+                detail: o token não tem o scope exigido por esta operação
+                instance: /api/v1/lancamentos
+                requestId: cliente-req-8f2c1
+                timestamp: '2026-10-23T15:00:00Z'
+
+    NaoAceitavel:
+      description: O cabeçalho `Accept` não admite `application/json`.
+      headers:
+        X-Request-Id:
+          $ref: '#/components/headers/XRequestId'
+      content:
+        application/problem+json:
+          schema:
+            $ref: '#/components/schemas/Problema'
+          examples:
+            accept-xml:
+              value:
+                type: /erros/nao-aceitavel
+                title: Not Acceptable
+                status: 406
+                detail: esta API responde application/json
+                instance: /api/v1/lancamentos
+                requestId: cliente-req-8f2c1
+                timestamp: '2026-10-23T15:00:00Z'
+
+    Conflito:
+      description: |
+        `idempotency-conflict`: a mesma chave está em disputa; repita após `Retry-After`.
+        `identificador-externo-duplicado`: o comerciante já registrou este `identificadorExterno`.
+      headers:
+        X-Request-Id:
+          $ref: '#/components/headers/XRequestId'
+        Retry-After:
+          $ref: '#/components/headers/RetryAfter'
+      content:
+        application/problem+json:
+          schema:
+            $ref: '#/components/schemas/Problema'
+          examples:
+            idempotency-conflict:
+              value:
+                type: /erros/idempotency-conflict
+                title: Conflict
+                status: 409
+                detail: outra requisição com a mesma Idempotency-Key está em processamento; repita
+                instance: /api/v1/lancamentos
+                requestId: cliente-req-8f2c1
+                timestamp: '2026-10-23T15:00:00Z'
+            identificador-externo-duplicado:
+              value:
+                type: /erros/identificador-externo-duplicado
+                title: Conflict
+                status: 409
+                detail: já existe um lançamento deste comerciante com este identificadorExterno
+                instance: /api/v1/lancamentos
+                requestId: cliente-req-8f2c1
+                timestamp: '2026-10-23T15:00:00Z'
+
+    PayloadMuitoGrande:
+      description: Corpo acima de 16 KiB.
+      headers:
+        X-Request-Id:
+          $ref: '#/components/headers/XRequestId'
+      content:
+        application/problem+json:
+          schema:
+            $ref: '#/components/schemas/Problema'
+          examples:
+            acima-de-16-kib:
+              value:
+                type: /erros/payload-muito-grande
+                title: Content Too Large
+                status: 413
+                detail: o corpo da requisição passa do limite de 16 KiB
+                instance: /api/v1/lancamentos
+                requestId: cliente-req-8f2c1
+                timestamp: '2026-10-23T15:00:00Z'
+
+    TipoDeMidiaNaoSuportado:
+      description: '`Content-Type` diferente de `application/json`.'
+      headers:
+        X-Request-Id:
+          $ref: '#/components/headers/XRequestId'
+      content:
+        application/problem+json:
+          schema:
+            $ref: '#/components/schemas/Problema'
+          examples:
+            text-plain:
+              value:
+                type: /erros/tipo-de-midia-nao-suportado
+                title: Unsupported Media Type
+                status: 415
+                detail: envie o corpo como application/json
+                instance: /api/v1/lancamentos
+                requestId: cliente-req-8f2c1
+                timestamp: '2026-10-23T15:00:00Z'
+
+    RegraDeNegocio:
+      description: Regra de negócio violada (datas) ou chave de idempotência reutilizada.
+      headers:
+        X-Request-Id:
+          $ref: '#/components/headers/XRequestId'
+      content:
+        application/problem+json:
+          schema:
+            $ref: '#/components/schemas/Problema'
+          examples:
+            data-futura:
+              value:
+                type: /erros/data-futura
+                title: Unprocessable Content
+                status: 422
+                detail: dataOcorrencia no futuro além da tolerância de PT1M
+                instance: /api/v1/lancamentos
+                requestId: cliente-req-8f2c1
+                timestamp: '2026-10-23T15:00:00Z'
+            data-retroativa-excedida:
+              value:
+                type: /erros/data-retroativa-excedida
+                title: Unprocessable Content
+                status: 422
+                detail: dataReferencia anterior ao limite de 30 dias
+                instance: /api/v1/lancamentos
+                requestId: cliente-req-8f2c1
+                timestamp: '2026-10-23T15:00:00Z'
+            idempotency-key-reuse:
+              value:
+                type: /erros/idempotency-key-reuse
+                title: Unprocessable Content
+                status: 422
+                detail: a Idempotency-Key já foi usada com outro corpo
+                instance: /api/v1/lancamentos
+                requestId: cliente-req-8f2c1
+                timestamp: '2026-10-23T15:00:00Z'
+
+    Interno:
+      description: Erro inesperado; o detalhe é genérico e a causa fica só no log.
+      headers:
+        X-Request-Id:
+          $ref: '#/components/headers/XRequestId'
+      content:
+        application/problem+json:
+          schema:
+            $ref: '#/components/schemas/Problema'
+          examples:
+            erro-interno:
+              value:
+                type: /erros/interno
+                title: Internal Server Error
+                status: 500
+                detail: erro interno; tente novamente
+                instance: /api/v1/lancamentos
+                requestId: cliente-req-8f2c1
+                timestamp: '2026-10-23T15:00:00Z'

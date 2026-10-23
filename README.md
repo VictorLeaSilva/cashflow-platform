@@ -60,6 +60,28 @@ deploy/verify-local.sh
 
 O `verify-local.sh` confere se os serviços estão saudáveis, se cada serviço só acessa o próprio banco e se os tópicos existem. A UI do Kafka é opcional: acrescente `--profile tools` ao `up` e acesse `http://localhost:8090`. Para apagar tudo, inclusive os volumes, use `docker compose --env-file .env -f deploy/docker-compose.yml down -v`.
 
+## Chamar a API localmente
+
+Com a infraestrutura de pé, suba o serviço de Lançamentos no profile `local` (porta 8081), carregando as senhas do `.env` no ambiente:
+
+```bash
+set -a; . ./.env; set +a; ./mvnw -pl lancamentos-service spring-boot:run -Dspring-boot.run.profiles=local
+```
+
+Gere um token de desenvolvimento. Na primeira execução, o script cria o par de chaves em `deploy/dev-keys/`, que fica fora do Git e é lido pelo profile `local`:
+
+```bash
+TOKEN=$(java scripts/DevToken.java --merchant 0f8fad5b-d9cb-469f-a165-70867728950e --scopes lancamentos:write --ttl 3600)
+```
+
+Registre um crédito. Repetir o comando com a mesma `Idempotency-Key` devolve o mesmo corpo, com `Idempotent-Replayed: true`:
+
+```bash
+curl -i -X POST http://localhost:8081/api/v1/lancamentos -H "Authorization: Bearer $TOKEN" -H "Content-Type: application/json" -H "Idempotency-Key: exemplo-1" -d '{"tipo":"CREDITO","valor":"100.00"}'
+```
+
+O contrato fica em [`lancamentos-v1.yaml`](lancamentos-service/src/main/resources/openapi/lancamentos-v1.yaml). Com o profile `local`, a Swagger UI fica em `http://localhost:8081/swagger-ui/index.html`.
+
 ## Qualidade e hooks locais
 
 O `./mvnw verify` é o gate G2: formatação (Spotless), estilo (Checkstyle), regras de arquitetura (ArchUnit), testes, SpotBugs/FindSecBugs e cobertura (JaCoCo). Se a formatação falhar, corrija com:
@@ -93,7 +115,6 @@ O gate automatizado por tarefa (`scripts/verify-task.sh`) chega com a T-003; at�
 
 Projeto em desenvolvimento.
 
-- **Integrado:** build reproduzível e gates de qualidade (T-001, T-002); infraestrutura local com PostgreSQL e Kafka (T-004).
-- **Em revisão:** documentação de arquitetura com ADRs e arquitetura-alvo (T-005), aguardando aprovação.
-- **Próximo:** domínio, persistência e idempotência de Lançamentos (T-010 a T-012), seguidos das APIs, do publicador e do Consolidado. A ordem está em [`docs/specs/06-tasks.md`](docs/specs/06-tasks.md).
-- Os serviços ainda não expõem endpoints.
+- **Integrado:** build reproduzível e gates de qualidade (T-001, T-002); infraestrutura local com PostgreSQL e Kafka (T-004); documentação de arquitetura com ADRs e arquitetura-alvo (T-005); domínio, persistência e idempotência de Lançamentos (T-010 a T-012).
+- **Em andamento:** API `POST /api/v1/lancamentos` com JWT, Problem Details e contrato OpenAPI (T-013).
+- **Próximo:** estorno, consultas e publicador da outbox (T-014 a T-016), seguidos do Consolidado. A ordem está em [`docs/specs/06-tasks.md`](docs/specs/06-tasks.md).

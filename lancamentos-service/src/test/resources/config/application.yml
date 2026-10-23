@@ -1,0 +1,15 @@
+# Somente testes. Carregado junto com o application.yml principal (classpath:/config/ tem
+# precedência), sem substituí-lo. Testes sem banco (contextLoads) não executam migrações; os ITs de
+# persistência religam o Flyway e apontam para o container (support/PostgresLancamentos).
+spring:
+  flyway:
+    enabled: false
+  security:
+    oauth2:
+      resourceserver:
+        jwt:
+          # Só a chave pública (sem privada no repositório, Q-012). Os testes que assinam tokens
+          # geram o próprio par e sobrescrevem estas três propriedades (support/TokensDeTeste).
+          public-key-location: classpath:jwt/chave-publica-de-teste.pem
+          issuer-uri: https://teste.fluxocaixa.local
+          audiences: lancamentos-api

@@ -19,6 +19,7 @@ Entregar o case "Desafio Arquiteto de Soluções": serviço de **controle de lan
 | P7 | Todo comportamento tem critério de aceite testável e rastreável (requisito → teste). |
 | P8 | Número só entra na documentação se medido (com data e ambiente) ou se estiver marcado como **meta**. |
 | P9 | A spec manda. Lacuna ou conflito: registrar em `open-questions.md`, não improvisar. |
+| P10 | Algo só é declarado **provado** na documentação com evidência reproduzível: o teste, script ou cenário que prova (`classe#método`, comando, k6 com resultado versionado), registrado em `docs/specs/reviews/T-xxx.evidence.md` e confirmado pela revisão independente. Teste de risco conta só na forma exigida em `04 §2.7` (ex.: concorrente, não sequencial). Metas da arquitetura-alvo nunca viram "provado" pelo case local. Fora disso, o estado é **a provar (T-xxx)** ou **só desenho** (`docs/architecture/architecture.md §1.2`). |
 
 ## 3. Stack fixada
 | Área | Escolha | Observação |
@@ -32,7 +33,7 @@ Entregar o case "Desafio Arquiteto de Soluções": serviço de **controle de lan
 | Mensageria | Apache Kafka (KRaft, 1 broker local) | ADR-004 |
 | Segurança | Spring Security OAuth2 Resource Server (JWT) | ADR-007 |
 | Observabilidade | Actuator + Micrometer + OpenTelemetry; Prometheus/Grafana em profile do compose | ADR-008 |
-| Testes | JUnit 5, AssertJ, Mockito (só em portas), ArchUnit, jqwik, Testcontainers, Awaitility, k6, PIT | `04-quality-standards.md` |
+| Testes | JUnit 5, AssertJ, Mockito (só em portas), ArchUnit, testes de propriedade com gerador reproduzível próprio (sem jqwik, Q-009), Testcontainers, Awaitility, k6, PIT | `04-quality-standards.md` |
 | Contratos | OpenAPI 3.x *contract-first* + JSON Schema para eventos; Swagger UI servida a partir do YAML versionado (webjar `swagger-ui`, sem springdoc) | `03-design-contracts.md §5` |
 | Docs | Markdown + Mermaid (incluindo a arquitetura-alvo AWS) | draw.io, se houver, é criado manualmente pelo autor, fora do backlog |
 
@@ -84,6 +85,7 @@ O enunciado trata a arquitetura de transição como **diferencial e condicional*
   5. **Reconciliação:** posição legada × Consolidado por comerciante e dia, no corte, com relatório de divergências antes do *go-live*.
   6. **Camada anticorrupção (ACL)** traduz o modelo legado para os contratos de Lançamentos, isolada do domínio.
   7. **Strangler Fig / *shadow mode*** só se houver coexistência entre os sistemas.
+  8. **Identidade legada:** usuários e comerciantes também migram, para o IdP (nunca para um cadastro próprio da aplicação, ADR-007): importação com hash compatível, migração preguiçosa no primeiro login, federação durante a coexistência ou redefinição obrigatória de senha para hashes fracos; o código legado do comerciante é traduzido para o UUID do `merchant_id` na ACL.
 - **O desenho do MVP já comporta isso sem mudança:** `identificador_externo` único, `saldoAnterior` calculado na leitura (aceita uma base de abertura sem recálculo em cascata) e eventos versionados.
 
 ## 7. Fora de escopo (e onde aparece como evolução)

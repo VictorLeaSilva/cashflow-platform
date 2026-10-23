@@ -1,16 +1,25 @@
 package br.com.fluxocaixa.lancamentos;
 
 import static com.tngtech.archunit.core.domain.JavaClass.Predicates.equivalentTo;
+import static com.tngtech.archunit.lang.syntax.ArchRuleDefinition.methods;
 import static com.tngtech.archunit.lang.syntax.ArchRuleDefinition.noClasses;
 import static com.tngtech.archunit.lang.syntax.ArchRuleDefinition.noFields;
 import static com.tngtech.archunit.lang.syntax.ArchRuleDefinition.noMethods;
 
 import com.tngtech.archunit.base.DescribedPredicate;
 import com.tngtech.archunit.core.domain.JavaClass;
+import com.tngtech.archunit.core.domain.JavaMethod;
 import com.tngtech.archunit.core.domain.JavaMethodCall;
+import com.tngtech.archunit.core.domain.JavaParameterizedType;
+import com.tngtech.archunit.core.domain.JavaType;
+import com.tngtech.archunit.lang.ArchCondition;
 import com.tngtech.archunit.lang.ArchRule;
+import com.tngtech.archunit.lang.ConditionEvents;
+import com.tngtech.archunit.lang.SimpleConditionEvent;
 import com.tngtech.archunit.library.GeneralCodingRules;
 import java.time.Clock;
+import org.springframework.http.ResponseEntity;
+import org.springframework.web.bind.annotation.RestController;
 
 /** Regras de arquitetura (04-quality-standards §2.2), usadas pelos testes positivos e negativos. */
 final class ArchitectureRules {
@@ -102,5 +111,43 @@ final class ArchitectureRules {
   static final ArchRule NO_STANDARD_STREAMS =
       GeneralCodingRules.NO_CLASSES_SHOULD_ACCESS_STANDARD_STREAMS;
 
+  /**
+   * Controllers retornam DTOs (04 §2.2, T-013): todo método público de um {@code @RestController}
+   * devolve {@code ResponseEntity} de um <i>record</i> de {@code adapter.in.web}, nunca uma classe
+   * de {@code domain}.
+   */
+  static final ArchRule CONTROLLERS_RETURN_WEB_RECORDS =
+      methods()
+          .that()
+          .areDeclaredInClassesThat()
+          .areAnnotatedWith(RestController.class)
+          .and()
+          .arePublic()
+          .should(new RetornaRecordDaWeb())
+          .allowEmptyShould(true);
+
   private ArchitectureRules() {}
+
+  /** {@code ResponseEntity<R>} com {@code R} record do pacote {@code adapter.in.web}. */
+  private static final class RetornaRecordDaWeb extends ArchCondition<JavaMethod> {
+
+    RetornaRecordDaWeb() {
+      super("retornar ResponseEntity de um record de adapter.in.web");
+    }
+
+    @Override
+    public void check(JavaMethod metodo, ConditionEvents eventos) {
+      boolean valido = false;
+      JavaType retorno = metodo.getReturnType();
+      if (metodo.getRawReturnType().isEquivalentTo(ResponseEntity.class)
+          && retorno instanceof JavaParameterizedType parametrizado
+          && parametrizado.getActualTypeArguments().size() == 1) {
+        JavaClass corpo = parametrizado.getActualTypeArguments().getFirst().toErasure();
+        valido = corpo.isRecord() && corpo.getPackageName().contains(".adapter.in.web");
+      }
+      eventos.add(
+          new SimpleConditionEvent(
+              metodo, valido, metodo.getFullName() + " retorna " + retorno.getName()));
+    }
+  }
 }

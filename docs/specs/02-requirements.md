@@ -52,7 +52,7 @@ Convenção: cada critério tem ID `AC-<req>.<n>` em formato Dado/Quando/Então.
 ### RF-008 · Consumo idempotente de eventos
 - **AC-008.1** Evento válido atualiza a projeção e registra `evento_processado` **na mesma transação**; o offset só é confirmado após o commit.
 - **AC-008.2** Evento duplicado (mesmo `eventId`) não altera a projeção.
-- **AC-008.3** Aplicar os mesmos eventos em **qualquer ordem** e com **duplicatas** produz a mesma projeção (propriedade, jqwik). *Escopo:* vale para esta projeção de totais aditivos com deduplicação atômica; regras futuras que dependam de sequência (ex.: validação por saldo, fechamento de dia) exigirão garantias de ordem e não herdam esta propriedade.
+- **AC-008.3** Aplicar os mesmos eventos em **qualquer ordem** e com **duplicatas** produz a mesma projeção (teste de propriedade com gerador reproduzível e semente registrada, Q-009). *Escopo:* vale para esta projeção de totais aditivos com deduplicação atômica; regras futuras que dependam de sequência (ex.: validação por saldo, fechamento de dia) exigirão garantias de ordem e não herdam esta propriedade.
 - **AC-008.4** Evento inválido (schema) ou não processável após 3 tentativas com *backoff* vai para a DLT e incrementa `consolidado_events_dlt_total`; o consumo prossegue.
 - **AC-008.5** Dado um evento que foi para a DLT, quando a causa é corrigida e o evento é reinjetado no tópico principal, então a projeção o aplica exatamente uma vez; reinjetá-lo novamente não altera a projeção (política em `03 §7.2`).
 
@@ -73,7 +73,7 @@ Convenção: cada critério tem ID `AC-<req>.<n>` em formato Dado/Quando/Então.
 |---|---|---|---|
 | **RNF-001** | Isolamento de falha (enunciado) | Com o Consolidado **parado**, `POST /lancamentos` mantém 201; a outbox continua drenando e os eventos acumulam **no Kafka**, sendo consumidos quando o Consolidado volta | Teste E2E de resiliência (T-031) |
 | **RNF-002** | Capacidade do Consolidado (enunciado: 50 req/s, perda ≤ 5 %) | Em 5 min a 50 req/s constantes em `GET /consolidado`: **falha < 5 %** (meta interna ≤ 1 %) e p95 ≤ 500 ms no ambiente local documentado. *Falha* = HTTP ≥ 500, erro de conexão ou resposta > 2 s. Cenário misto: com 10 req/s de escrita simultânea em Lançamentos, sucesso de escrita ≥ 99 % | `loadtest/smoke.js` (normal) e `loadtest/load.js` (carga) com *thresholds* (T-033); resultado e ambiente em `docs/performance/results/` |
-| **RNF-003** | Frescor da projeção (meta) | `consolidado_event_lag_seconds` p95 ≤ 5 s e máx ≤ 30 s em operação normal | Teste de integração + métrica; medido na carga |
+| **RNF-003** | Frescor da projeção (meta) | `consolidado_event_lag_seconds` (ponta a ponta, definição em `03 §8`) p95 ≤ 5 s e máx ≤ 30 s em operação normal, medido sob a carga concorrente da T-033 | Teste de integração + métrica; medido na carga |
 | **RNF-004** | Integridade e não-duplicidade | Nenhuma duplicidade financeira sob retentativa HTTP, reentrega Kafka ou concorrência | Testes de idempotência, concorrência e propriedade |
 | **RNF-005** | Segurança | JWT validado (assinatura, `iss`, `aud`, `exp`); autorização por *scope* e por comerciante; sem segredos no repo; dependências sem CVE ≥ 7 | Testes de segurança + gates (`04-quality-standards.md`) |
 | **RNF-006** | Observabilidade | Métricas, logs estruturados com `traceId` e alertas definidos em `03-design-contracts.md §8` | Teste de actuator/Prometheus + revisão |
@@ -82,6 +82,9 @@ Convenção: cada critério tem ID `AC-<req>.<n>` em formato Dado/Quando/Então.
 | **RNF-009** | Operabilidade local | Clone limpo → serviços de pé e fluxo exercitado em ≤ 5 comandos documentados | Teste do README (T-043) |
 | **RNF-010** | Escalabilidade | Serviços *stateless*; escala horizontal documentada; carga informativa a 100 e 200 req/s registrada | ADR + k6 |
 | **RNF-011** | Disponibilidade e DR na arquitetura-alvo (**metas**, não medidas) | Lançamentos 99,9 %/mês; Consolidado (consulta) 99,5 %/mês; RPO 5 min; RTO 30 min | Desenho AWS + restauração testada quando houver ambiente |
+| **RNF-012** | Rastreabilidade de requisição | Toda resposta, de sucesso ou erro, traz `X-Request-Id`: o do cliente se válido, senão um gerado; o mesmo valor aparece no `problem+json` de erro, nos logs dos dois serviços e no cabeçalho Kafka do evento resultante (`03 §5.2`) | Testes de fatia web (presente, ausente, inválido com quebra de linha) e de integração do publicador/consumidor (T-013, T-016, T-022, T-023) |
+| **RNF-013** | Validação estrita de entrada | 415, 406 e 413 conforme `03 §5.2`; texto livre com caractere de controle ou espaço nas pontas → 400; NFC aplicado antes do `request_hash`; nenhum dado de entrada é alterado em silêncio | Testes de fatia web e de idempotência (T-012, T-013, T-023) |
+| **RNF-014** | Contrato documentado e verificado | Toda operação do OpenAPI com exemplos de request/response em todos os status declarados; cada exemplo validado contra o schema em teste | Teste de contrato (T-013, T-023) |
 
 ## 3. Matriz de rastreabilidade (preenchida ao longo das tarefas)
 Gerada por `scripts/check-traceability.sh` em `docs/specs/traceability.md`: requisito → testes (`classe#método`) → tarefa.
