@@ -197,6 +197,18 @@ class LancamentoTest {
     assertThat(a.toString()).doesNotContain("123.45").doesNotContain("Venda");
   }
 
+  @Test
+  void recordsDeEntradaEDeEstadoNaoExpoemDadosFinanceirosNoToString() {
+    Lancamento.Dados dados = dados(TipoLancamento.CREDITO, null, null, hoje());
+    Lancamento.Novo novo = novo(TipoLancamento.CREDITO, "123.45", "Venda", null, "PDV-9");
+
+    assertThat(dados.toString()).doesNotContain("123.45").doesNotContain("Venda");
+    assertThat(novo.toString())
+        .doesNotContain("123.45")
+        .doesNotContain("Venda")
+        .doesNotContain("PDV-9");
+  }
+
   static Lancamento.Novo novo(
       TipoLancamento tipo, String valor, String descricao, Instant ocorrencia, String externo) {
     return new Lancamento.Novo(

@@ -26,7 +26,14 @@ public final class Lancamento {
       BigDecimal valor,
       String descricao,
       Instant dataOcorrencia,
-      String identificadorExterno) {}
+      String identificadorExterno) {
+
+    /** Sem valor, descrição nem identificador externo (sem payload financeiro em log). */
+    @Override
+    public String toString() {
+      return "Lancamento.Novo[tipo=" + tipo + "]";
+    }
+  }
 
   /** Estado completo de um lançamento (reidratação a partir da persistência). */
   public record Dados(
@@ -40,7 +47,20 @@ public final class Lancamento {
       UUID referenciaLancamentoId,
       TipoLancamento tipoOriginal,
       String identificadorExterno,
-      Instant criadoEm) {}
+      Instant criadoEm) {
+
+    /** Sem valor, descrição nem identificador externo (sem payload financeiro em log). */
+    @Override
+    public String toString() {
+      return "Lancamento.Dados[id="
+          + id
+          + ", tipo="
+          + tipo
+          + ", dataReferencia="
+          + dataReferencia
+          + "]";
+    }
+  }
 
   private final Dados dados;
 

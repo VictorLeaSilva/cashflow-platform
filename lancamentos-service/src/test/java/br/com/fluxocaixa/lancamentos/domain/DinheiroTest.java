@@ -2,8 +2,10 @@ package br.com.fluxocaixa.lancamentos.domain;
 
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
+import static org.junit.jupiter.api.Assertions.assertTimeoutPreemptively;
 
 import java.math.BigDecimal;
+import java.time.Duration;
 import org.junit.jupiter.api.Tag;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.params.ParameterizedTest;
@@ -69,8 +71,28 @@ class DinheiroTest {
   }
 
   @Test
-  void construtorExigeEscalaDois() {
-    assertThatThrownBy(() -> new Dinheiro(new BigDecimal("1.5")))
-        .isInstanceOf(IllegalArgumentException.class);
+  void construtorExigeEscalaDoisSemExporOValorNaMensagem() {
+    assertThatThrownBy(() -> new Dinheiro(new BigDecimal("1234.5")))
+        .isInstanceOf(IllegalArgumentException.class)
+        .hasMessageNotContaining("1234");
+  }
+
+  /** Expoente gigante é rejeitado pelo máximo antes de qualquer normalização cara de escala. */
+  @Test
+  void rejeitaExpoenteGiganteSemCustoDeProcessamento() {
+    BigDecimal gigante = new BigDecimal("1E+100000000");
+
+    assertTimeoutPreemptively(
+        Duration.ofSeconds(2),
+        () ->
+            assertThatThrownBy(() -> Dinheiro.de(gigante, MAXIMO))
+                .isInstanceOfSatisfying(
+                    LancamentoInvalidoException.class,
+                    e -> assertThat(e.erros().get(0).codigo()).isEqualTo("acima-do-maximo")));
+  }
+
+  @Test
+  void toStringNaoExpoeOValor() {
+    assertThat(Dinheiro.de(new BigDecimal("1234.56"), MAXIMO).toString()).doesNotContain("1234");
   }
 }

@@ -28,24 +28,61 @@ class EstornoPropertiesTest {
   private static final Instant AGORA = Instant.parse("2026-10-22T12:00:00Z");
   private static final Clock RELOGIO = Clock.fixed(AGORA, ZoneOffset.UTC);
 
-  /** Caso gerado: o lançamento original e o relógio do momento do estorno. */
-  record Caso(Lancamento original, Clock momentoDoEstorno) {}
+  /**
+   * Entradas de um caso, todas derivadas da semente (inclusive os IDs), para que a falha seja
+   * reproduzível e legível. O {@code toString} mostra o valor de propósito: é dado de teste.
+   */
+  record Caso(
+      TipoLancamento tipo,
+      BigDecimal valor,
+      Instant registro,
+      Duration ateOEstorno,
+      UUID idOriginal,
+      UUID comercianteId,
+      UUID idEstorno) {
+
+    Lancamento original() {
+      return Lancamento.registrar(
+          idOriginal,
+          new Lancamento.Novo(comercianteId, tipo, valor, null, registro, null),
+          POLITICA,
+          Clock.fixed(registro, ZoneOffset.UTC));
+    }
+
+    Clock momentoDoEstorno() {
+      return Clock.fixed(registro.plus(ateOEstorno), ZoneOffset.UTC);
+    }
+
+    @Override
+    public String toString() {
+      return "Caso[tipo=%s, valor=%s, registro=%s, ateOEstorno=%s, idOriginal=%s, comercianteId=%s, idEstorno=%s]"
+          .formatted(
+              tipo,
+              valor.toPlainString(),
+              registro,
+              ateOEstorno,
+              idOriginal,
+              comercianteId,
+              idEstorno);
+    }
+  }
 
   @Test
   void estornoPreservaValorETipoOriginalEProduzEfeitoNoDiaDoEstorno() {
     Propriedades.paraTodo(
         "estornar(original) é compensatório e não altera o original",
         List.of(
-            caso(TipoLancamento.CREDITO, new BigDecimal("0.01"), AGORA, Duration.ZERO),
-            caso(TipoLancamento.DEBITO, POLITICA.valorMaximo(), AGORA, Duration.ofDays(400))),
+            fronteira(TipoLancamento.CREDITO, new BigDecimal("0.01"), Duration.ZERO),
+            fronteira(TipoLancamento.DEBITO, POLITICA.valorMaximo(), Duration.ofDays(400))),
         EstornoPropertiesTest::casoQualquer,
         caso -> {
           Lancamento original = caso.original();
           Lancamento antes = Lancamento.reconstituir(original.dados());
 
           Lancamento estorno =
-              Lancamento.estornar(UUID.randomUUID(), original, POLITICA, caso.momentoDoEstorno());
+              Lancamento.estornar(caso.idEstorno(), original, POLITICA, caso.momentoDoEstorno());
 
+          assertThat(estorno.id()).isEqualTo(caso.idEstorno());
           assertThat(estorno.valor()).isEqualTo(original.valor());
           assertThat(estorno.tipoOriginal()).isEqualTo(original.tipo());
           assertThat(estorno.referenciaLancamentoId()).isEqualTo(original.id());
@@ -74,17 +111,22 @@ class EstornoPropertiesTest {
     Instant registro = AGORA.minusSeconds(aleatorio.nextLong(0, Duration.ofDays(29).toSeconds()));
     Duration ateOEstorno =
         Duration.ofSeconds(aleatorio.nextLong(0, Duration.ofDays(400).toSeconds()));
-    return caso(tipo, valor, registro, ateOEstorno);
+    return new Caso(
+        tipo, valor, registro, ateOEstorno, uuid(aleatorio), uuid(aleatorio), uuid(aleatorio));
   }
 
-  private static Caso caso(
-      TipoLancamento tipo, BigDecimal valor, Instant registro, Duration ateOEstorno) {
-    Lancamento original =
-        Lancamento.registrar(
-            UUID.randomUUID(),
-            new Lancamento.Novo(UUID.randomUUID(), tipo, valor, null, registro, null),
-            POLITICA,
-            Clock.fixed(registro, ZoneOffset.UTC));
-    return new Caso(original, Clock.fixed(registro.plus(ateOEstorno), ZoneOffset.UTC));
+  private static Caso fronteira(TipoLancamento tipo, BigDecimal valor, Duration ateOEstorno) {
+    return new Caso(
+        tipo,
+        valor,
+        AGORA,
+        ateOEstorno,
+        UUID.fromString("00000000-0000-0000-0000-000000000001"),
+        UUID.fromString("00000000-0000-0000-0000-0000000000aa"),
+        UUID.fromString("00000000-0000-0000-0000-0000000000e1"));
+  }
+
+  private static UUID uuid(SplittableRandom aleatorio) {
+    return new UUID(aleatorio.nextLong(), aleatorio.nextLong());
   }
 }
