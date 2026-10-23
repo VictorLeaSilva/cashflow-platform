@@ -63,7 +63,10 @@ class LogDeAcessoWebTest extends IntegracaoWeb {
 
     List<Map<String, Object>> linhas = linhasDeAcesso(saida, "rid-log-401");
     assertThat(linhas).hasSize(1);
-    assertThat(linhas.getFirst()).containsEntry("status", 401).containsEntry("metodo", "POST");
+    assertThat(linhas.getFirst())
+        .containsEntry("status", 401)
+        .containsEntry("metodo", "POST")
+        .containsEntry("rota", "/api/v1/lancamentos");
   }
 
   @SuppressWarnings("unchecked")

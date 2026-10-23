@@ -30,6 +30,11 @@ class SwaggerUiProfileTest {
     }
 
     @Test
+    void assetsDaSwaggerUiRespondem200SemToken() throws Exception {
+      mvc.perform(get("/webjars/swagger-ui/swagger-ui-bundle.js")).andExpect(status().isOk());
+    }
+
+    @Test
     void contratoEhOYamlVersionado() throws Exception {
       mvc.perform(get("/v3/api-docs"))
           .andExpect(status().isOk())
@@ -53,6 +58,10 @@ class SwaggerUiProfileTest {
       mvc.perform(get("/swagger-ui/index.html").header("Authorization", "Bearer " + token))
           .andExpect(status().isNotFound());
       mvc.perform(get("/v3/api-docs").header("Authorization", "Bearer " + token))
+          .andExpect(status().isNotFound());
+      mvc.perform(
+              get("/webjars/swagger-ui/swagger-ui-bundle.js")
+                  .header("Authorization", "Bearer " + token))
           .andExpect(status().isNotFound());
     }
   }

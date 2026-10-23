@@ -7,17 +7,23 @@ import static br.com.fluxocaixa.lancamentos.adapter.in.web.Chamadas.erroDeCampo;
 import static br.com.fluxocaixa.lancamentos.adapter.in.web.Chamadas.postar;
 import static br.com.fluxocaixa.lancamentos.adapter.in.web.Chamadas.problema;
 import static org.assertj.core.api.Assertions.assertThat;
+import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.get;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.header;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.jsonPath;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.status;
 
 import br.com.fluxocaixa.lancamentos.support.IntegracaoWeb;
 import br.com.fluxocaixa.lancamentos.support.RelogioFixo;
+import br.com.fluxocaixa.lancamentos.support.TokensDeTeste;
+import java.util.UUID;
 import org.hamcrest.Matchers;
 import org.junit.jupiter.api.Tag;
 import org.junit.jupiter.api.Test;
+import org.junit.jupiter.api.extension.ExtendWith;
 import org.junit.jupiter.params.ParameterizedTest;
 import org.junit.jupiter.params.provider.CsvSource;
+import org.springframework.boot.test.system.CapturedOutput;
+import org.springframework.boot.test.system.OutputCaptureExtension;
 import org.springframework.test.web.servlet.MvcResult;
 
 /**
@@ -28,6 +34,7 @@ import org.springframework.test.web.servlet.MvcResult;
 @Tag("RF-002")
 @Tag("RF-007")
 @Tag("RF-010")
+@ExtendWith(OutputCaptureExtension.class)
 class PostLancamentoWebTest extends IntegracaoWeb {
 
   @Test
@@ -193,7 +200,7 @@ class PostLancamentoWebTest extends IntegracaoWeb {
     mvc.perform(
             postar(
                 "{\"tipo\":\"CREDITO\",\"valor\":\"10.00\",\"comercianteId\":\""
-                    + java.util.UUID.randomUUID()
+                    + UUID.randomUUID()
                     + "\"}",
                 "chave-bola"))
         .andExpect(problema(400, "requisicao-invalida"))
@@ -205,7 +212,7 @@ class PostLancamentoWebTest extends IntegracaoWeb {
   void comercianteIdNaQueryEhIgnorado() throws Exception {
     mvc.perform(
             postar(credito("10.00"), "chave-query")
-                .queryParam("comercianteId", java.util.UUID.randomUUID().toString()))
+                .queryParam("comercianteId", UUID.randomUUID().toString()))
         .andExpect(status().isCreated())
         .andExpect(jsonPath("$.comercianteId").value(COMERCIANTE.toString()));
   }
@@ -251,7 +258,8 @@ class PostLancamentoWebTest extends IntegracaoWeb {
   }
 
   @Test
-  void identificadorExternoRepetidoResponde409SemExporOIdentificador() throws Exception {
+  void identificadorExternoRepetidoResponde409SemExporOIdentificador(CapturedOutput saida)
+      throws Exception {
     String corpo = "{\"tipo\":\"CREDITO\",\"valor\":\"10.00\",\"identificadorExterno\":\"nf-777\"}";
     mvc.perform(postar(corpo, "chave-a")).andExpect(status().isCreated());
 
@@ -261,12 +269,13 @@ class PostLancamentoWebTest extends IntegracaoWeb {
             .andReturn();
 
     assertThat(resultado.getResponse().getContentAsString()).doesNotContain("nf-777");
+    assertThat(saida.getAll()).doesNotContain("nf-777");
     assertThat(portas.quantidadeDeLancamentos()).isEqualTo(1);
     assertThat(portas.quantidadeDeChaves()).isEqualTo(1);
   }
 
   @Test
-  void erroInesperadoResponde500Generico() throws Exception {
+  void erroInesperadoResponde500Generico(CapturedOutput saida) throws Exception {
     portas.simularFalhaInesperada();
 
     MvcResult resultado =
@@ -276,5 +285,44 @@ class PostLancamentoWebTest extends IntegracaoWeb {
 
     assertThat(resultado.getResponse().getContentAsString())
         .doesNotContain("falha inesperada simulada", "IllegalStateException", "at br.com");
+    // A mensagem da exceção pode trazer dados da linha (ex.: erro do driver): não vai para o log.
+    assertThat(saida.getAll()).doesNotContain("falha inesperada simulada");
+  }
+
+  /** AC-T013.12 (Q-016): mais de 6 casas nos segundos seria arredondado pelo banco. */
+  @Test
+  void dataComMaisDeSeisCasasNosSegundosResponde400() throws Exception {
+    mvc.perform(
+            postar(
+                "{\"tipo\":\"CREDITO\",\"valor\":\"10.00\","
+                    + "\"dataOcorrencia\":\"2026-10-23T14:00:00.1234567Z\"}",
+                "chave-nanos"))
+        .andExpect(problema(400, "requisicao-invalida"))
+        .andExpect(erroDeCampo("dataOcorrencia", "formato-invalido"));
+    assertThat(portas.quantidadeDeLancamentos()).isZero();
+  }
+
+  @Test
+  void dataComSeisCasasNosSegundosVoltaExata() throws Exception {
+    mvc.perform(
+            postar(
+                "{\"tipo\":\"CREDITO\",\"valor\":\"10.00\","
+                    + "\"dataOcorrencia\":\"2026-10-23T11:00:00.123456-03:00\"}",
+                "chave-micros"))
+        .andExpect(status().isCreated())
+        .andExpect(jsonPath("$.dataOcorrencia").value("2026-10-23T14:00:00.123456Z"));
+  }
+
+  /** Rotas e métodos fora do contrato seguem o padrão do Spring, em problem+json. */
+  @Test
+  void metodoNaoSuportadoRespondeProblemJsonPadrao() throws Exception {
+    mvc.perform(
+            get(URL)
+                .header(
+                    "Authorization",
+                    "Bearer " + TokensDeTeste.valido(COMERCIANTE, TokensDeTeste.ESCRITA)))
+        .andExpect(status().isMethodNotAllowed())
+        .andExpect(jsonPath("$.type").value("about:blank"))
+        .andExpect(jsonPath("$.requestId").exists());
   }
 }

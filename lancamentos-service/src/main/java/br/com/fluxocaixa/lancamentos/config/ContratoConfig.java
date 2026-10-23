@@ -11,6 +11,7 @@ import org.springframework.web.servlet.function.RequestPredicates;
 import org.springframework.web.servlet.function.RouterFunction;
 import org.springframework.web.servlet.function.RouterFunctions;
 import org.springframework.web.servlet.function.ServerResponse;
+import org.springframework.web.servlet.resource.LiteWebJarsResourceResolver;
 
 /**
  * Contrato e Swagger UI só no profile {@code local} (03 §5): {@code /v3/api-docs} devolve o próprio
@@ -39,5 +40,11 @@ public class ContratoConfig implements WebMvcConfigurer {
   @Override
   public void addResourceHandlers(ResourceHandlerRegistry registro) {
     registro.addResourceHandler("/swagger-ui/**").addResourceLocations("classpath:/swagger-ui/");
+    // O mapeamento padrão de /webjars/** está desligado (spring.web.resources.add-mappings).
+    registro
+        .addResourceHandler("/webjars/**")
+        .addResourceLocations("classpath:/META-INF/resources/webjars/")
+        .resourceChain(true)
+        .addResolver(new LiteWebJarsResourceResolver());
   }
 }

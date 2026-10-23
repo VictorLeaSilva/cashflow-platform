@@ -103,7 +103,9 @@ public class ProblemaHandler extends ResponseEntityExceptionHandler {
 
   @ExceptionHandler(Exception.class)
   ResponseEntity<Object> inesperado(Exception erro, HttpServletRequest requisicao) {
-    LOG.error("erro inesperado ao processar a requisição", erro);
+    // Só as classes da cadeia de causas: a mensagem (ex.: erro do driver) pode trazer dados da
+    // linha.
+    LOG.error("erro inesperado ao processar a requisição: {}", classes(erro));
     return problemas.resposta(
         requisicao, HttpStatus.INTERNAL_SERVER_ERROR, "interno", "erro interno; tente novamente");
   }
@@ -167,7 +169,10 @@ public class ProblemaHandler extends ResponseEntityExceptionHandler {
     return null;
   }
 
-  /** Demais erros do Spring MVC (404, 405...) no mesmo formato. */
+  /**
+   * Demais erros do Spring MVC no mesmo formato; 404 e 405 com o {@code type} padrão (fora do
+   * catálogo).
+   */
   @Override
   protected ResponseEntity<Object> handleExceptionInternal(
       Exception erro,
@@ -178,8 +183,7 @@ public class ProblemaHandler extends ResponseEntityExceptionHandler {
     HttpStatus http = HttpStatus.valueOf(status.value());
     String tipo =
         switch (http) {
-          case NOT_FOUND -> "recurso-nao-encontrado";
-          case METHOD_NOT_ALLOWED -> "metodo-nao-permitido";
+          case NOT_FOUND, METHOD_NOT_ALLOWED -> Problemas.TIPO_PADRAO;
           default -> http.is4xxClientError() ? REQUISICAO_INVALIDA : "interno";
         };
     ResponseEntity<Object> resposta =
@@ -222,6 +226,17 @@ public class ProblemaHandler extends ResponseEntityExceptionHandler {
 
   private static String campo(DatabindException erro) {
     return erro.getPath().getLast().getPropertyName();
+  }
+
+  private static String classes(Throwable erro) {
+    StringBuilder cadeia = new StringBuilder();
+    for (Throwable atual = erro; atual != null; atual = atual.getCause()) {
+      if (!cadeia.isEmpty()) {
+        cadeia.append(" <- ");
+      }
+      cadeia.append(atual.getClass().getName());
+    }
+    return cadeia.toString();
   }
 
   private static <T extends Throwable> T causa(Throwable erro, Class<T> tipo) {

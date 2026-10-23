@@ -5,6 +5,10 @@ server:
     include-stacktrace: never
 
 spring:
+  web:
+    resources:
+      # Sem recursos estáticos fora do contrato: Swagger UI e webjars só no profile local (ContratoConfig).
+      add-mappings: false
   datasource:
     # A aplicação opera como lancamentos_app (D-15): SELECT/INSERT, sem DDL.
     url: jdbc:postgresql://localhost:${POSTGRES_PORT:5432}/lancamentos

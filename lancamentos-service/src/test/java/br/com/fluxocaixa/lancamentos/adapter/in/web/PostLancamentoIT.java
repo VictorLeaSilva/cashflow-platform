@@ -5,6 +5,7 @@ import static br.com.fluxocaixa.lancamentos.adapter.in.web.Chamadas.postarComo;
 import static br.com.fluxocaixa.lancamentos.adapter.in.web.Chamadas.problema;
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.header;
+import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.jsonPath;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.status;
 
 import br.com.fluxocaixa.lancamentos.support.IntegracaoPostgres;
@@ -88,6 +89,33 @@ class PostLancamentoIT extends IntegracaoPostgres {
         .doesNotContain("nf-it-1", comerciante.toString());
     assertThat(contar("lancamento", comerciante)).isEqualTo(1);
     assertThat(contar("idempotency_key", comerciante)).isEqualTo(1);
+  }
+
+  /** AC-T013.12 (Q-016): microssegundos voltam exatos do banco; mais casas são rejeitadas. */
+  @Test
+  void precisaoDeMicrossegundosSobreviveAoReplayEMaisCasasSaoRejeitadas() throws Exception {
+    UUID comerciante = UUID.randomUUID();
+    String token = TokensDeTeste.valido(comerciante, TokensDeTeste.ESCRITA);
+    String micros =
+        "{\"tipo\":\"CREDITO\",\"valor\":\"10.00\",\"dataOcorrencia\":\"2026-10-23T14:00:00.123456Z\"}";
+    String nanos =
+        "{\"tipo\":\"CREDITO\",\"valor\":\"10.00\",\"dataOcorrencia\":\"2026-10-23T14:00:00.1234567Z\"}";
+
+    MvcResult primeiro =
+        mvc.perform(postarComo(token, micros, "it-micros"))
+            .andExpect(status().isCreated())
+            .andExpect(jsonPath("$.dataOcorrencia").value("2026-10-23T14:00:00.123456Z"))
+            .andReturn();
+    MvcResult replay =
+        mvc.perform(postarComo(token, micros, "it-micros"))
+            .andExpect(header().string("Idempotent-Replayed", "true"))
+            .andReturn();
+    mvc.perform(postarComo(token, nanos, "it-nanos"))
+        .andExpect(problema(400, "requisicao-invalida"));
+
+    assertThat(replay.getResponse().getContentAsString())
+        .isEqualTo(primeiro.getResponse().getContentAsString());
+    assertThat(contar("lancamento", comerciante)).isEqualTo(1);
   }
 
   private long contar(String tabela, UUID comerciante) {

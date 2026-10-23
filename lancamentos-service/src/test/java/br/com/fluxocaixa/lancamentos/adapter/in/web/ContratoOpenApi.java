@@ -92,10 +92,19 @@ final class ContratoOpenApi {
     embrulho.set("components", documento.path("components"));
     Schema compilado = SCHEMAS.getSchema(JSON.writeValueAsString(embrulho), InputFormat.JSON);
     List<String> erros = new ArrayList<>();
-    for (Error erro : compilado.validate(instancia)) {
+    // format (uuid, date, date-time...) é asserção, não só anotação.
+    for (Error erro :
+        compilado.validate(
+            instancia,
+            contexto -> contexto.executionConfig(config -> config.formatAssertionsEnabled(true)))) {
       erros.add(erro.getInstanceLocation() + ": " + erro.getMessage());
     }
     return erros;
+  }
+
+  /** Valor de cabeçalho como instância JSON (texto). */
+  JsonNode texto(String valor) {
+    return JSON.getNodeFactory().stringNode(valor);
   }
 
   List<String> validar(JsonNode schema, String json) {

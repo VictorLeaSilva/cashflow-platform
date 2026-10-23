@@ -26,6 +26,9 @@ final class EntradaDeLancamento {
 
   static final String IDEMPOTENCY_KEY = "Idempotency-Key";
 
+  /** Precisão do TIMESTAMPTZ (Q-016). */
+  private static final int MAX_CASAS_NOS_SEGUNDOS = 6;
+
   private static final Pattern CHAVE = Pattern.compile("^[A-Za-z0-9._-]{1,64}$");
   private static final Pattern CONTROLE = Pattern.compile("\\p{Cc}");
 
@@ -109,12 +112,38 @@ final class EntradaDeLancamento {
     return !texto.isEmpty() && texto.chars().allMatch(c -> c >= '0' && c <= '9');
   }
 
+  /**
+   * Casas da fração de segundo de um instante ISO-8601 já validado (Q-016): o {@code TIMESTAMPTZ}
+   * guarda microssegundos, e arredondar em silêncio mudaria o dado e o replay.
+   */
+  private static int casasNosSegundos(String data) {
+    int ponto = data.indexOf('.', data.indexOf('T'));
+    if (ponto < 0) {
+      return 0;
+    }
+    int fim = ponto + 1;
+    while (fim < data.length() && Character.isDigit(data.charAt(fim))) {
+      fim++;
+    }
+    return fim - ponto - 1;
+  }
+
   private static Instant ocorrencia(String data, List<ErroCampo> erros) {
     if (data == null) {
       return null;
     }
     try {
-      return OffsetDateTime.parse(data, DateTimeFormatter.ISO_OFFSET_DATE_TIME).toInstant();
+      Instant instante =
+          OffsetDateTime.parse(data, DateTimeFormatter.ISO_OFFSET_DATE_TIME).toInstant();
+      if (casasNosSegundos(data) > MAX_CASAS_NOS_SEGUNDOS) {
+        erros.add(
+            erro(
+                "dataOcorrencia",
+                "formato-invalido",
+                "dataOcorrencia aceita no máximo 6 casas decimais nos segundos (microssegundos)"));
+        return null;
+      }
+      return instante;
     } catch (DateTimeParseException e) {
       erros.add(
           erro(

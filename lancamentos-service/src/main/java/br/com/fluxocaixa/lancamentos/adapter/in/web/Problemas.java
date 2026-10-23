@@ -24,6 +24,9 @@ public class Problemas {
 
   static final String BASE = "/erros/";
 
+  /** {@code type} padrão do RFC 9457, usado nos erros fora do catálogo (404, 405). */
+  static final String TIPO_PADRAO = "about:blank";
+
   /** Corpo de mapas e textos: não depende da configuração JSON da API. */
   private static final JsonMapper JSON = JsonMapper.builder().build();
 
@@ -41,7 +44,7 @@ public class Problemas {
       String detalhe,
       List<ErroCampo> erros) {
     Map<String, Object> corpo = new LinkedHashMap<>();
-    corpo.put("type", BASE + tipo);
+    corpo.put("type", tipo.startsWith(TIPO_PADRAO) ? tipo : BASE + tipo);
     corpo.put("title", status.getReasonPhrase());
     corpo.put("status", status.value());
     corpo.put("detail", detalhe);

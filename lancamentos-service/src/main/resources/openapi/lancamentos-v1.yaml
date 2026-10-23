@@ -162,7 +162,9 @@ components:
         dataOcorrencia:
           type: string
           format: date-time
-          description: Instante ISO-8601 com offset ou `Z`; ausente, vale o instante do servidor.
+          description: |
+            Instante ISO-8601 com offset ou `Z`, com no máximo 6 casas nos segundos
+            (microssegundos); ausente, vale o instante do servidor.
         identificadorExterno:
           type: string
           minLength: 1
@@ -525,7 +527,7 @@ components:
                 type: /erros/data-futura
                 title: Unprocessable Content
                 status: 422
-                detail: dataOcorrencia no futuro além da tolerância de 60 s
+                detail: dataOcorrencia no futuro além da tolerância de PT1M
                 instance: /api/v1/lancamentos
                 requestId: cliente-req-8f2c1
                 timestamp: '2026-10-23T15:00:00Z'

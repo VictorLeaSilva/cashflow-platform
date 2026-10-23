@@ -42,7 +42,12 @@ class SegurancaJwtWebTest extends IntegracaoWeb {
         caso("HS256", c -> c.hs256()),
         caso("iss errado", c -> c.emissor("https://outro.emissor")),
         caso("aud errada", c -> c.audiencia("outra-api")),
-        caso("expirado", c -> c.expiraEm(RelogioFixo.AGORA.minus(Duration.ofMinutes(5)))),
+        caso(
+            "expirado",
+            c ->
+                c.claim("iat", RelogioFixo.AGORA.minus(Duration.ofHours(2)).getEpochSecond())
+                    .expiraEm(RelogioFixo.AGORA.minus(Duration.ofMinutes(5)))),
+        caso("sem exp", c -> c.claim("exp", null)),
         caso("nbf no futuro", c -> c.naoAntesDe(RelogioFixo.AGORA.plus(Duration.ofMinutes(5)))),
         caso("sem merchant_id", c -> c.comerciante(null)),
         caso("merchant_id não UUID", c -> c.comerciante("loja-123")));
