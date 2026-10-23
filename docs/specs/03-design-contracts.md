@@ -111,7 +111,8 @@ CREATE TABLE outbox_event (
   created_at TIMESTAMPTZ NOT NULL DEFAULT now(),
   published_at TIMESTAMPTZ,
   attempt_count INTEGER NOT NULL DEFAULT 0,
-  last_error TEXT
+  last_error TEXT,
+  request_id VARCHAR(64)                   -- X-Request-Id da requisição de origem; vira o cabeçalho Kafka x-request-id (§5.2)
 );
 CREATE INDEX ix_outbox_pendentes ON outbox_event (created_at) WHERE published_at IS NULL;
 
@@ -222,7 +223,21 @@ Arquivos: `lancamentos-service/src/main/resources/openapi/lancamentos-v1.yaml` e
 Corpo do POST: `{ "tipo": "CREDITO|DEBITO", "valor": "100.00", "descricao"?: "...", "dataOcorrencia"?: "ISO-8601", "identificadorExterno"?: "..." }`.
 **Swagger UI (decisão do dono do produto):** servida a partir do YAML *contract-first* versionado, via webjar `swagger-ui` e `/v3/api-docs` apontando para o arquivo (sem springdoc: evita acoplamento à versão do Boot e elimina divergência entre código e contrato, que já é validado nos testes). Habilitada **somente nos profiles `dev`/`local`**; desabilitada e sem rota liberada no Security em `prod`. O YAML declara o esquema `bearerAuth` (JWT) para o botão *Authorize*; o token vem de `scripts/DevToken.java`.
 
-Erros: RFC 9457 com `type`, `title`, `status`, `detail`, `traceId`, `errors[]`. Jackson com `FAIL_ON_UNKNOWN_PROPERTIES`. Actuator em porta de gestão separada, apenas `health` e `prometheus` expostos.
+Erros: RFC 9457 com `type`, `title`, `status`, `detail`, `instance`, `errors[]` e os membros de extensão `requestId`, `traceId` e `timestamp` (§5.2). Jackson com `FAIL_ON_UNKNOWN_PROPERTIES`. Actuator em porta de gestão separada, apenas `health` e `prometheus` expostos.
+
+**Documentação do contrato (OpenAPI):** toda operação traz exemplos **preenchidos** de request e de response para cada status que declara (201/200, 400 com `errors[]` por campo, 401, 403, 404, 409, 413, 415, 422), com exemplos nomeados para os casos principais (ex.: `credito`, `debito`, `retroativo`, `replay-idempotente`, `estorno-duplicado`), e documenta os cabeçalhos `Authorization`, `Idempotency-Key`, `X-Request-Id`, `Location` e `Idempotent-Replayed`. Um teste valida **cada exemplo** do YAML contra o próprio schema, para que exemplo e contrato não divirjam.
+
+### 5.2 Request ID, metadados de resposta e validação de entrada
+- **`X-Request-Id`:** opcional na requisição. Se vier e casar com `^[A-Za-z0-9._-]{1,64}$`, é aceito; se faltar ou for inválido, o filtro HTTP (primeiro da cadeia) gera um UUID pela porta `IdGenerator`. É **sempre** devolvido no cabeçalho da resposta, colocado no MDC (todo log tem `requestId` e `traceId`), gravado em `outbox_event.request_id` e publicado como cabeçalho Kafka `x-request-id`; o consumidor do Consolidado o coloca no MDC ao aplicar o evento. Não entra no payload do evento (`additionalProperties: false`).
+- **Metadados de resposta:** em respostas de sucesso, ficam só em cabeçalhos (`X-Request-Id` e `Date`); o corpo é o recurso de §5.1. Em erros, o `problem+json` traz `requestId`, `traceId`, `timestamp` (instante UTC pelo `Clock`) e `instance` (caminho da requisição). **Não há envelope** `{requestId, timestamp, data}` em toda resposta: quebraria o AC-007.2 (o replay idempotente devolve o mesmo corpo), duplicaria o que o HTTP já transporta e fugiria do RFC 9457 (ADR-008).
+- **Validação estrita, sem alterar o dado em silêncio:** entrada inválida é **rejeitada** com explicação, nunca "corrigida".
+  - `Content-Type` diferente de `application/json` → **415**; `Accept` incompatível → **406**; corpo acima de **16 KiB** → **413**.
+  - `descricao` e `identificadorExterno`: rejeitar caracteres de controle (inclusive quebra de linha) e espaços nas pontas (400); texto normalizado em Unicode **NFC** antes da validação de tamanho e do cálculo do `request_hash`.
+  - `Idempotency-Key`: `^[A-Za-z0-9._-]{1,64}$`, senão 400.
+  - Sem escape de HTML na entrada: a API devolve JSON e a codificação para exibição é de quem renderiza.
+- **Log de acesso:** uma linha JSON por requisição com `requestId`, `traceId`, método, **rota padrão** (sem IDs na URL), status e duração; sem corpo, sem token e sem `comercianteId` em claro.
+- **Catálogo de erros:** cada `type` do `problem+json` é uma URI estável documentada no OpenAPI (ex.: `/erros/data-retroativa-excedida`, `/erros/idempotency-key-reuse`), para tratamento por código.
+- **Código duplicado de propósito:** o filtro existe nos dois serviços; não há código compartilhado entre eles (`01 §3`).
 
 ### 5.1 Formatos de resposta, portas e token de desenvolvimento
 Portas: Lançamentos `8081` (gestão `9081`); Consolidado `8082` (gestão `9082`). Serviços do compose: `postgres`, `kafka`, `lancamentos`, `consolidado`.

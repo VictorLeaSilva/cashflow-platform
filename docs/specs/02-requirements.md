@@ -82,6 +82,9 @@ Convenção: cada critério tem ID `AC-<req>.<n>` em formato Dado/Quando/Então.
 | **RNF-009** | Operabilidade local | Clone limpo → serviços de pé e fluxo exercitado em ≤ 5 comandos documentados | Teste do README (T-043) |
 | **RNF-010** | Escalabilidade | Serviços *stateless*; escala horizontal documentada; carga informativa a 100 e 200 req/s registrada | ADR + k6 |
 | **RNF-011** | Disponibilidade e DR na arquitetura-alvo (**metas**, não medidas) | Lançamentos 99,9 %/mês; Consolidado (consulta) 99,5 %/mês; RPO 5 min; RTO 30 min | Desenho AWS + restauração testada quando houver ambiente |
+| **RNF-012** | Rastreabilidade de requisição | Toda resposta, de sucesso ou erro, traz `X-Request-Id`: o do cliente se válido, senão um gerado; o mesmo valor aparece no `problem+json` de erro, nos logs dos dois serviços e no cabeçalho Kafka do evento resultante (`03 §5.2`) | Testes de fatia web (presente, ausente, inválido com quebra de linha) e de integração do publicador/consumidor (T-013, T-016, T-022, T-023) |
+| **RNF-013** | Validação estrita de entrada | 415, 406 e 413 conforme `03 §5.2`; texto livre com caractere de controle ou espaço nas pontas → 400; NFC aplicado antes do `request_hash`; nenhum dado de entrada é alterado em silêncio | Testes de fatia web e de idempotência (T-012, T-013, T-023) |
+| **RNF-014** | Contrato documentado e verificado | Toda operação do OpenAPI com exemplos de request/response em todos os status declarados; cada exemplo validado contra o schema em teste | Teste de contrato (T-013, T-023) |
 
 ## 3. Matriz de rastreabilidade (preenchida ao longo das tarefas)
 Gerada por `scripts/check-traceability.sh` em `docs/specs/traceability.md`: requisito → testes (`classe#método`) → tarefa.

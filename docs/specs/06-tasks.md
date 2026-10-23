@@ -20,15 +20,15 @@ Ordem: *walking skeleton* (fundação e harness) → fatias verticais por servi�
 | T-010 | Domínio: `Lancamento`, `Dinheiro`, regras de estorno, `DataReferencia`; JSON Schema do evento alinhado à `03 §4` | T-002 | RF-001..003, RF-009, RNF-004 | Unit + jqwik |
 | T-011 | Persistência: Flyway V1, repositórios JDBC, constraints | T-004, T-010 | RF-003, RNF-004 | IT com Testcontainers |
 | T-012 | Idempotência + caso de uso `RegistrarLancamento` (transação única com outbox) | T-011 | RF-001, RF-002, RF-007 | IT de concorrência (AC-007.4) |
-| T-013 | API `POST /lancamentos` + JWT + Problem Details + OpenAPI contract-first + `scripts/DevToken.java` | T-012 | RF-001, RF-002, RNF-005 | Fatia web + validação de contrato |
+| T-013 | API `POST /lancamentos` + JWT + Problem Details + OpenAPI contract-first com exemplos completos + filtro `X-Request-Id` + validação estrita de entrada + log de acesso + `scripts/DevToken.java` | T-012 | RF-001, RF-002, RNF-005, RNF-012, RNF-013, RNF-014 | Fatia web + validação de contrato e dos exemplos |
 | T-014 | Estorno (caso de uso + endpoint) | T-013 | RF-003 | AC-003.x |
 | T-015 | Consultas (detalhe e histórico) + isolamento | T-013 | RF-004, RF-010 | AC-004.x, AC-010.x |
-| T-016 | Publicador outbox (poller `SKIP LOCKED`, produtor Kafka, métricas) | T-012, T-004 | RNF-001, RNF-007 | IT: falha entre envio e marcação; Kafka fora |
+| T-016 | Publicador outbox (poller `SKIP LOCKED`, produtor Kafka com cabeçalho `x-request-id`, métricas) | T-012, T-004 | RNF-001, RNF-007, RNF-012 | IT: falha entre envio e marcação; Kafka fora |
 | **Fase 2 — Consolidado** |||||
 | T-020 | Domínio da projeção (aplicar evento → deltas) | T-002 | RF-008, RF-009 | jqwik: ordem/duplicatas |
 | T-021 | Persistência (Flyway, upsert aditivo, `evento_processado`) | T-004, T-020 | RF-008, RNF-004 | IT de concorrência no mesmo dia |
-| T-022 | Consumidor Kafka (schema, tx, ack pós-commit, retry+DLT, métrica de lag) | T-021 | RF-008, RNF-003 | AC-008.x |
-| T-023 | API de consulta (zero-fill, saldo anterior/acumulado) + JWT + OpenAPI | T-021 | RF-005, RF-006, RF-010 | AC-005.x, AC-006.x |
+| T-022 | Consumidor Kafka (schema, tx, ack pós-commit, retry+DLT, métrica de lag ponta a ponta, `requestId` do cabeçalho no MDC) | T-021 | RF-008, RNF-003, RNF-012 | AC-008.x |
+| T-023 | API de consulta (zero-fill, saldo anterior/acumulado) + JWT + OpenAPI com exemplos completos + filtro `X-Request-Id` + validação estrita + log de acesso | T-021 | RF-005, RF-006, RF-010, RNF-012, RNF-013, RNF-014 | AC-005.x, AC-006.x, contrato e exemplos |
 | **Fase 3 — Transversais** |||||
 | T-030 | Contrato de evento: validação automática do JSON Schema (alinhado na T-010; biblioteca: Q-006) e *golden files* nos dois lados | T-016, T-022 | RF-008 | Testes de contrato |
 | T-031 | Resiliência E2E (Consolidado parado, Kafka fora, consumidor pausado, retroativo) | T-016, T-023 | RNF-001, RNF-007, RF-009 | Testes E2E |

@@ -255,6 +255,9 @@ Estados conforme §1.2: **provado**, **a provar (T-xxx)** e **só desenho**.
 | RNF-009 Operabilidade local | Compose + README em ≤ 5 comandos | Seguir o README do zero | Infraestrutura **provada** (T-004); fluxo completo **a provar** (T-043) |
 | RNF-010 Escalabilidade | Serviços *stateless*; escala horizontal no alvo | k6 informativo a 100 e 200 req/s | **A provar** (T-033); escala no alvo é **só desenho** |
 | RNF-011 Disponibilidade e DR (**metas**) | Multi-AZ, PITR, MSK replicado (§6, ADR-010) | Restauração testada quando houver ambiente | **Só desenho** (T-005) |
+| RNF-012 Rastreabilidade de requisição | Filtro `X-Request-Id` (aceita válido ou gera), cabeçalho em toda resposta, MDC, outbox e cabeçalho Kafka (`03 §5.2`, ADR-008) | Testes de fatia web e de publicador/consumidor | **A provar** (T-013, T-016, T-022, T-023) |
+| RNF-013 Validação estrita de entrada | Rejeitar sem alterar: 415/406/413, controle e espaços nas pontas, NFC antes do hash (`03 §5.2`, ADR-007) | Testes de fatia web e de idempotência | **A provar** (T-012, T-013, T-023) |
+| RNF-014 Contrato documentado e verificado | OpenAPI com exemplos em todos os status, validados contra o schema | Teste de contrato | **A provar** (T-013, T-023) |
 
 ## 9. Decisões (ADRs)
 
