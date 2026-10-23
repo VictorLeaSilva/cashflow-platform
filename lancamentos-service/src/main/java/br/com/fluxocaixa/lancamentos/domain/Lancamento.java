@@ -78,7 +78,7 @@ public final class Lancamento {
     Objects.requireNonNull(id, "id");
     Objects.requireNonNull(novo, "novo");
     Objects.requireNonNull(novo.comercianteId(), "comercianteId");
-    Dinheiro valor = validarCampos(novo, politica);
+    Dinheiro valor = camposValidos(novo, politica);
     DataReferencia dataReferencia =
         DataReferencia.paraRegistro(novo.dataOcorrencia(), politica, clock);
     Instant agora = clock.instant();
@@ -139,7 +139,20 @@ public final class Lancamento {
     return new Lancamento(dados);
   }
 
-  private static Dinheiro validarCampos(Novo novo, PoliticaLancamento politica) {
+  /**
+   * Valida só os campos de um novo crédito ou débito (tipo, valor, tamanhos), sem as regras que
+   * dependem do relógio. Permite validar antes da execução idempotente e deixar as regras de data
+   * para a criação, de modo que um replay não as reaplique (Q-011). {@link #registrar} faz as duas
+   * validações.
+   *
+   * @throws LancamentoInvalidoException com todos os erros de campo encontrados
+   */
+  public static void validarCampos(Novo novo, PoliticaLancamento politica) {
+    Objects.requireNonNull(novo, "novo");
+    camposValidos(novo, politica);
+  }
+
+  private static Dinheiro camposValidos(Novo novo, PoliticaLancamento politica) {
     List<ErroCampo> erros = new ArrayList<>();
     if (novo.tipo() == null) {
       erros.add(new ErroCampo("tipo", "obrigatorio", "tipo é obrigatório"));

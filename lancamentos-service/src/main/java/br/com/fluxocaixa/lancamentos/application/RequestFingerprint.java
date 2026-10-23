@@ -12,9 +12,10 @@ import java.util.HexFormat;
 /**
  * {@code request_hash} da chave de idempotência: SHA-256 (hex) da representação canônica da
  * operação, calculada do comando já validado e não do JSON bruto (T-012; "corpo canônico" de 03
- * §3.1). Formato: {@code operação|tipo|valor com escala 2|descricao|instante UTC|identificador
- * externo}, com {@code -} para campo ausente. Textos entram em NFC (03 §5.2); chave e {@code
- * requestId} não entram.
+ * §3.1). Campos, nesta ordem e separados por {@code |}: operação, tipo, valor com escala 2,
+ * descricao, instante UTC e identificador externo. Sem ambiguidade (Q-010): campo presente como
+ * {@code <tamanho>:<texto>} (code points, após NFC) e ausente como {@code -}. Ex.: {@code 17:POST
+ * /lancamentos|7:CREDITO|6:100.00|-|-|-}. Chave e {@code requestId} não entram.
  */
 public final class RequestFingerprint {
 
@@ -31,12 +32,12 @@ public final class RequestFingerprint {
   static String canonico(RegistrarLancamentoCommand comando) {
     return String.join(
         SEPARADOR,
-        OPERACAO_REGISTRO,
-        comando.tipo().name(),
-        valor(comando.valor()),
-        texto(comando.descricao()),
-        instante(comando.dataOcorrencia()),
-        texto(comando.identificadorExterno()));
+        campo(OPERACAO_REGISTRO),
+        campo(comando.tipo().name()),
+        campo(valor(comando.valor())),
+        campo(nfc(comando.descricao())),
+        campo(instante(comando.dataOcorrencia())),
+        campo(nfc(comando.identificadorExterno())));
   }
 
   /** O comando já foi validado pelo domínio (no máximo 2 casas), então não há arredondamento. */
@@ -44,12 +45,17 @@ public final class RequestFingerprint {
     return valor.setScale(2, RoundingMode.UNNECESSARY).toPlainString();
   }
 
-  private static String texto(String texto) {
-    return texto == null ? AUSENTE : Normalizer.normalize(texto, Normalizer.Form.NFC);
+  /** Prefixo de tamanho: nenhum texto, nem {@code "-"} nem um com {@code |}, imita outro campo. */
+  private static String campo(String texto) {
+    return texto == null ? AUSENTE : texto.codePointCount(0, texto.length()) + ":" + texto;
+  }
+
+  private static String nfc(String texto) {
+    return texto == null ? null : Normalizer.normalize(texto, Normalizer.Form.NFC);
   }
 
   private static String instante(Instant instante) {
-    return instante == null ? AUSENTE : instante.toString();
+    return instante == null ? null : instante.toString();
   }
 
   private static String sha256(String canonico) {

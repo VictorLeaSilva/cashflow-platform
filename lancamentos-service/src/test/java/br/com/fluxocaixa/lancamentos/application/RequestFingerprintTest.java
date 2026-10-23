@@ -44,13 +44,44 @@ class RequestFingerprintTest {
             "req-1");
 
     assertThat(RequestFingerprint.canonico(comando))
-        .isEqualTo("POST /lancamentos|DEBITO|100.00|Aluguel|2026-10-22T02:30:00Z|nf-1");
+        .isEqualTo(
+            "17:POST /lancamentos|6:DEBITO|6:100.00|7:Aluguel|20:2026-10-22T02:30:00Z|4:nf-1");
   }
 
   @Test
   void camposOpcionaisAusentesViramHifen() {
     assertThat(RequestFingerprint.canonico(comando("10.00")))
-        .isEqualTo("POST /lancamentos|CREDITO|10.00|-|-|-");
+        .isEqualTo("17:POST /lancamentos|7:CREDITO|5:10.00|-|-|-");
+  }
+
+  /** AC-T012.5 (Q-010): o texto "-" não se confunde com o campo ausente. */
+  @Test
+  void hifenComoTextoDifereDeCampoAusente() {
+    assertThat(RequestFingerprint.deRegistro(comTextos("-", "-")))
+        .isNotEqualTo(RequestFingerprint.deRegistro(comTextos(null, null)))
+        .isNotEqualTo(RequestFingerprint.deRegistro(comTextos("-", null)))
+        .isNotEqualTo(RequestFingerprint.deRegistro(comTextos(null, "-")));
+  }
+
+  /** AC-T012.5 (Q-010): um separador dentro do texto não imita outra combinação de campos. */
+  @Test
+  void separadorDentroDoTextoNaoImitaOutrosCampos() {
+    // No formato sem tamanho, ambos seriam "...|a|-|-|-".
+    var comSeparador = comTextos("a|-", null);
+    var semSeparador = comTextos("a", "-|-");
+    assertThat(RequestFingerprint.canonico(comSeparador))
+        .isNotEqualTo(RequestFingerprint.canonico(semSeparador));
+    assertThat(RequestFingerprint.deRegistro(comSeparador))
+        .isNotEqualTo(RequestFingerprint.deRegistro(semSeparador));
+  }
+
+  @Test
+  void tamanhoEmCodePointsAposNfc() {
+    // "São" em NFD tem 4 code points; em NFC, 3. O emoji ocupa 2 chars Java e 1 code point.
+    String nfd = Normalizer.normalize("São", Normalizer.Form.NFD);
+    String emoji = "😀";
+    assertThat(RequestFingerprint.canonico(comTextos(nfd, emoji)))
+        .isEqualTo("17:POST /lancamentos|7:CREDITO|5:10.00|3:São|-|1:" + emoji);
   }
 
   @Test

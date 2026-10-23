@@ -46,35 +46,37 @@ public class RegistrarLancamento {
   }
 
   /**
-   * Passo 1 (sem banco): valida pelo domínio, gera o id e calcula o hash; depois, a execução
-   * idempotente.
+   * Passo 1 (sem banco): valida só os campos, gera o id e calcula o hash. As regras de data ficam
+   * no passo 4, dentro da execução idempotente: um replay devolve o original sem reaplicá-las, e
+   * uma rejeição desfaz a chave junto (03 §3.1.1, Q-011).
    *
    * @throws br.com.fluxocaixa.lancamentos.domain.LancamentoInvalidoException campos inválidos
-   * @throws br.com.fluxocaixa.lancamentos.domain.RegraDeNegocioException data fora dos limites
+   * @throws br.com.fluxocaixa.lancamentos.domain.RegraDeNegocioException data fora dos limites (só
+   *     em comandos novos)
    * @throws IdempotencyKeyReuseException chave já usada com outro comando
    * @throws IdempotencyConflictException chave em disputa após as tentativas
    */
   public Resultado registrar(RegistrarLancamentoCommand comando) {
     UUID comercianteId = comando.comercianteId();
-    Lancamento novo =
-        Lancamento.registrar(
-            ids.gerar(),
-            new Lancamento.Novo(
-                comercianteId,
-                comando.tipo(),
-                comando.valor(),
-                comando.descricao(),
-                comando.dataOcorrencia(),
-                comando.identificadorExterno()),
-            politica,
-            clock);
+    Lancamento.Novo novo =
+        new Lancamento.Novo(
+            comercianteId,
+            comando.tipo(),
+            comando.valor(),
+            comando.descricao(),
+            comando.dataOcorrencia(),
+            comando.identificadorExterno());
+    Lancamento.validarCampos(novo, politica);
+    UUID lancamentoId = ids.gerar();
     var resultado =
         execucaoIdempotente.executar(
             comercianteId,
             comando.chave(),
             RequestFingerprint.deRegistro(comando),
-            novo.id(),
-            () -> gravar(novo, comando.requestId()),
+            lancamentoId,
+            () ->
+                gravar(
+                    Lancamento.registrar(lancamentoId, novo, politica, clock), comando.requestId()),
             existente -> carregar(comercianteId, existente));
     return new Resultado(resultado.valor(), resultado.replay());
   }
