@@ -93,7 +93,6 @@ O gate automatizado por tarefa (`scripts/verify-task.sh`) chega com a T-003; at�
 
 Projeto em desenvolvimento.
 
-- **Integrado:** build reproduzível e gates de qualidade (T-001, T-002); infraestrutura local com PostgreSQL e Kafka (T-004).
-- **Em revisão:** documentação de arquitetura com ADRs e arquitetura-alvo (T-005), aguardando aprovação.
+- **Integrado:** build reproduzível e gates de qualidade (T-001, T-002); infraestrutura local com PostgreSQL e Kafka (T-004); documentação de arquitetura com ADRs e arquitetura-alvo (T-005).
 - **Próximo:** domínio, persistência e idempotência de Lançamentos (T-010 a T-012), seguidos das APIs, do publicador e do Consolidado. A ordem está em [`docs/specs/06-tasks.md`](docs/specs/06-tasks.md).
 - Os serviços ainda não expõem endpoints.

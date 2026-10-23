@@ -34,7 +34,7 @@ flowchart TB
         C9[Medir frescor da projeção]
       end
     end
-    C5 -. evento LancamentoRegistrado.v1 .-> C6
+    C5 -.->|"evento LancamentoRegistrado.v1"| C6
 ```
 
 | Capacidade | Contexto | Requisitos | Observação |

@@ -9,6 +9,8 @@ Com integração assíncrona, uma falha não aparece como erro para o usuário: 
 
 ## Decisão
 - **Instrumentação:** Spring Boot Actuator + Micrometer + OpenTelemetry nos dois serviços; logs JSON com `traceId`/`correlationId`; *trace* propagado por cabeçalhos Kafka do produtor ao consumidor.
+- **Request ID (`03 §5.2`, RNF-012):** filtro HTTP aceita `X-Request-Id` válido ou gera um; o valor volta em toda resposta, vai para o MDC, para a outbox e para o cabeçalho Kafka `x-request-id`. É o identificador que o cliente informa ao suporte; o `traceId` é o técnico, para seguir a chamada entre serviços. Um log de acesso JSON por requisição (rota padrão, status, duração, sem corpo nem token).
+- **Metadados nos cabeçalhos, não num envelope:** em sucesso, `X-Request-Id` e `Date`; em erro, `requestId`, `traceId`, `timestamp` e `instance` como extensões do `problem+json`.
 - **Case local:** Prometheus + Grafana em profile do compose, com regras de alerta em arquivo (T-032).
 - **Alvo:** CloudWatch (métricas, logs e alarmes) — ADR-010.
 - **Métricas de negócio e de fluxo** (`03 §8`): `lancamentos_registrados_total{tipo}`, `idempotency_replays_total`, `idempotency_conflicts_total`, `outbox_pending_events`, `outbox_oldest_pending_age_seconds`, `outbox_publish_failures_total`, `outbox_publish_duration_seconds`, `consolidado_events_processed_total`, `consolidado_events_duplicates_total`, `consolidado_events_dlt_total`, `consolidado_event_lag_seconds`, ocupação de cada pool JDBC, além das métricas HTTP/JVM/Kafka padrão.
@@ -22,6 +24,7 @@ Com integração assíncrona, uma falha não aparece como erro para o usuário: 
 |---|---|
 | Só logs | Não mostram tendência (lag, idade da outbox) nem permitem alertar com antecedência |
 | Stack completa de APM comercial | Custo e dependência externa sem necessidade para o case; OpenTelemetry mantém a porta aberta |
+| Envelope `{requestId, timestamp, data}` em toda resposta | Quebra o AC-007.2 (o replay idempotente devolve o mesmo corpo; `requestId` e horário mudariam a cada chamada), duplica o que o HTTP já transporta (status, `Date`) e foge do RFC 9457 nos erros |
 | Prometheus/Grafana gerenciados no alvo (AMP/AMG) | CloudWatch já cobre o necessário com menos peças; AMP/AMG ficam como evolução se o time padronizar PromQL |
 
 ## Consequências
