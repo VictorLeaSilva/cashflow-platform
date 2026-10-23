@@ -6,7 +6,7 @@ Controle de **lançamentos** (créditos e débitos) e **consolidado diário**, c
 
 ## Documentação
 
-- [`docs/architecture/architecture.md`](docs/architecture/architecture.md): visão geral, diagramas C4, arquitetura-alvo AWS (**apenas desenho**; o case roda e é provado localmente) e tabela de requisitos não funcionais.
+- [`docs/architecture/architecture.md`](docs/architecture/architecture.md): visão geral, diagramas C4, arquitetura-alvo AWS (**apenas desenho**; o case é implementado e provado só localmente, tarefa a tarefa) e tabela de requisitos não funcionais.
 - [`docs/architecture/decisions/`](docs/architecture/decisions/): decisões de arquitetura (ADR-001 a ADR-010), com alternativas rejeitadas e trade-offs.
 - [`docs/specs/`](docs/specs/): especificação (constituição, domínios e capacidades, requisitos, contratos, padrões de qualidade, backlog).
 
@@ -93,6 +93,7 @@ O gate automatizado por tarefa (`scripts/verify-task.sh`) chega com a T-003; at�
 
 Projeto em desenvolvimento.
 
-- **Pronto:** build reproduzível e gates de qualidade (T-001, T-002); infraestrutura local com PostgreSQL e Kafka (T-004); documentação de arquitetura com ADRs e arquitetura-alvo (T-005).
+- **Integrado:** build reproduzível e gates de qualidade (T-001, T-002); infraestrutura local com PostgreSQL e Kafka (T-004).
+- **Em revisão:** documentação de arquitetura com ADRs e arquitetura-alvo (T-005), aguardando aprovação.
 - **Próximo:** domínio, persistência e idempotência de Lançamentos (T-010 a T-012), seguidos das APIs, do publicador e do Consolidado. A ordem está em [`docs/specs/06-tasks.md`](docs/specs/06-tasks.md).
 - Os serviços ainda não expõem endpoints.

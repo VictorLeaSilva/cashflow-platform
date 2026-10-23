@@ -90,9 +90,9 @@ flowchart TB
       dbc[("banco consolidado, roles owner/app<br/>tabelas consolidado_diario,<br/>evento_processado (a provar: T-021)")]
     end
 
-    subgraph K["Kafka KRaft, 1 broker (provado: T-004)"]
-      t["cashflow.lancamentos.v1<br/>(3 partições, chave = comercianteId)"]
-      dlt["cashflow.lancamentos.v1.DLT<br/>(retenção 30 dias)"]
+    subgraph K["Kafka KRaft, 1 broker"]
+      t["cashflow.lancamentos.v1<br/>3 partições (provado: T-004)<br/>chave = comercianteId (a provar: T-016)"]
+      dlt["cashflow.lancamentos.v1.DLT<br/>3 partições (provado: T-004)<br/>retenção 30 dias (configurada no create-topics.sh)"]
     end
 
     prom["Prometheus + Grafana<br/>(a provar: T-032)"]
@@ -220,7 +220,7 @@ Estados conforme §1.2: **provado**, **a provar (T-xxx)** e **só desenho**.
 | RNF-005 Segurança | JWT validado, *scopes*, comerciante só do token, gates de segurança | Testes 401/403/404 cruzado; CodeQL, Dependency-Check, Trivy | **A provar** (T-013, T-015, T-023, T-034) |
 | RNF-006 Observabilidade | Métricas de fluxo, logs JSON com `traceId`, alertas (ADR-008) | Testes de actuator; regras carregando | **A provar** (T-032) |
 | RNF-007 Resiliência a falha do broker | Outbox cresce, pool dedicado do publicador, *backoff* | Teste E2E com Kafka fora | **A provar** (T-016, T-031) |
-| RNF-008 Qualidade | Gates G1–G3, ArchUnit, cobertura | `./mvnw verify` e CI | **Provado** para G1/G2 (T-002); harness da T-003 a provar |
+| RNF-008 Qualidade | Gates G1–G3, ArchUnit, cobertura | `./mvnw verify` e CI | G2 (`verify` com formatação, Checkstyle, SpotBugs, ArchUnit, JaCoCo) **provado** (T-002); G1 com formatação provada e gitleaks local pendente; G3 (CodeQL, Dependency-Check, Trivy) **a provar** (T-034); harness **a provar** (T-003) |
 | RNF-009 Operabilidade local | Compose + README em ≤ 5 comandos | Seguir o README do zero | Infraestrutura **provada** (T-004); fluxo completo **a provar** (T-043) |
 | RNF-010 Escalabilidade | Serviços *stateless*; escala horizontal no alvo | k6 informativo a 100 e 200 req/s | **A provar** (T-033); escala no alvo é **só desenho** |
 | RNF-011 Disponibilidade e DR (**metas**) | Multi-AZ, PITR, MSK replicado (§6, ADR-010) | Restauração testada quando houver ambiente | **Só desenho** (T-005) |

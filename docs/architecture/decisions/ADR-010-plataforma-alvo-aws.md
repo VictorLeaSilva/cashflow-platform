@@ -13,15 +13,15 @@ O enunciado pede o "desenho da solução completo (arquitetura-alvo)", com escal
 | Camada | Escolha no alvo | Equivalente no case local |
 |---|---|---|
 | Borda | Route 53 + **ALB** com TLS (ACM) + **AWS WAF** (regras gerenciadas e *rate limit* por cliente) | Nenhum: serviços expostos direto em `localhost` |
-| Computação | **ECS Fargate**, um *service* por executável, mínimo 2 *tasks* em 2+ AZs, *auto scaling* por CPU e por latência/requisições | Processos/contêineres locais |
+| Computação | **ECS Fargate**, um *service* por executável, mínimo 2 *tasks* em AZs diferentes, *auto scaling* por CPU e por requisições por *task* no ALB | Processos/contêineres locais |
 | Banco | **RDS PostgreSQL Multi-AZ**, 1 instância com 2 bancos e roles separados (D-15), backups automáticos com **PITR**, criptografia KMS | PostgreSQL 17 no compose, mesmo esquema de bancos e roles |
 | Broker | **Amazon MSK provisionado** em 3 AZs, *replication factor* 3, `min.insync.replicas` 2, criptografia em trânsito e em repouso | Kafka KRaft com 1 broker |
 | Identidade | **Amazon Cognito** (*user pool* + *client credentials* para integradores) | Chave de dev + `scripts/DevToken.java` (a provar: T-013) |
 | Segredos e chaves | **Secrets Manager** (credenciais de banco) e **KMS** | `.env` local (fora do Git) |
 | Observabilidade | **CloudWatch** (métricas, logs, alarmes) via OpenTelemetry/Micrometer (ADR-008) | Prometheus + Grafana (a provar: T-032) |
-| Rede | VPC com sub-redes públicas (ALB) e privadas (ECS, RDS, MSK) em 2–3 AZs; *security groups* por serviço | Rede do compose |
+| Rede | VPC em **3 AZs** com sub-redes públicas (ALB) e privadas (ECS, RDS, MSK): o MSK usa as 3; ECS e RDS Multi-AZ, ao menos 2; *security groups* por serviço | Rede do compose |
 
-**Detalhamento além da Q-005.** A Q-005 decidiu computação, borda (ALB + WAF), banco, broker, IdP, segredos e observabilidade. Route 53, ACM, VPC com sub-redes e *security groups*, e o critério de *auto scaling* (CPU e requisições) são **detalhamento convencional do desenho**, sem alternativa relevante a decidir; não mudam nenhuma decisão da spec.
+**Detalhamento além da Q-005.** A Q-005 decidiu computação, borda (ALB + WAF), banco, broker, IdP, segredos e observabilidade. Route 53, ACM, VPC com sub-redes e *security groups*, e o critério de *auto scaling* (CPU e requisições por *task* no ALB) são **detalhamento convencional do desenho**, sem alternativa relevante a decidir; não mudam nenhuma decisão da spec.
 
 **Metas do RNF-011 e o mecanismo de desenho que as sustenta (metas, não medidas):**
 | Meta | Mecanismo |
