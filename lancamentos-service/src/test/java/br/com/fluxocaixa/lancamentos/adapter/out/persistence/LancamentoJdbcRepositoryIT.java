@@ -4,6 +4,7 @@ import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
 
 import br.com.fluxocaixa.lancamentos.application.IdentificadorExternoDuplicadoException;
+import br.com.fluxocaixa.lancamentos.application.LancamentoJaEstornadoException;
 import br.com.fluxocaixa.lancamentos.application.port.out.LancamentoRepository;
 import br.com.fluxocaixa.lancamentos.domain.Lancamento;
 import br.com.fluxocaixa.lancamentos.domain.PoliticaLancamento;
@@ -26,6 +27,7 @@ import org.springframework.dao.DuplicateKeyException;
 /** AC-T011.6 e AC-T011.7: round-trip exato e leitura sempre filtrada por comerciante. */
 @Tag("RNF-004")
 @Tag("RF-010")
+@Tag("RF-003")
 class LancamentoJdbcRepositoryIT extends IntegracaoPostgres {
 
   private static final PoliticaLancamento POLITICA = PoliticaLancamento.padrao();
@@ -119,9 +121,9 @@ class LancamentoJdbcRepositoryIT extends IntegracaoPostgres {
         .hasMessageNotContaining(comerciante.toString());
   }
 
-  /** Outras violações de unicidade não são traduzidas (o estorno único é da T-014). */
+  /** AC-T014.7: a violação de ux_estorno_unico vira exceção de aplicação, sem expor dados. */
   @Test
-  void estornoDuplicadoContinuaComoChaveDuplicada() {
+  void estornoDuplicadoViraExcecaoDeAplicacaoSemExporDados() {
     Lancamento credito = registrar(UUID.randomUUID(), TipoLancamento.CREDITO, "5.00", null, null);
     repositorio.inserir(credito);
     repositorio.inserir(Lancamento.estornar(UUID.randomUUID(), credito, POLITICA, CLOCK));
@@ -130,8 +132,21 @@ class LancamentoJdbcRepositoryIT extends IntegracaoPostgres {
             () ->
                 repositorio.inserir(
                     Lancamento.estornar(UUID.randomUUID(), credito, POLITICA, CLOCK)))
+        .isInstanceOf(LancamentoJaEstornadoException.class)
+        .hasMessageNotContaining(credito.id().toString())
+        .hasMessageNotContaining(credito.comercianteId().toString());
+  }
+
+  /** Outras violações de unicidade continuam sem tradução (ex.: id repetido). */
+  @Test
+  void idRepetidoContinuaComoChaveDuplicada() {
+    Lancamento credito = registrar(UUID.randomUUID(), TipoLancamento.CREDITO, "5.00", null, null);
+    repositorio.inserir(credito);
+
+    assertThatThrownBy(() -> repositorio.inserir(credito))
         .isInstanceOf(DuplicateKeyException.class)
-        .isNotInstanceOf(IdentificadorExternoDuplicadoException.class);
+        .isNotInstanceOf(IdentificadorExternoDuplicadoException.class)
+        .isNotInstanceOf(LancamentoJaEstornadoException.class);
   }
 
   private static Lancamento registrar(

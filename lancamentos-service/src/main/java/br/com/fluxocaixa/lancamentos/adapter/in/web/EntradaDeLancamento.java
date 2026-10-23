@@ -63,7 +63,7 @@ final class EntradaDeLancamento {
         comercianteId, chave, tipo, valor, descricao, ocorrencia, identificador, requestId);
   }
 
-  private static void validarChave(String chave, List<ErroCampo> erros) {
+  static void validarChave(String chave, List<ErroCampo> erros) {
     if (chave == null) {
       erros.add(erro(IDEMPOTENCY_KEY, "obrigatorio", "o cabeçalho Idempotency-Key é obrigatório"));
     } else if (!CHAVE.matcher(chave).matches()) {
@@ -193,7 +193,7 @@ final class EntradaDeLancamento {
     }
   }
 
-  private static ErroCampo erro(String campo, String codigo, String mensagem) {
+  static ErroCampo erro(String campo, String codigo, String mensagem) {
     return new ErroCampo(campo, codigo, mensagem);
   }
 }

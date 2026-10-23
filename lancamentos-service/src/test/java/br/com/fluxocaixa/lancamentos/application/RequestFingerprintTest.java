@@ -75,6 +75,45 @@ class RequestFingerprintTest {
         .isNotEqualTo(RequestFingerprint.deRegistro(semSeparador));
   }
 
+  /** Q-019: operação como literal fixo e o id do original como campo próprio. */
+  @Test
+  void representacaoCanonicaDoEstorno() {
+    UUID original = UUID.fromString("7d2f6c1a-3b4e-4f5a-9c8d-1e2f3a4b5c6d");
+
+    assertThat(RequestFingerprint.canonico(estorno(original, "chave", "req")))
+        .isEqualTo("31:POST /lancamentos/{id}/estornos|36:7d2f6c1a-3b4e-4f5a-9c8d-1e2f3a4b5c6d");
+    assertThat(RequestFingerprint.deEstorno(estorno(original, "chave", "req")))
+        .hasSize(64)
+        .matches("[0-9a-f]{64}");
+  }
+
+  @Test
+  void hashDoEstornoDependeSoDoOriginal() {
+    UUID original = UUID.fromString("7d2f6c1a-3b4e-4f5a-9c8d-1e2f3a4b5c6d");
+    UUID emMaiusculas = UUID.fromString("7D2F6C1A-3B4E-4F5A-9C8D-1E2F3A4B5C6D");
+
+    assertThat(RequestFingerprint.deEstorno(estorno(original, "a", "r1")))
+        .isEqualTo(RequestFingerprint.deEstorno(estorno(emMaiusculas, "b", "r2")))
+        .isNotEqualTo(RequestFingerprint.deEstorno(estorno(UUID.randomUUID(), "a", "r1")));
+  }
+
+  @Test
+  void hashDoEstornoNuncaIgualaUmRegistro() {
+    SplittableRandom aleatorio = new SplittableRandom(SEMENTE);
+    for (int tentativa = 0; tentativa < TENTATIVAS; tentativa++) {
+      UUID original = new UUID(aleatorio.nextLong(), aleatorio.nextLong());
+      assertThat(RequestFingerprint.canonico(estorno(original, "k", null)))
+          .as("semente %d, tentativa %d", SEMENTE, tentativa)
+          .doesNotStartWith("17:POST /lancamentos|");
+      assertThat(RequestFingerprint.deEstorno(estorno(original, "k", null)))
+          .isNotEqualTo(RequestFingerprint.deRegistro(gerar(aleatorio)));
+    }
+  }
+
+  private static EstornarLancamentoCommand estorno(UUID original, String chave, String requestId) {
+    return new EstornarLancamentoCommand(COMERCIANTE, chave, original, requestId);
+  }
+
   @Test
   void tamanhoEmCodePointsAposNfc() {
     // "São" em NFD tem 4 code points; em NFC, 3. O emoji ocupa 2 chars Java e 1 code point.

@@ -2,6 +2,8 @@ package br.com.fluxocaixa.lancamentos.adapter.in.web;
 
 import static br.com.fluxocaixa.lancamentos.adapter.in.web.Chamadas.COMERCIANTE;
 import static br.com.fluxocaixa.lancamentos.adapter.in.web.Chamadas.credito;
+import static br.com.fluxocaixa.lancamentos.adapter.in.web.Chamadas.estornar;
+import static br.com.fluxocaixa.lancamentos.adapter.in.web.Chamadas.estornarComo;
 import static br.com.fluxocaixa.lancamentos.adapter.in.web.Chamadas.postar;
 import static br.com.fluxocaixa.lancamentos.adapter.in.web.Chamadas.postarComo;
 import static org.assertj.core.api.Assertions.assertThat;
@@ -9,6 +11,7 @@ import static org.assertj.core.api.Assertions.assertThat;
 import br.com.fluxocaixa.lancamentos.support.IntegracaoWeb;
 import br.com.fluxocaixa.lancamentos.support.TokensDeTeste;
 import java.util.List;
+import java.util.UUID;
 import org.junit.jupiter.api.Tag;
 import org.junit.jupiter.api.Test;
 import org.springframework.http.MediaType;
@@ -25,6 +28,7 @@ import tools.jackson.databind.JsonNode;
 class ContratoRespostasWebTest extends IntegracaoWeb {
 
   private static final String PROBLEMA = MediaType.APPLICATION_PROBLEM_JSON_VALUE;
+  private static final String ESTORNO = "/lancamentos/{id}/estornos";
   private static final String CREDITO_COM_EXTERNO =
       "{\"tipo\":\"CREDITO\",\"valor\":\"1.00\",\"identificadorExterno\":\"nf-contrato\"}";
 
@@ -87,9 +91,74 @@ class ContratoRespostasWebTest extends IntegracaoWeb {
     verificar(postar(credito("1.00"), "contrato-500"), 500, PROBLEMA);
   }
 
-  /** Corpo contra o schema do status; cabeçalhos declarados contra os schemas deles. */
+  /** AC-T014.11: as respostas reais do estorno validam contra a operação do estorno. */
+  @Test
+  void respostasDoEstornoValidamContraOContrato() throws Exception {
+    String leitura = TokensDeTeste.valido(COMERCIANTE, TokensDeTeste.LEITURA);
+    String original = criarCredito("contrato-est-original");
+    String debito =
+        Chamadas.campo(
+            mvc.perform(postar("{\"tipo\":\"DEBITO\",\"valor\":\"3.00\"}", "contrato-est-deb"))
+                .andReturn(),
+            "id");
+
+    verificarEstorno(estornar(original, "contrato-est-201"), 201, "application/json");
+    verificarEstorno(estornar(debito, "contrato-est-201-deb"), 201, "application/json");
+    MockHttpServletResponse replay =
+        verificarEstorno(estornar(original, "contrato-est-201"), 201, "application/json");
+    assertThat(replay.getHeader("Idempotent-Replayed")).isEqualTo("true");
+
+    verificarEstorno(estornar("abc", null), 400, PROBLEMA);
+    verificarEstorno(estornarComo(null, original, "contrato-est-401"), 401, PROBLEMA);
+    verificarEstorno(estornarComo(leitura, original, "contrato-est-403"), 403, PROBLEMA);
+    verificarEstorno(estornar(UUID.randomUUID(), "contrato-est-404"), 404, PROBLEMA);
+    verificarEstorno(
+        estornar(original, "contrato-est-406").accept(MediaType.APPLICATION_XML), 406, PROBLEMA);
+    verificarEstorno(estornar(original, "contrato-est-409"), 409, PROBLEMA);
+    verificarEstorno(
+        estornar(original, "contrato-est-413")
+            .contentType(MediaType.APPLICATION_JSON)
+            .content("{\"recheio\":\"" + "x".repeat(17_000) + "\"}"),
+        413,
+        PROBLEMA);
+    verificarEstorno(
+        estornar(original, "contrato-est-415").contentType(MediaType.TEXT_PLAIN).content("{}"),
+        415,
+        PROBLEMA);
+    String estornoId =
+        Chamadas.campo(mvc.perform(estornar(original, "contrato-est-201")).andReturn(), "id");
+    verificarEstorno(estornar(estornoId, "contrato-est-422"), 422, PROBLEMA);
+    verificarEstorno(estornar(debito, "contrato-est-201"), 422, PROBLEMA);
+
+    portas.simularDisputaPermanente();
+    MockHttpServletResponse disputa =
+        verificarEstorno(estornar(debito, "contrato-est-disputa"), 409, PROBLEMA);
+    assertThat(disputa.getHeader("Retry-After")).isEqualTo("1");
+    portas.limpar();
+
+    String outro = criarCredito("contrato-est-500-original");
+    portas.simularFalhaInesperada();
+    verificarEstorno(estornar(outro, "contrato-est-500"), 500, PROBLEMA);
+  }
+
+  private String criarCredito(String chave) throws Exception {
+    return Chamadas.campo(mvc.perform(postar(credito("4.00"), chave)).andReturn(), "id");
+  }
+
   private MockHttpServletResponse verificar(
       MockHttpServletRequestBuilder requisicao, int status, String midia) throws Exception {
+    return verificar("/lancamentos", requisicao, status, midia);
+  }
+
+  private MockHttpServletResponse verificarEstorno(
+      MockHttpServletRequestBuilder requisicao, int status, String midia) throws Exception {
+    return verificar(ESTORNO, requisicao, status, midia);
+  }
+
+  /** Corpo contra o schema do status; cabeçalhos declarados contra os schemas deles. */
+  private MockHttpServletResponse verificar(
+      String caminho, MockHttpServletRequestBuilder requisicao, int status, String midia)
+      throws Exception {
     MvcResult resultado = mvc.perform(requisicao).andReturn();
     MockHttpServletResponse resposta = resultado.getResponse();
 
@@ -97,18 +166,18 @@ class ContratoRespostasWebTest extends IntegracaoWeb {
     assertThat(resposta.getContentType()).startsWith(midia);
     assertThat(
             contrato.validar(
-                contrato.schemaDaResposta("/lancamentos", "post", status, midia),
+                contrato.schemaDaResposta(caminho, "post", status, midia),
                 resposta.getContentAsString()))
-        .as("corpo da resposta %s contra o contrato", status)
+        .as("corpo da resposta %s de %s contra o contrato", status, caminho)
         .isEmpty();
-    verificarCabecalhos(resposta, status);
+    verificarCabecalhos(caminho, resposta, status);
     return resposta;
   }
 
-  private void verificarCabecalhos(MockHttpServletResponse resposta, int status) {
+  private void verificarCabecalhos(String caminho, MockHttpServletResponse resposta, int status) {
     JsonNode declarados =
         contrato
-            .resolver(contrato.operacao("/lancamentos", "post").path("responses").path("" + status))
+            .resolver(contrato.operacao(caminho, "post").path("responses").path("" + status))
             .path("headers");
     assertThat(declarados.has("X-Request-Id")).isTrue();
     for (String nome : List.copyOf(declarados.propertyNames())) {

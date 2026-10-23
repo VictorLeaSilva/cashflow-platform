@@ -7,8 +7,8 @@ import java.util.UUID;
 
 /**
  * Lançamento na resposta (03 §5.1): {@code valor} como string com 2 casas, instantes ISO-8601 em
- * UTC e campos nulos presentes como {@code null}. Reconstruído do lançamento imutável, então o
- * replay devolve o mesmo corpo (D-08, AC-007.2).
+ * UTC e campos nulos presentes como {@code null}; {@code tipoOriginal} só no estorno (Q-020).
+ * Reconstruído do lançamento imutável, então o replay devolve o mesmo corpo (D-08, AC-007.2).
  */
 public record LancamentoResponse(
     UUID id,
@@ -19,6 +19,7 @@ public record LancamentoResponse(
     Instant dataOcorrencia,
     LocalDate dataReferencia,
     UUID referenciaLancamentoId,
+    String tipoOriginal,
     String identificadorExterno,
     Instant criadoEm) {
 
@@ -32,6 +33,7 @@ public record LancamentoResponse(
         lancamento.dataOcorrencia(),
         lancamento.dataReferencia(),
         lancamento.referenciaLancamentoId(),
+        lancamento.tipoOriginal() != null ? lancamento.tipoOriginal().name() : null,
         lancamento.identificadorExterno(),
         lancamento.criadoEm());
   }

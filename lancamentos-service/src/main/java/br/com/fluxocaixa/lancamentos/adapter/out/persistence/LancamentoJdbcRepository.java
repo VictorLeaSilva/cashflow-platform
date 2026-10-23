@@ -1,6 +1,7 @@
 package br.com.fluxocaixa.lancamentos.adapter.out.persistence;
 
 import br.com.fluxocaixa.lancamentos.application.IdentificadorExternoDuplicadoException;
+import br.com.fluxocaixa.lancamentos.application.LancamentoJaEstornadoException;
 import br.com.fluxocaixa.lancamentos.application.port.out.LancamentoRepository;
 import br.com.fluxocaixa.lancamentos.domain.Dinheiro;
 import br.com.fluxocaixa.lancamentos.domain.Lancamento;
@@ -44,6 +45,7 @@ public class LancamentoJdbcRepository implements LancamentoRepository {
       """;
 
   private static final String UX_IDENTIFICADOR_EXTERNO = "ux_identificador_externo";
+  private static final String UX_ESTORNO_UNICO = "ux_estorno_unico";
 
   private final JdbcClient jdbc;
 
@@ -59,6 +61,10 @@ public class LancamentoJdbcRepository implements LancamentoRepository {
       if (violou(e, UX_IDENTIFICADOR_EXTERNO)) {
         // A mensagem do banco traz o identificador e o comerciante: não é propagada (Q-015).
         throw new IdentificadorExternoDuplicadoException();
+      }
+      if (violou(e, UX_ESTORNO_UNICO)) {
+        // Um estorno por lançamento (A5): a mensagem do banco traz o id do original (T-014).
+        throw new LancamentoJaEstornadoException();
       }
       throw e;
     }

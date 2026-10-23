@@ -4,6 +4,7 @@ import static br.com.fluxocaixa.lancamentos.adapter.in.web.Chamadas.credito;
 import static br.com.fluxocaixa.lancamentos.adapter.in.web.Chamadas.erroDeCampo;
 import static br.com.fluxocaixa.lancamentos.adapter.in.web.Chamadas.postar;
 import static br.com.fluxocaixa.lancamentos.adapter.in.web.Chamadas.problema;
+import static br.com.fluxocaixa.lancamentos.adapter.in.web.Chamadas.semContentLength;
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.header;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.jsonPath;
@@ -16,8 +17,6 @@ import org.junit.jupiter.api.Test;
 import org.junit.jupiter.params.ParameterizedTest;
 import org.junit.jupiter.params.provider.CsvSource;
 import org.springframework.http.MediaType;
-import org.springframework.mock.web.MockHttpServletRequest;
-import org.springframework.test.web.servlet.request.RequestPostProcessor;
 
 /** AC-T013.3 (RNF-013): 415, 406, 413, texto livre estrito e NFC antes do hash. */
 @Tag("RNF-013")
@@ -119,49 +118,5 @@ class ValidacaoEstritaWebTest extends IntegracaoWeb {
     String inicio = "{\"tipo\":\"CREDITO\",\"valor\":\"10.00\",\"recheio\":\"";
     String fim = "\"}";
     return inicio + "x".repeat(tamanho - inicio.length() - fim.length()) + fim;
-  }
-
-  /** Simula corpo sem tamanho declarado (transfer-encoding chunked). */
-  private static RequestPostProcessor semContentLength() {
-    return requisicao -> new SemContentLength(requisicao);
-  }
-
-  private static final class SemContentLength extends MockHttpServletRequest {
-
-    private final MockHttpServletRequest original;
-
-    SemContentLength(MockHttpServletRequest original) {
-      super(original.getServletContext(), original.getMethod(), original.getRequestURI());
-      this.original = original;
-      setContent(original.getContentAsByteArray());
-      setContentType(original.getContentType());
-      original
-          .getHeaderNames()
-          .asIterator()
-          .forEachRemaining(
-              nome ->
-                  original.getHeaders(nome).asIterator().forEachRemaining(v -> addHeader(nome, v)));
-      setParameters(original.getParameterMap());
-    }
-
-    @Override
-    public int getContentLength() {
-      return -1;
-    }
-
-    @Override
-    public long getContentLengthLong() {
-      return -1;
-    }
-
-    @Override
-    public String getHeader(String nome) {
-      return "Content-Length".equalsIgnoreCase(nome) ? null : super.getHeader(nome);
-    }
-
-    @Override
-    public String toString() {
-      return "SemContentLength[" + original.getRequestURI() + "]";
-    }
   }
 }
