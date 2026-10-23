@@ -1,5 +1,6 @@
 package br.com.fluxocaixa.lancamentos.adapter.out.persistence;
 
+import br.com.fluxocaixa.lancamentos.application.IdentificadorExternoDuplicadoException;
 import br.com.fluxocaixa.lancamentos.application.port.out.LancamentoRepository;
 import br.com.fluxocaixa.lancamentos.domain.Dinheiro;
 import br.com.fluxocaixa.lancamentos.domain.Lancamento;
@@ -12,6 +13,8 @@ import java.time.OffsetDateTime;
 import java.time.ZoneOffset;
 import java.util.Optional;
 import java.util.UUID;
+import org.springframework.core.NestedExceptionUtils;
+import org.springframework.dao.DuplicateKeyException;
 import org.springframework.jdbc.core.simple.JdbcClient;
 import org.springframework.stereotype.Repository;
 
@@ -40,6 +43,8 @@ public class LancamentoJdbcRepository implements LancamentoRepository {
        WHERE comerciante_id = :comercianteId AND id = :id
       """;
 
+  private static final String UX_IDENTIFICADOR_EXTERNO = "ux_identificador_externo";
+
   private final JdbcClient jdbc;
 
   public LancamentoJdbcRepository(JdbcClient jdbc) {
@@ -48,7 +53,18 @@ public class LancamentoJdbcRepository implements LancamentoRepository {
 
   @Override
   public void inserir(Lancamento lancamento) {
-    Lancamento.Dados dados = lancamento.dados();
+    try {
+      gravar(lancamento.dados());
+    } catch (DuplicateKeyException e) {
+      if (violou(e, UX_IDENTIFICADOR_EXTERNO)) {
+        // A mensagem do banco traz o identificador e o comerciante: não é propagada (Q-015).
+        throw new IdentificadorExternoDuplicadoException();
+      }
+      throw e;
+    }
+  }
+
+  private void gravar(Lancamento.Dados dados) {
     jdbc.sql(INSERIR)
         .param("id", dados.id())
         .param("comercianteId", dados.comercianteId())
@@ -71,6 +87,11 @@ public class LancamentoJdbcRepository implements LancamentoRepository {
         .param("id", id)
         .query((rs, linha) -> reconstituir(rs))
         .optional();
+  }
+
+  private static boolean violou(DuplicateKeyException erro, String constraint) {
+    String causa = NestedExceptionUtils.getMostSpecificCause(erro).getMessage();
+    return causa != null && causa.contains(constraint);
   }
 
   private static Lancamento reconstituir(ResultSet rs) throws SQLException {
