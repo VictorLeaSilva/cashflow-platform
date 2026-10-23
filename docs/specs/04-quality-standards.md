@@ -42,7 +42,7 @@ Princípio: **o CI é a autoridade**; hooks locais só aceleram o feedback. Nenh
 | Tipo | Ferramenta | Escopo |
 |---|---|---|
 | Unitário | JUnit 5, AssertJ | Regras de domínio e casos de uso; Mockito só nas portas |
-| Propriedade | jqwik (semente fixa em CI) | Comutatividade e idempotência da projeção; invariantes de valor |
+| Propriedade | JUnit 5 + gerador reproduzível próprio (semente fixa registrada, reproduzível por `-Dpropriedades.semente`; sem *shrinking*; Q-009) | Comutatividade e idempotência da projeção; invariantes de valor |
 | Fatia web | `@WebMvcTest` + segurança | Validação, status, scopes |
 | Integração | Testcontainers (PostgreSQL, Kafka), Awaitility (sem `sleep`) | Migrações, constraints, outbox, consumidor, concorrência |
 | Contrato de evento | JSON Schema nos dois serviços + exemplos *golden* | Produtor gera e consumidor aceita os mesmos exemplos |
