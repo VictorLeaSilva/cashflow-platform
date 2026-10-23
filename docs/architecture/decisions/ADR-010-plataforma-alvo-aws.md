@@ -12,24 +12,34 @@ O enunciado pede o "desenho da solução completo (arquitetura-alvo)", com escal
 ## Decisão
 | Camada | Escolha no alvo | Equivalente no case local |
 |---|---|---|
-| Borda | Route 53 + **ALB** com TLS (ACM) + **AWS WAF** (regras gerenciadas e *rate limit* por cliente) | Nenhum: serviços expostos direto em `localhost` |
+| Borda | Route 53 + **ALB** com TLS (ACM); **AWS WAF associado ao ALB** (regras gerenciadas e *rate limit* por cliente). CloudFront não é necessário para o case | Nenhum: serviços expostos direto em `localhost` |
 | Computação | **ECS Fargate**, um *service* por executável, mínimo 2 *tasks* em AZs diferentes, *auto scaling* por CPU e por requisições por *task* no ALB | Processos/contêineres locais |
 | Banco | **RDS PostgreSQL Multi-AZ**, 1 instância com 2 bancos e roles separados (D-15), backups automáticos com **PITR**, criptografia KMS | PostgreSQL 17 no compose, mesmo esquema de bancos e roles |
 | Broker | **Amazon MSK provisionado** em 3 AZs, *replication factor* 3, `min.insync.replicas` 2, criptografia em trânsito e em repouso | Kafka KRaft com 1 broker |
-| Identidade | **Amazon Cognito** (*user pool* + *client credentials* para integradores) | Chave de dev + `scripts/DevToken.java` (a provar: T-013) |
+| Identidade | **Amazon Cognito**: pessoas por *authorization code* + PKCE, integradores por *client credentials*; `merchant_id` no token (fluxos e validação no ADR-007) | Chave de dev + `scripts/DevToken.java` (a provar: T-013) |
 | Segredos e chaves | **Secrets Manager** (credenciais de banco) e **KMS** | `.env` local (fora do Git) |
 | Observabilidade | **CloudWatch** (métricas, logs, alarmes) via OpenTelemetry/Micrometer (ADR-008) | Prometheus + Grafana (a provar: T-032) |
 | Rede | VPC em **3 AZs** com sub-redes públicas (ALB) e privadas (ECS, RDS, MSK): o MSK usa as 3; ECS e RDS Multi-AZ, ao menos 2; *security groups* por serviço | Rede do compose |
 
 **Detalhamento além da Q-005.** A Q-005 decidiu computação, borda (ALB + WAF), banco, broker, IdP, segredos e observabilidade. Route 53, ACM, VPC com sub-redes e *security groups*, e o critério de *auto scaling* (CPU e requisições por *task* no ALB) são **detalhamento convencional do desenho**, sem alternativa relevante a decidir; não mudam nenhuma decisão da spec.
 
-**Metas do RNF-011 e o mecanismo de desenho que as sustenta (metas, não medidas):**
-| Meta | Mecanismo |
+**Metas do RNF-011 (objetivos a validar, não garantias dadas pela escolha dos serviços):**
+| Meta | Mecanismo de desenho que a sustenta |
 |---|---|
 | Lançamentos 99,9 %/mês | ≥ 2 *tasks* em AZs diferentes atrás do ALB; RDS Multi-AZ com *failover* automático; independência do Consolidado e do broker (outbox, ADR-003) |
 | Consolidado 99,5 %/mês | ≥ 2 *tasks* em 2 AZs; leitura direta no RDS; atraso tolerado pela consistência eventual (ADR-005) |
-| RPO 5 min | RDS com replicação síncrona Multi-AZ e PITR; MSK com RF 3 e `min.insync` 2; a projeção é reconstruível a partir de `lancamento` (ADR-006) |
-| RTO 30 min | *Failover* gerenciado do RDS e do MSK; ECS recria *tasks* automaticamente; restauração por PITR (procedimento a documentar e testar quando houver ambiente) |
+| RPO 5 min / RTO 30 min | Dependem do cenário de falha — tabela abaixo |
+
+**Cenários de falha cobertos pelo desenho:**
+| Cenário | Recuperação | Perda de dados esperada | Observação |
+|---|---|---|---|
+| Falha de processo ou *task* | ECS recria a *task*; o ALB tira a instância do *pool* | Nenhuma: o que foi confirmado está no banco; eventos pendentes ficam na outbox ou no tópico | Coberto também pelo case local (T-031) |
+| Falha de um broker MSK | Partições continuam com as réplicas restantes (RF 3, `min.insync` 2) | Nenhuma para mensagens confirmadas com `acks=all` | Com 2 brokers fora, a produção para e a outbox acumula (ADR-003) |
+| Falha de uma AZ | RDS promove a standby síncrona na outra AZ; ECS e MSK seguem nas AZs restantes | Nenhuma esperada no banco (replicação síncrona) | O RTO é o tempo de *failover* do RDS mais a reconexão dos pools; a validar |
+| Corrupção lógica ou erro operacional no banco | Restauração por PITR para um novo banco e troca de conexão | Até o último log de transação arquivado; a meta de 5 min se apoia na cadência de arquivamento do RDS, a validar | O *failover* Multi-AZ não protege disto: a standby replica o erro. A projeção pode ser reconstruída a partir de `lancamento` (ADR-006) |
+| Perda da região | **Não coberto** | — | Exigiria cópia de backups e réplica entre regiões (e MSK em outra região). O enunciado não pede DR regional; fica como limitação e evolução |
+
+O procedimento de restauração por PITR fica a documentar e testar quando houver ambiente.
 
 ## Alternativas rejeitadas
 | Alternativa | Por que não |
@@ -50,6 +60,7 @@ O enunciado pede o "desenho da solução completo (arquitetura-alvo)", com escal
 ## Revisitar quando
 - A estimativa de custo (T-042) mostrar o MSK dominante → MSK Serverless ou SNS/SQS (ADR-004).
 - Houver um ambiente real para medir disponibilidade e testar restauração.
+- Surgir exigência de recuperação após perda de região → backups e réplicas entre regiões.
 
 ## Referências
 RNF-001, RNF-002, RNF-005, RNF-010, RNF-011; Q-005; `03 §1` (D-15, D-16), `03 §6`; ADR-002, ADR-003, ADR-004, ADR-007, ADR-008; T-042.

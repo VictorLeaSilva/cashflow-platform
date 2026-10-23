@@ -14,8 +14,8 @@ Um comerciante registra **lançamentos** (créditos e débitos) e consulta o **s
 | Requisito do enunciado | Como a arquitetura responde | Princípio |
 |---|---|---|
 | Serviço de lançamentos e serviço de consolidado | Dois executáveis independentes, um banco lógico cada (ADR-001, ADR-002) | P2 |
-| Lançamentos não pode cair se o Consolidado cair | Nenhuma chamada síncrona entre serviços; outbox transacional + Kafka (ADR-003) | P6 |
-| 50 req/s no Consolidado em pico, perda ≤ 5 % | Leitura por chave em projeção pré-agregada; serviços *stateless* escaláveis; a provar com k6 (RNF-002, T-033) | P8 |
+| Lançamentos não pode cair se o Consolidado cair | Nenhuma chamada síncrona entre serviços; outbox transacional + Kafka (ADR-003). Limites da garantia em §1.3 | P6 |
+| 50 req/s no Consolidado em pico, "no máximo 5 % de perda de requisições" | Leitura por chave em projeção pré-agregada; serviços *stateless* escaláveis; a provar com k6 (RNF-002, T-033). "Perda" aqui é **taxa de requisições HTTP com falha** (erro ≥ 500, erro de conexão ou resposta > 2 s, RNF-002) — não perda de lançamentos ou eventos, que é zero por desenho (RNF-004) | P8 |
 | Dinheiro e saldo corretos | `BigDecimal`/`NUMERIC`; fatos imutáveis; idempotência fim a fim (ADR-003, ADR-005) | P3, P4, P5 |
 | Segurança | JWT, *scopes*, isolamento por comerciante, critérios de integração (ADR-007) | — |
 | Documentação e decisões | ADR-001..010, specs em `docs/specs/` | P7, P9 |
@@ -35,6 +35,23 @@ Este documento usa três estados, e nada é afirmado além do estado indicado:
 | **Provado** | Existe no repositório e há verificação executada | Gates de qualidade e regras ArchUnit (T-002); bancos, roles por `CONNECT`, tópico e DLT (T-004) |
 | **A provar (T-xxx)** | Faz parte do case local; será implementado e provado na tarefa indicada | APIs, publicador, consumidor, JWT, métricas, carga de 50 req/s |
 | **Só desenho** | Existe apenas na arquitetura-alvo; não será provado no case | Multi-AZ, *failover*, RPO/RTO, WAF, Cognito, CloudWatch |
+
+**Regra para mudar um item para "provado":** só com evidência reproduzível registrada — o comando ou teste que prova (`classe#método`, script, cenário k6) e o arquivo de evidência da tarefa (`docs/specs/reviews/T-xxx.evidence.md`) com a revisão independente. Testes de risco contam como prova só na forma exigida (por exemplo, idempotência **concorrente**, não apenas sequencial — `04 §2.7`); carga conta só com resultado medido e versionado (`docs/performance/results/`). Ao concluir cada tarefa, esta tabela e as de §7 e §8 são atualizadas.
+
+As metas da arquitetura-alvo (§6) **nunca** viram "provado" por causa do case local: k6 local mede o código no ambiente local, não o comportamento de ECS, RDS e MSK.
+
+### 1.3 Limites da garantia de disponibilidade (RNF-001)
+
+O desacoplamento assíncrono impede que a queda do **processo** do Consolidado, ou do seu consumidor, interrompa o registro de lançamentos. A garantia **depende** da disponibilidade do banco de Lançamentos e da capacidade de gravar na outbox. O que ela cobre e o que não cobre:
+
+| Falha | Efeito em Lançamentos | Observação |
+|---|---|---|
+| Processo do Consolidado (API ou consumidor) parado | Segue registrando (201) | Eventos acumulam no Kafka; o consolidado converge quando volta |
+| Kafka indisponível | Segue registrando (201) | A outbox cresce; o publicador falha rápido com pool próprio e não bloqueia o HTTP (`03 §7.1`) |
+| Indisponibilidade prolongada do Kafka | Segue registrando, com risco crescente | A outbox não tem limite de tamanho: uma falha longa pode saturar o banco. Mitigação: alerta por idade da outbox (ADR-008) e ação operacional |
+| Instância PostgreSQL compartilhada indisponível ou saturada | **Para** (os dois serviços) | Dependência compartilhada assumida (D-15, ADR-002); no alvo, mitigada por RDS Multi-AZ, não eliminada |
+
+Separar fisicamente todos os recursos não é necessário para o enunciado; o que importa é declarar o limite da garantia e monitorá-lo.
 
 ## 2. Domínios e capacidades
 
@@ -80,7 +97,7 @@ flowchart TB
       lpub["Publicador outbox<br/>(polling 500 ms, pool JDBC dedicado)<br/>(a provar: T-016)"]
     end
 
-    subgraph C["consolidado-service :8082"]
+    subgraph C["consolidado-service :8082 — 1 processo: API + consumidor dividem CPU e memória (ADR-001)"]
       capi["API REST<br/>GET /api/v1/consolidado<br/>(a provar: T-023)"]
       ccons["Consumidor Kafka<br/>(dedup por eventId, DLT)<br/>(a provar: T-022)"]
     end
@@ -134,18 +151,31 @@ sequenceDiagram
     Note over C,S: consolidado converge sem perda nem duplicidade
 ```
 
-Com o **Kafka** fora, o comportamento é o mesmo do ponto de vista do cliente: o `POST` segue 201 e quem acumula é a **outbox**, que drena quando o broker volta (`03 §7`). Os dois cenários são o comportamento **projetado**; a prova é o teste E2E da T-031 e a demo da T-035.
+Com o **Kafka** fora, o comportamento é o mesmo do ponto de vista do cliente: o `POST` segue 201 e quem acumula é a **outbox**, que drena quando o broker volta (`03 §7`). Os dois cenários são o comportamento **projetado**; a prova é o teste E2E da T-031 e a demo da T-035. Os limites dessa garantia estão em §1.3.
+
+### 5.1 Estorno no fluxo de eventos
+
+O estorno não edita nem apaga o lançamento original: é um **novo lançamento** do tipo `ESTORNO`, com `id` e `eventId` próprios, `referenciaLancamentoId` apontando o original e `tipoOriginal` (`03 §4`). Ele percorre o mesmo caminho — mesma transação com a outbox, mesmo tópico, mesmo consumidor — e produz efeito **na data do estorno** (ADR-005).
+
+Exemplo: crédito de R$ 100,00 em 15/10, estornado em 22/10.
+
+| Evento | `eventId` | Efeito na projeção | `saldoDia` |
+|---|---|---|---|
+| `CREDITO` 100.00 (15/10) | E1 | 15/10: `total_creditos += 100.00` | 15/10: +100.00 |
+| `ESTORNO` de crédito 100.00 (22/10) | E2 | 22/10: `total_estornos_credito += 100.00` | 22/10: −100.00 |
+
+O crédito continua no histórico de 15/10; o saldo acumulado a partir de 22/10 volta ao valor anterior ao crédito. A deduplicação é por `eventId`: reentregas de E2 são ignoradas, mas E2 **não** é descartado por referenciar um lançamento que já foi processado (E1). O estorno único por lançamento é garantido em Lançamentos, por índice único (AC-003.5), não no consumidor.
 
 ## 6. Arquitetura-alvo AWS (apenas desenho)
 
-> Nada desta seção é provisionado. É o desenho de produção pedido no enunciado; decisões e alternativas em [ADR-010](decisions/ADR-010-plataforma-alvo-aws.md). Números são **metas** (RNF-011).
+> Nada desta seção é provisionado. É o desenho de produção pedido no enunciado; decisões e alternativas em [ADR-010](decisions/ADR-010-plataforma-alvo-aws.md). Números são **metas a validar** (RNF-011), não garantias dadas pela escolha dos serviços. O diagrama é de alto nível: sub-redes, *security groups* e rotas estão na tabela e no ADR-010, não no desenho.
 
 ```mermaid
 flowchart TB
     users["Comerciantes e integradores"]
     r53["Route 53"]
-    waf["AWS WAF<br/>regras gerenciadas + rate limit"]
-    cognito["Amazon Cognito<br/>(JWT, client credentials)"]
+    waf["AWS WAF associado ao ALB<br/>regras gerenciadas + rate limit"]
+    cognito["Amazon Cognito<br/>pessoas: authorization code + PKCE<br/>integradores: client credentials"]
 
     subgraph VPC["VPC — 3 zonas de disponibilidade"]
       alb["Application Load Balancer<br/>(TLS, multi-AZ)"]
@@ -155,11 +185,11 @@ flowchart TB
         c1["Consolidado<br/>task AZ-a"]
         c2["Consolidado<br/>task AZ-b"]
       end
-      subgraph RDS["RDS PostgreSQL Multi-AZ"]
+      subgraph RDS["RDS PostgreSQL Multi-AZ (2 AZs: primária + standby)"]
         rp[("Primária AZ-a<br/>bancos lancamentos e consolidado")]
         rs[("Standby síncrona AZ-b")]
       end
-      subgraph MSK["Amazon MSK — 3 brokers"]
+      subgraph MSK["Amazon MSK — 3 brokers (3 AZs)"]
         b1["broker AZ-a"]
         b2["broker AZ-b"]
         b3["broker AZ-c"]
@@ -169,7 +199,8 @@ flowchart TB
     sm["Secrets Manager + KMS"]
     cw["CloudWatch<br/>métricas, logs, alarmes"]
 
-    users --> r53 --> waf --> alb
+    users --> r53 --> alb
+    waf -.->|"inspeciona as requisições do ALB"| alb
     users -.->|"obtém token"| cognito
     alb --> l1 & l2 & c1 & c2
     l1 & l2 --> rp
@@ -188,9 +219,9 @@ flowchart TB
 | WAF + ALB | TLS, filtragem, *rate limit* por cliente, distribuição entre AZs | RNF-005, RNF-010 | — |
 | VPC (sub-redes públicas para o ALB, privadas para ECS/RDS/MSK, *security groups* por serviço) | Isolamento de rede; só o ALB é exposto | RNF-005, RNF-011 | — |
 | ECS Fargate (≥ 2 *tasks* por serviço em 2+ AZs, *auto scaling*) | Executar os serviços *stateless* e escalar horizontalmente | RNF-001, RNF-002, RNF-010, RNF-011 | Lançamentos 99,9 %/mês; Consolidado 99,5 %/mês |
-| RDS PostgreSQL Multi-AZ + PITR | Fonte de verdade e projeção; *failover* automático | RNF-004, RNF-011 | RPO 5 min; RTO 30 min |
-| MSK (3 AZs, RF 3, `min.insync` 2) | Transporte durável de eventos, acúmulo durante falhas | RNF-001, RNF-003, RNF-007, RNF-011 | RPO 5 min |
-| Cognito | Identidade de usuários e integradores | RNF-005 | — |
+| RDS PostgreSQL Multi-AZ (primária + standby em 2 AZs) + PITR | Fonte de verdade e projeção; *failover* automático entre AZs; PITR para corrupção ou erro lógico | RNF-004, RNF-011 | RPO 5 min e RTO 30 min, por cenário no ADR-010 |
+| MSK (3 brokers em 3 AZs, RF 3, `min.insync` 2) | Transporte durável de eventos, acúmulo durante falhas; tolera a perda de um broker | RNF-001, RNF-003, RNF-007, RNF-011 | Por cenário no ADR-010 |
+| Cognito | Identidade de pessoas (*authorization code* + PKCE) e de integradores (*client credentials*), com `merchant_id` no token (ADR-007) | RNF-005 | — |
 | Secrets Manager + KMS | Credenciais e criptografia em repouso | RNF-005 | — |
 | CloudWatch | Métricas, logs e alarmes (ADR-008) | RNF-006 | — |
 
@@ -213,9 +244,9 @@ Estados conforme §1.2: **provado**, **a provar (T-xxx)** e **só desenho**.
 
 | RNF | Mecanismo | Como será verificado | Estado hoje |
 |---|---|---|---|
-| RNF-001 Isolamento de falha | Nenhuma chamada síncrona; outbox + Kafka; eventos acumulam no Kafka com o Consolidado parado | Teste E2E com o Consolidado parado; demo | **A provar** (T-031, T-035) |
-| RNF-002 Capacidade do Consolidado (50 req/s, falha < 5 %) | Leitura por chave em projeção pré-agregada; pools dimensionados; serviço *stateless* | k6 `load.js` com *thresholds* | **A provar** (T-033) |
-| RNF-003 Frescor da projeção (meta p95 ≤ 5 s) | Publicador a cada 500 ms; consumidor contínuo | Métrica `consolidado_event_lag_seconds` durante a carga | **A provar** (T-022, T-033) |
+| RNF-001 Isolamento de falha | Nenhuma chamada síncrona; outbox + Kafka; eventos acumulam no Kafka com o Consolidado parado. Limites em §1.3 | Teste E2E com o Consolidado parado; demo | **A provar** (T-031, T-035) |
+| RNF-002 Capacidade do Consolidado (50 req/s, taxa de requisições com falha < 5 %) | Leitura por chave em projeção pré-agregada; pools dimensionados; serviço *stateless* | k6 `load.js` com *thresholds* | **A provar** (T-033) |
+| RNF-003 Frescor da projeção (meta p95 ≤ 5 s) | Publicador a cada 500 ms e consumidor contínuo são **configuração inicial**, não prova: o tempo total inclui espera do *polling*, publicação, entrega, lote do consumidor, gravação da projeção e filas acumuladas em pico | Tempo **de ponta a ponta**, da criação do evento (`occurredAt`) até a aplicação na projeção (`consolidado_event_lag_seconds`, não apenas o lag do Kafka), medido sob carga concorrente | **A provar** (T-022, T-033) |
 | RNF-004 Integridade e não duplicidade | `Idempotency-Key` + FK diferida; `eventId` + `evento_processado`; índices únicos | Testes de concorrência, idempotência e propriedade | **A provar** (T-011, T-012, T-021) |
 | RNF-005 Segurança | JWT validado, *scopes*, comerciante só do token, gates de segurança | Testes 401/403/404 cruzado; CodeQL, Dependency-Check, Trivy | **A provar** (T-013, T-015, T-023, T-034) |
 | RNF-006 Observabilidade | Métricas de fluxo, logs JSON com `traceId`, alertas (ADR-008) | Testes de actuator; regras carregando | **A provar** (T-032) |
