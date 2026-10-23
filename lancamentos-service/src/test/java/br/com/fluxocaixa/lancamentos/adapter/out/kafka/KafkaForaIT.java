@@ -51,6 +51,7 @@ import org.springframework.test.web.servlet.MockMvc;
     })
 class KafkaForaIT extends IntegracaoKafka {
 
+  private static final String LOG_DE_ACESSO = "br.com.fluxocaixa.lancamentos.acesso";
   private static final Duration TETO = Duration.ofMillis(800);
   private static final Duration BASE = Duration.ofMillis(100);
 
@@ -113,19 +114,20 @@ class KafkaForaIT extends IntegracaoKafka {
   }
 
   /**
-   * AC-T016.10: as linhas do publicador não levam payload, chave nem request ID dos eventos (o log
-   * de acesso registra o request ID da requisição HTTP, por desenho, RNF-012).
+   * AC-T016.10: nenhuma linha de log, do publicador, do produtor Kafka ou de qualquer outro
+   * componente, leva payload, chave nem request ID dos eventos. A exceção é o log de acesso, que
+   * registra o request ID da requisição HTTP por desenho (RNF-012).
    */
   private static void verificarLogsDoPublicador(
       CapturedOutput saida, UUID comerciante, Set<String> requestIds) {
-    List<String> doPublicador =
-        saida.getAll().lines().filter(linha -> linha.contains("Publicador")).toList();
-    assertThat(doPublicador).isNotEmpty();
-    assertThat(doPublicador)
+    List<String> linhas =
+        saida.getAll().lines().filter(linha -> !linha.contains(LOG_DE_ACESSO)).toList();
+    assertThat(linhas).anyMatch(linha -> linha.contains("Publicador da outbox com falha"));
+    assertThat(linhas)
         .noneMatch(
             linha ->
                 linha.contains(comerciante.toString())
-                    || linha.contains("\"valor\"")
+                    || linha.contains("valor")
                     || requestIds.stream().anyMatch(linha::contains));
   }
 

@@ -21,6 +21,18 @@ class DescricaoDeFalhaTest {
             "org.apache.kafka.common.errors.TimeoutException: Expiring 1 record(s) for topic-0");
   }
 
+  /** O {@code KafkaException("Send failed")} do Spring só embrulha a causa real do produtor. */
+  @Test
+  void desembrulhaOSendFailedDoSpring() {
+    Throwable embrulhada =
+        new org.springframework.kafka.KafkaException(
+            "Send failed", new TimeoutException("Topic not present in metadata after 3000 ms."));
+
+    assertThat(DescricaoDeFalha.de(embrulhada))
+        .isEqualTo(
+            "org.apache.kafka.common.errors.TimeoutException: Topic not present in metadata after 3000 ms.");
+  }
+
   @Test
   void semMensagemFicaSoAClasse() {
     assertThat(DescricaoDeFalha.de(new IllegalStateException()))

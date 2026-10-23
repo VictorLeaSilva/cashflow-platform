@@ -49,18 +49,25 @@ class PoolsJdbcIT extends IntegracaoPostgres {
     assertThat(transacaoDoPublicador.getTimeout()).isEqualTo(15);
   }
 
+  /** A transação do publicador ocupa uma conexão do pool dele e nenhuma do pool da API. */
   @Test
-  void aApiUsaOPoolPrincipalEOPublicadorOProprio() {
-    String usuarioApi = jdbc.sql("SELECT current_user").query(String.class).single();
-    String usuarioPublicador =
-        transacaoDoPublicador.execute(
-            s ->
-                JdbcClient.create(doPublicador)
-                    .sql("SELECT current_user")
-                    .query(String.class)
-                    .single());
+  void transacaoDoPublicadorUsaSoOProprioPool() {
+    HikariDataSource api = (HikariDataSource) principal;
+    HikariDataSource publicador = (HikariDataSource) doPublicador;
+    // O pool da API inicia na primeira conexão; o MXBean só existe depois disso.
+    assertThat(jdbc.sql("SELECT current_user").query(String.class).single())
+        .isEqualTo("lancamentos_app");
 
-    assertThat(usuarioApi).isEqualTo("lancamentos_app");
-    assertThat(usuarioPublicador).isEqualTo("lancamentos_app");
+    int[] ativasDentro =
+        transacaoDoPublicador.execute(
+            s -> {
+              JdbcClient.create(doPublicador).sql("SELECT 1").query(Integer.class).single();
+              return new int[] {
+                publicador.getHikariPoolMXBean().getActiveConnections(),
+                api.getHikariPoolMXBean().getActiveConnections()
+              };
+            });
+
+    assertThat(ativasDentro).containsExactly(1, 0);
   }
 }

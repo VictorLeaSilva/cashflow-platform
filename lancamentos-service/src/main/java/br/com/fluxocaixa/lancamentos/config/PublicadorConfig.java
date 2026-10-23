@@ -17,6 +17,8 @@ import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
 import org.springframework.context.annotation.Primary;
 import org.springframework.jdbc.datasource.DataSourceTransactionManager;
+import org.springframework.kafka.support.LoggingProducerListener;
+import org.springframework.kafka.support.ProducerListener;
 import org.springframework.transaction.TransactionDefinition;
 import org.springframework.transaction.support.TransactionTemplate;
 
@@ -65,6 +67,18 @@ public class PublicadorConfig {
     transacao.setIsolationLevel(TransactionDefinition.ISOLATION_READ_COMMITTED);
     transacao.setTimeout(Math.toIntExact(outbox.publisher().transactionTimeout().toSeconds()));
     return transacao;
+  }
+
+  /**
+   * Substitui o {@code LoggingProducerListener} padrão do Boot, que grava chave (comerciante) e
+   * payload no log de erro do produtor. Este registra a falha sem o conteúdo da mensagem
+   * (AC-T016.10; constituição: sem payload financeiro em log).
+   */
+  @Bean
+  ProducerListener<Object, Object> kafkaProducerListener() {
+    LoggingProducerListener<Object, Object> semConteudo = new LoggingProducerListener<>();
+    semConteudo.setIncludeContents(false);
+    return semConteudo;
   }
 
   @Bean

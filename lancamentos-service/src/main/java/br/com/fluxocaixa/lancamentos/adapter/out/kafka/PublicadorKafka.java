@@ -15,6 +15,7 @@ import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.ExecutionException;
 import java.util.concurrent.TimeUnit;
 import java.util.concurrent.TimeoutException;
+import org.apache.kafka.clients.producer.ProducerConfig;
 import org.apache.kafka.clients.producer.ProducerRecord;
 import org.springframework.kafka.core.KafkaOperations;
 import org.springframework.kafka.support.SendResult;
@@ -28,19 +29,24 @@ import org.springframework.stereotype.Component;
  * outbox.publish.failures} (03 §8, Q-027).
  */
 @Component
-public class PublicadorKafka implements PublicadorDeEventos {
+public final class PublicadorKafka implements PublicadorDeEventos {
 
   static final String CABECALHO_REQUEST_ID = "x-request-id";
 
-  /** {@code delivery.timeout.ms} de 03 §7.1 (10 s) com folga: depois disso o produtor já falhou. */
-  static final Duration ESPERA_MAXIMA = Duration.ofSeconds(11);
+  /** Padrão do Kafka para {@code delivery.timeout.ms}, se a configuração não informar. */
+  static final Duration DELIVERY_TIMEOUT_PADRAO = Duration.ofMillis(120_000);
+
+  /** Folga sobre o {@code delivery.timeout.ms}: depois dele o produtor já falhou o envio. */
+  static final Duration FOLGA = Duration.ofSeconds(1);
 
   private final KafkaOperations<String, String> kafka;
+  private final Duration espera;
   private final Timer duracao;
   private final Counter falhas;
 
   public PublicadorKafka(KafkaOperations<String, String> kafka, MeterRegistry metricas) {
     this.kafka = kafka;
+    this.espera = deliveryTimeout(kafka).plus(FOLGA);
     this.duracao =
         Timer.builder("outbox.publish.duration")
             .description("Duração do envio de cada lote da outbox ao broker")
@@ -49,6 +55,25 @@ public class PublicadorKafka implements PublicadorDeEventos {
         Counter.builder("outbox.publish.failures")
             .description("Eventos da outbox cujo envio falhou")
             .register(metricas);
+  }
+
+  /**
+   * Prazo de espera pelas confirmações do lote: o {@code delivery.timeout.ms} configurado (03 §7.1:
+   * 10 s) mais a folga, para o prazo acompanhar a configuração em vez de uma constante.
+   */
+  Duration espera() {
+    return espera;
+  }
+
+  private static Duration deliveryTimeout(KafkaOperations<String, String> kafka) {
+    Object configurado =
+        kafka
+            .getProducerFactory()
+            .getConfigurationProperties()
+            .get(ProducerConfig.DELIVERY_TIMEOUT_MS_CONFIG);
+    return configurado == null
+        ? DELIVERY_TIMEOUT_PADRAO
+        : Duration.ofMillis(Long.parseLong(configurado.toString().strip()));
   }
 
   @Override
@@ -66,9 +91,11 @@ public class PublicadorKafka implements PublicadorDeEventos {
 
   /**
    * Dispara os envios. Com o broker fora, cada {@code send} pode bloquear até {@code max.block.ms}
-   * esperando metadados: depois da primeira falha síncrona, o resto do lote é dado como falho sem
-   * novo bloqueio (falha rápida, 03 §7.1). Assim o ciclo fica em torno de {@code max.block.ms} +
-   * {@code delivery.timeout.ms}, dentro do timeout da transação, e as falhas são registradas.
+   * esperando metadados: depois do primeiro timeout síncrono, o resto do lote é dado como falho sem
+   * novo bloqueio (falha rápida, 03 §7.1, Q-031). Outra falha síncrona afeta só o próprio evento,
+   * para um evento problemático não travar a outbox. Assim o ciclo fica em torno de {@code
+   * max.block.ms} + {@code delivery.timeout.ms}, dentro do timeout da transação, e as falhas são
+   * registradas.
    */
   private Map<UUID, CompletableFuture<SendResult<String, String>>> enviar(
       List<OutboxPendente> lote, Map<UUID, String> falhasDoLote) {
@@ -82,18 +109,21 @@ public class PublicadorKafka implements PublicadorDeEventos {
       try {
         envios.put(evento.eventId(), kafka.send(mensagem(evento)));
       } catch (RuntimeException e) {
-        falhaImediata = DescricaoDeFalha.de(e);
-        falhasDoLote.put(evento.eventId(), falhaImediata);
+        String descricao = DescricaoDeFalha.de(e);
+        falhasDoLote.put(evento.eventId(), descricao);
+        if (DescricaoDeFalha.timeout(e)) {
+          falhaImediata = descricao;
+        }
       }
     }
     return envios;
   }
 
   /** Espera as confirmações dentro de um único prazo para o lote inteiro. */
-  private static void esperar(
+  private void esperar(
       Map<UUID, CompletableFuture<SendResult<String, String>>> envios,
       Map<UUID, String> falhasDoLote) {
-    long prazo = System.nanoTime() + ESPERA_MAXIMA.toNanos();
+    long prazo = System.nanoTime() + espera.toNanos();
     for (Map.Entry<UUID, CompletableFuture<SendResult<String, String>>> envio : envios.entrySet()) {
       try {
         envio.getValue().get(Math.max(0, prazo - System.nanoTime()), TimeUnit.NANOSECONDS);
