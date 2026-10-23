@@ -1,5 +1,5 @@
 #!/usr/bin/env bash
-# Verifica a infraestrutura local (T-004): serviços saudáveis, isolamento entre bancos e tópicos.
+# Verifica a infraestrutura local (T-004, T-006): serviços saudáveis, isolamento entre bancos e tópicos.
 # Uso (na raiz, com a stack no ar): deploy/verify-local.sh
 set -euo pipefail
 cd "$(dirname "$0")/.."
@@ -30,8 +30,11 @@ for svc in postgres kafka; do
   status="$("${COMPOSE[@]}" ps --format '{{.Health}}' "$svc")"
   [[ "$status" == "healthy" ]] && pass "$svc healthy" || fail "$svc: '$status'"
 done
-init_exit="$("${COMPOSE[@]}" ps -a --format '{{.ExitCode}}' kafka-init)"
-[[ "$init_exit" == "0" ]] && pass "kafka-init terminou com exit 0" || fail "kafka-init exit '$init_exit'"
+# O "up --wait" libera o kafka-topicos ainda em execução, e um contêiner rodando também tem
+# ExitCode 0: espera o término (até 120 s) e exige o estado "exited" com exit 0.
+timeout 120 "${COMPOSE[@]}" wait kafka-topicos >/dev/null 2>&1 || true
+topicos="$("${COMPOSE[@]}" ps -a --format '{{.State}} {{.ExitCode}}' kafka-topicos)"
+[[ "$topicos" == "exited 0" ]] && pass "kafka-topicos terminou com exit 0" || fail "kafka-topicos: '$topicos'"
 
 echo "== AC-T004.2 isolamento entre bancos"
 expect_ok lancamentos_app LANCAMENTOS_APP_PASSWORD lancamentos
