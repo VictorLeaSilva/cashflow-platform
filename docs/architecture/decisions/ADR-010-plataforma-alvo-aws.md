@@ -16,7 +16,7 @@ O enunciado pede o "desenho da solução completo (arquitetura-alvo)", com escal
 | Computação | **ECS Fargate**, um *service* por executável, mínimo 2 *tasks* em AZs diferentes, *auto scaling* por CPU e por requisições por *task* no ALB | Processos/contêineres locais |
 | Banco | **RDS PostgreSQL Multi-AZ**, 1 instância com 2 bancos e roles separados (D-15), backups automáticos com **PITR**, criptografia KMS | PostgreSQL 17 no compose, mesmo esquema de bancos e roles |
 | Broker | **Amazon MSK provisionado** em 3 AZs, *replication factor* 3, `min.insync.replicas` 2, criptografia em trânsito e em repouso | Kafka KRaft com 1 broker |
-| Identidade | **Amazon Cognito**: pessoas por *authorization code* + PKCE, integradores por *client credentials*; `merchant_id` no token (fluxos, validação e pontos a validar no Cognito no ADR-007) | Chave de dev + `scripts/DevToken.java` (a provar: T-013) |
+| Identidade | **Amazon Cognito User Pool** com resource server e *custom scopes*; *app client* público para pessoas (*authorization code* + PKCE) e um *app client* confidencial por integrador (*client credentials*); `merchant_id` no token (fluxos, validação e pontos a validar no Cognito no ADR-007) | Chave de dev + `scripts/DevToken.java` (a provar: T-013) |
 | Segredos e chaves | **Secrets Manager** (credenciais de banco) e **KMS** | `.env` local (fora do Git) |
 | Observabilidade | **CloudWatch** (métricas, logs, alarmes) via OpenTelemetry/Micrometer (ADR-008) | Prometheus + Grafana (a provar: T-032) |
 | Rede | VPC em **3 AZs** com sub-redes públicas (ALB) e privadas (ECS, RDS, MSK): o MSK usa as 3; ECS e RDS Multi-AZ, ao menos 2; *security groups* por serviço | Rede do compose |

@@ -26,9 +26,15 @@ As APIs expõem dados financeiros de vários comerciantes e são consumidas por 
 | Pessoa (comerciante/operador) em um front-end | OAuth2 *authorization code* + PKCE no Cognito | Atributo do usuário no IdP, incluído no token |
 | Sistema integrador (máquina a máquina) | OAuth2 *client credentials*, uma credencial por cliente | Vínculo do *app client* com um comerciante, incluído no token pelo IdP |
 
+**Configuração do Cognito no alvo (desenho):**
+- **Um User Pool** para a plataforma.
+- **Resource server** no User Pool com os *custom scopes* `lancamentos:write`, `lancamentos:read` e `consolidado:read`.
+- **App client de pessoas:** público (sem segredo), apenas *authorization code* + PKCE, com os *scopes* do perfil do usuário.
+- **App client por integrador:** confidencial (com segredo), apenas *client credentials* habilitado, com só os *scopes* que a integração usa. Revogar um integrador é desabilitar o seu *app client*, sem afetar os demais.
+
 No case local os dois tipos são simulados pelo `DevToken.java`; o case não tem front-end (`00 §7`).
 
-**A validar no Cognito (desenho, não verificado):** o *access token* do Cognito pode não trazer `aud` (traz `client_id`), e incluir um claim próprio como `merchant_id` — sobretudo no *client credentials* — pode exigir o *trigger* Lambda de *pre token generation*. Se for assim, a validação de audiência no alvo passa a usar `client_id` e o `merchant_id` vem desse *trigger*. Confirmar na documentação da AWS antes de qualquer implementação em nuvem; nada disso afeta o case local.
+**A validar no Cognito (desenho, não verificado):** o *access token* do Cognito pode não trazer `aud` (traz `client_id`), e incluir um claim próprio como `merchant_id` — sobretudo no *client credentials* — pode exigir o *trigger* Lambda de *pre token generation*. Se for assim, a validação de audiência no alvo passa a usar `client_id` e o `merchant_id` vem desse *trigger*. Os *custom scopes* também tendem a chegar no token com o prefixo do resource server (ex.: `fluxo-caixa/lancamentos:write`); no alvo, os serviços aceitariam o prefixo por configuração. Confirmar na documentação da AWS antes de qualquer implementação em nuvem; nada disso afeta o case local.
 
 **Autorização:**
 - *Scopes* por endpoint: `lancamentos:write`, `lancamentos:read`, `consolidado:read` (403 sem *scope*).

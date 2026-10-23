@@ -148,8 +148,10 @@ sequenceDiagram
     Note over S: Consolidado volta
     K->>S: entrega os eventos pendentes (podem duplicar)
     S->>S: dedup por eventId e soma dos deltas
-    Note over C,S: consolidado converge sem perda nem duplicidade
+    Note over C,S: a projeção converge sem duplicar efeitos (condições abaixo)
 ```
+
+A projeção converge sem duplicar os efeitos dos eventos, **desde que** os eventos persistidos (na outbox ou no tópico, dentro da retenção) sejam recuperáveis e o processamento seja retomado com sucesso. Falhas que quebram essas condições — perda da instância de banco, evento na DLT aguardando reprocessamento, retenção excedida — estão em §1.3, no ADR-005 e no ADR-010.
 
 Com o **Kafka** fora, o comportamento é o mesmo do ponto de vista do cliente: o `POST` segue 201 e quem acumula é a **outbox**, que drena quando o broker volta (`03 §7`). Os dois cenários são o comportamento **projetado**; a prova é o teste E2E da T-031 e a demo da T-035. Os limites dessa garantia estão em §1.3.
 
@@ -174,11 +176,10 @@ O crédito continua no histórico de 15/10; o saldo acumulado a partir de 22/10 
 flowchart TB
     users["Comerciantes e integradores"]
     r53["Route 53"]
-    waf["AWS WAF associado ao ALB<br/>regras gerenciadas + rate limit"]
-    cognito["Amazon Cognito<br/>pessoas: authorization code + PKCE<br/>integradores: client credentials"]
+    cognito["Amazon Cognito User Pool<br/>pessoas: authorization code + PKCE<br/>integradores: client credentials"]
 
     subgraph VPC["VPC — 3 zonas de disponibilidade"]
-      alb["Application Load Balancer<br/>(TLS, multi-AZ)"]
+      alb["Application Load Balancer (TLS, multi-AZ)<br/>+ AWS WAF: Web ACL associada ao ALB<br/>(regras gerenciadas + rate limit)"]
       subgraph ECS["ECS Fargate (sub-redes privadas)"]
         l1["Lançamentos<br/>task AZ-a"]
         l2["Lançamentos<br/>task AZ-b"]
@@ -200,7 +201,6 @@ flowchart TB
     cw["CloudWatch<br/>métricas, logs, alarmes"]
 
     users --> r53 --> alb
-    waf -.->|"inspeciona as requisições do ALB"| alb
     users -.->|"obtém token"| cognito
     alb --> l1 & l2 & c1 & c2
     l1 & l2 --> rp
@@ -216,7 +216,7 @@ flowchart TB
 | Componente | Responsabilidade | RNF atendido | Meta |
 |---|---|---|---|
 | Route 53 + ACM | DNS da API e certificados TLS da borda | RNF-005, RNF-011 | — |
-| WAF + ALB | TLS, filtragem, *rate limit* por cliente, distribuição entre AZs | RNF-005, RNF-010 | — |
+| ALB + AWS WAF (Web ACL associada ao ALB) | TLS e distribuição entre AZs (ALB); filtragem e *rate limit* por cliente nas requisições que chegam ao ALB (WAF) | RNF-005, RNF-010 | — |
 | VPC (sub-redes públicas para o ALB, privadas para ECS/RDS/MSK, *security groups* por serviço) | Isolamento de rede; só o ALB é exposto | RNF-005, RNF-011 | — |
 | ECS Fargate (≥ 2 *tasks* por serviço em 2+ AZs, *auto scaling*) | Executar os serviços *stateless* e escalar horizontalmente | RNF-001, RNF-002, RNF-010, RNF-011 | Lançamentos 99,9 %/mês; Consolidado 99,5 %/mês |
 | RDS PostgreSQL Multi-AZ (primária + standby em 2 AZs) + PITR | Fonte de verdade e projeção; *failover* automático entre AZs; PITR para corrupção ou erro lógico | RNF-004, RNF-011 | RPO 5 min e RTO 30 min, por cenário no ADR-010 |
