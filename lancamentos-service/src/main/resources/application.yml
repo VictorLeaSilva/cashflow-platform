@@ -1,0 +1,11 @@
+# Credenciais só por variável de ambiente (valores de dev em .env.example, T-004); nenhum segredo aqui.
+spring:
+  datasource:
+    # A aplicação opera como lancamentos_app (D-15): SELECT/INSERT, sem DDL.
+    url: jdbc:postgresql://localhost:${POSTGRES_PORT:5432}/lancamentos
+    username: lancamentos_app
+    password: ${LANCAMENTOS_APP_PASSWORD:}
+  flyway:
+    # O Flyway migra como lancamentos_owner, dono do banco e das tabelas.
+    user: lancamentos_owner
+    password: ${LANCAMENTOS_OWNER_PASSWORD:}
