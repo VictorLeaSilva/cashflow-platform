@@ -67,9 +67,9 @@ Contêineres do `deploy/docker-compose.yml`:
 | `kafka-topicos` | `apache/kafka:3.9.1` | Cria o tópico `cashflow.lancamentos.v1` e a DLT (`deploy/kafka/create-topics.sh`) | — | padrão | Execução única: roda depois que o `kafka` fica saudável e termina com exit 0 |
 | `kafka-ui` | `kafbat/kafka-ui:v1.3.0` | UI para inspecionar tópicos e mensagens | `KAFKA_UI_PORT` (8090) | `tools` | Contínuo, opcional |
 
-Os contêineres das aplicações (`lancamentos` e `consolidado`, profile `apps`) e os de observabilidade (profile `observability`) entram nas T-035 e T-032. O `--remove-orphans` remove contêineres de serviços que saíram do compose ou foram renomeados, como o serviço de criação de tópicos na T-006.
+Os contêineres das aplicações (`lancamentos` e `consolidado`, profile `apps`) e os de observabilidade (profile `observability`) entram nas T-035 e T-032. O `--remove-orphans` remove contêineres de serviços que saíram do compose ou foram renomeados, como o serviço de criação de tópicos na T-006. A imagem do Kafka declara volumes próprios. Por isso, ao remover um contêiner órfão, ficam volumes anônimos soltos, que o `down -v` não alcança. Liste-os com `docker volume ls -f dangling=true` antes de apagar.
 
-O `verify-local.sh` confere se os serviços estão saudáveis, se o `kafka-topicos` terminou com exit 0, se cada serviço só acessa o próprio banco e se os tópicos existem. A UI do Kafka é opcional: acrescente `--profile tools` ao `up` e acesse `http://localhost:8090`. Para apagar tudo, inclusive os volumes, use `docker compose --env-file .env -f deploy/docker-compose.yml down -v`.
+O `verify-local.sh` confere se os serviços estão saudáveis, se o `kafka-topicos` terminou com exit 0, se cada serviço só acessa o próprio banco e se os tópicos existem. A UI do Kafka é opcional: acrescente `--profile tools` ao `up` e acesse `http://localhost:8090`. Para apagar os contêineres e os volumes do projeto, use `docker compose --env-file .env -f deploy/docker-compose.yml down -v`.
 
 ## Chamar a API localmente
 
