@@ -214,13 +214,14 @@ Arquivos: `lancamentos-service/src/main/resources/openapi/lancamentos-v1.yaml` e
 | Método | Caminho | Scope | Respostas |
 |---|---|---|---|
 | POST | `/lancamentos` (`Idempotency-Key` obrigatório) | `lancamentos:write` | 201, 400, 401, 403, 406, 409 (Q-013, Q-015), 413, 415, 422 |
-| POST | `/lancamentos/{id}/estornos` (`Idempotency-Key`) | `lancamentos:write` | 201, 401, 403, 404, 409, 422 |
+| POST | `/lancamentos/{id}/estornos` (`Idempotency-Key` obrigatório) | `lancamentos:write` | 201, 400 (Q-018), 401, 403, 404, 406, 409 (já estornado; Q-013), 413, 415 (Q-017), 422 |
 | GET | `/lancamentos` (filtros, `page`, `size ≤ 100`) | `lancamentos:read` | 200, 400, 401, 403 |
 | GET | `/lancamentos/{id}` | `lancamentos:read` | 200, 401, 403, 404 |
 | GET | `/consolidado?dataInicio&dataFim` | `consolidado:read` | 200, 400, 401, 403 |
 | GET | `/consolidado/{data}` | `consolidado:read` | 200, 400, 401, 403 |
 
 Corpo do POST: `{ "tipo": "CREDITO|DEBITO", "valor": "100.00", "descricao"?: "...", "dataOcorrencia"?: "ISO-8601", "identificadorExterno"?: "..." }`.
+Corpo do estorno (Q-017): nenhum campo; sem corpo ou `{}` (com `application/json`); qualquer propriedade → 400. `{id}` só na forma canônica de UUID (Q-018).
 **Swagger UI (decisão do dono do produto):** servida a partir do YAML *contract-first* versionado, via webjar `swagger-ui` e `/v3/api-docs` apontando para o arquivo (sem springdoc: evita acoplamento à versão do Boot e elimina divergência entre código e contrato, que já é validado nos testes). Habilitada **somente nos profiles `dev`/`local`**; desabilitada e sem rota liberada no Security em `prod`. O YAML declara o esquema `bearerAuth` (JWT) para o botão *Authorize*; o token vem de `scripts/DevToken.java`.
 
 Erros: RFC 9457 com `type`, `title`, `status`, `detail`, `instance`, `errors[]` e os membros de extensão `requestId`, `traceId` e `timestamp` (§5.2). Jackson com `FAIL_ON_UNKNOWN_PROPERTIES`. Actuator em porta de gestão separada, apenas `health` e `prometheus` expostos.
@@ -242,7 +243,7 @@ Erros: RFC 9457 com `type`, `title`, `status`, `detail`, `instance`, `errors[]` 
 ### 5.1 Formatos de resposta, portas e token de desenvolvimento
 Portas: Lançamentos `8081` (gestão `9081`); Consolidado `8082` (gestão `9082`). Serviços do compose: `postgres`, `kafka`, `lancamentos`, `consolidado`.
 
-`POST /lancamentos` (201): `{ id, comercianteId, tipo, valor, descricao, dataOcorrencia, dataReferencia, referenciaLancamentoId|null, identificadorExterno|null, criadoEm }`. Listagem: `{ itens: [...], page, size, total }`.
+`POST /lancamentos` e `POST /lancamentos/{id}/estornos` (201): `{ id, comercianteId, tipo, valor, descricao, dataOcorrencia, dataReferencia, referenciaLancamentoId|null, tipoOriginal|null, identificadorExterno|null, criadoEm }` (`tipoOriginal` só no estorno, Q-020). Listagem: `{ itens: [...], page, size, total }`.
 
 `GET /consolidado?dataInicio&dataFim` (200):
 ```json
@@ -266,7 +267,7 @@ Dias sem movimento: zeros e `atualizadoEm: null`. `GET /consolidado/{data}` devo
 - **Autenticação:** JWT com validação de assinatura, `iss`, `aud` e `exp`. `dev`: chave pública local e token gerado por `scripts/DevToken.java`. `prod`: `issuer-uri` do IdP (Cognito/Keycloak).
 - **Autorização:** scopes `lancamentos:write|read`, `consolidado:read`; `comercianteId` só do claim `merchant_id`; toda query filtra por comerciante.
 - **Segurança de integração (consumo por outros sistemas):** OAuth2 *client credentials* com scopes mínimos; mTLS opcional no *gateway*; *rate limit* por cliente no borda (acima do pico de 50 req/s do enunciado); payload máximo; timeouts; eventos tratados como entrada não confiável (validação de schema + DLT).
-- **Dados:** TLS na borda; criptografia em repouso (KMS no alvo); segredos fora do Git; logs sem token/segredo; auditoria de estornos em log estruturado.
+- **Dados:** TLS na borda; criptografia em repouso (KMS no alvo); segredos fora do Git; logs sem token/segredo; auditoria de estornos em log estruturado (logger `br.com.fluxocaixa.lancamentos.auditoria`, campos na T-014, Q-021).
 - Mapeamento completo OWASP API Top 10 em `docs/security/owasp-mapping.md` (T-034).
 
 ## 7. Resiliência
