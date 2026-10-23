@@ -36,9 +36,10 @@ Ordem: *walking skeleton* (fundação e harness) → fatias verticais por servi�
 | T-033 | Scripts k6: `smoke.js` (teste normal) e `load.js` (carga: 50 req/s + escrita simultânea; 100/200 informativo) + relatório | T-023, T-032 | RNF-002, RNF-003, RNF-010 | Thresholds passam; resultado em `docs/performance/` |
 | T-034 | Hardening e segurança (cabeçalhos, limites, workflows de segurança, OWASP mapping, threat model enxuto) | T-013, T-023 | RNF-005 | Workflows verdes; documento |
 | T-035 | Demo guiada `scripts/demo.sh` (idempotência, estorno, retroativo, isolamento, Consolidado parado, opcional Kafka parado) + profile `apps` no compose | T-016, T-023, T-032 | RNF-001, RNF-007, RF-007, RF-009, RF-010 | Execução ponta a ponta com exit 0 |
+| T-036 | **Opcional, cortável.** IdP local de demonstração: Keycloak no profile `auth` do compose (só local; no alvo o IdP é o Cognito, ADR-010), *realm* versionado, *client credentials* e *authorization code* + PKCE pela Swagger UI | T-013, T-023, T-035 | RNF-005 | Token do Keycloak aceito pelos dois serviços só por configuração; testes e k6 seguem com o `DevToken` |
 | **Fase 4 — Documentação e entrega** |||||
 | T-040 | Completar `architecture.md` iniciado na T-005 (visões de runtime e deploy com números medidos, revisão cruzada final ADRs × código) | T-005, T-032 | Obrigatórios do enunciado | Revisão cruzada com as specs |
-| T-041 | Arquitetura de transição (enxuta): coexistência com processo legado, importação idempotente por `identificador_externo`, *shadow mode* | T-040 | Diferencial | 1 página + 1 diagrama |
+| T-041 | Arquitetura de transição (enxuta): coexistência com processo legado, importação idempotente por `identificador_externo`, saldo de abertura e seu efeito no evento e no `saldoAnterior`, migração de identidade (usuários e comerciantes), *shadow mode* | T-040 | Diferencial | Até 3 páginas + 1 diagrama |
 | T-042 | Estimativa de custos (premissas + export da AWS Pricing Calculator, cenário MVP e produção resiliente) | T-040 | Diferencial | `docs/cost/` |
 | T-043 | README final (como funciona, como rodar, como testar, decisões, evolução e "o que faria com mais tempo") | todas | RNF-009 | Seguir o README do zero funciona |
 | T-044 | Release (imagens, SBOM, tag) e auditoria final de rastreabilidade | T-043 | Todos | `traceability.md` sem lacunas |
@@ -47,8 +48,8 @@ Ordem: *walking skeleton* (fundação e harness) → fatias verticais por servi�
 - **M0** (T-001..T-005): repositório com gates e harness funcionando; obrigatórios de documentação (ADRs e arquitetura-alvo) em primeira versão.
 - **M1** (T-010..T-016): Lançamentos completo, publica eventos.
 - **M2** (T-020..T-023): Consolidado completo, consome e consulta.
-- **M3** (T-030..T-035): provas de resiliência, carga, segurança e demo guiada.
+- **M3** (T-030..T-035): provas de resiliência, carga, segurança e demo guiada. T-036 é opcional e não bloqueia o marco.
 - **M4** (T-040..T-044): documentação final e release.
 
 ## Corte de escopo (se o tempo apertar, nesta ordem)
-1. PIT e ZAP (G4). 2. Grafana provisionado (manter métricas e alertas em arquivo). 3. T-041/T-042 em versão mínima. **Nunca cortar:** T-005, T-031, T-033, T-035, T-040, T-043.
+1. T-036 (Keycloak local; o `DevToken` cobre o case). 2. PIT e ZAP (G4). 3. Grafana provisionado (manter métricas e alertas em arquivo). 4. T-041/T-042 em versão mínima. **Nunca cortar:** T-005, T-031, T-033, T-035, T-040, T-043.
