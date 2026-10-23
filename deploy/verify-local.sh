@@ -1,5 +1,5 @@
 #!/usr/bin/env bash
-# Verifica a infraestrutura local (T-004): serviços saudáveis, isolamento entre bancos e tópicos.
+# Verifica a infraestrutura local (T-004, T-006): serviços saudáveis, isolamento entre bancos e tópicos.
 # Uso (na raiz, com a stack no ar): deploy/verify-local.sh
 set -euo pipefail
 cd "$(dirname "$0")/.."
@@ -30,8 +30,8 @@ for svc in postgres kafka; do
   status="$("${COMPOSE[@]}" ps --format '{{.Health}}' "$svc")"
   [[ "$status" == "healthy" ]] && pass "$svc healthy" || fail "$svc: '$status'"
 done
-init_exit="$("${COMPOSE[@]}" ps -a --format '{{.ExitCode}}' kafka-init)"
-[[ "$init_exit" == "0" ]] && pass "kafka-init terminou com exit 0" || fail "kafka-init exit '$init_exit'"
+topicos_exit="$("${COMPOSE[@]}" ps -a --format '{{.ExitCode}}' kafka-topicos)"
+[[ "$topicos_exit" == "0" ]] && pass "kafka-topicos terminou com exit 0" || fail "kafka-topicos exit '$topicos_exit'"
 
 echo "== AC-T004.2 isolamento entre bancos"
 expect_ok lancamentos_app LANCAMENTOS_APP_PASSWORD lancamentos

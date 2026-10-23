@@ -2,7 +2,7 @@
 
 Controle de **lançamentos** (créditos e débitos) e **consolidado diário**, com dois serviços independentes comunicando-se por eventos. Case do desafio de Arquiteto de Soluções.
 
-> Estado: fundação e gates de qualidade (T-001, T-002), infraestrutura local (T-004) e documentação de arquitetura (T-005). Este README é provisório e será finalizado na T-043.
+> Estado: fundação e gates de qualidade (T-001, T-002), infraestrutura local (T-004, T-006), documentação de arquitetura (T-005) e, no serviço de Lançamentos, domínio, persistência, registro idempotente com outbox, API `POST /lancamentos` e estorno (T-010 a T-014). Este README é provisório e será finalizado na T-043.
 
 ## Documentação
 
@@ -51,14 +51,25 @@ cp .env.example .env
 ```
 
 ```bash
-docker compose --env-file .env -f deploy/docker-compose.yml up -d --wait
+docker compose --env-file .env -f deploy/docker-compose.yml up -d --wait --remove-orphans
 ```
 
 ```bash
 deploy/verify-local.sh
 ```
 
-O `verify-local.sh` confere se os serviços estão saudáveis, se cada serviço só acessa o próprio banco e se os tópicos existem. A UI do Kafka é opcional: acrescente `--profile tools` ao `up` e acesse `http://localhost:8090`. Para apagar tudo, inclusive os volumes, use `docker compose --env-file .env -f deploy/docker-compose.yml down -v`.
+Contêineres do `deploy/docker-compose.yml`:
+
+| Serviço | Imagem | Papel | Porta no host | Profile | Ciclo de vida |
+|---|---|---|---|---|---|
+| `postgres` | `postgres:17.11-alpine` | Bancos `lancamentos` e `consolidado`, cada um com roles próprios (`deploy/init/`) | `POSTGRES_PORT` (5432) | padrão | Contínuo, com *healthcheck* |
+| `kafka` | `apache/kafka:3.9.1` | Broker KRaft de nó único, sem criação automática de tópicos | `KAFKA_PORT` (9092) | padrão | Contínuo, com *healthcheck* |
+| `kafka-topicos` | `apache/kafka:3.9.1` | Cria o tópico `cashflow.lancamentos.v1` e a DLT (`deploy/kafka/create-topics.sh`) | — | padrão | Execução única: roda depois que o `kafka` fica saudável e termina com exit 0 |
+| `kafka-ui` | `kafbat/kafka-ui:v1.3.0` | UI para inspecionar tópicos e mensagens | `KAFKA_UI_PORT` (8090) | `tools` | Contínuo, opcional |
+
+Os contêineres das aplicações (`lancamentos` e `consolidado`, profile `apps`) e os de observabilidade (profile `observability`) entram nas T-035 e T-032. O `--remove-orphans` remove contêineres de serviços que saíram do compose ou foram renomeados, como o serviço de criação de tópicos na T-006.
+
+O `verify-local.sh` confere se os serviços estão saudáveis, se o `kafka-topicos` terminou com exit 0, se cada serviço só acessa o próprio banco e se os tópicos existem. A UI do Kafka é opcional: acrescente `--profile tools` ao `up` e acesse `http://localhost:8090`. Para apagar tudo, inclusive os volumes, use `docker compose --env-file .env -f deploy/docker-compose.yml down -v`.
 
 ## Chamar a API localmente
 

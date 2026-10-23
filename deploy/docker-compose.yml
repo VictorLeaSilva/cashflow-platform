@@ -1,11 +1,19 @@
-# Infraestrutura local (T-004). Na raiz do repositório:
+# Infraestrutura local (T-004, legibilidade na T-006). Na raiz do repositório:
 #   cp .env.example .env
-#   docker compose --env-file .env -f deploy/docker-compose.yml up -d
+#   docker compose --env-file .env -f deploy/docker-compose.yml up -d --wait --remove-orphans
 # Sem as variáveis, o compose falha cedo pedindo as senhas (nenhum segredo fica no repositório).
-# Profiles: "tools" (UI do Kafka, opcional); "observability" e "apps" entram nas T-032 e T-035.
+#
+# Serviços (tabela completa no README, "Infraestrutura local"):
+#   postgres       contínuo         banco das duas aplicações (bancos e roles separados)
+#   kafka          contínuo         broker KRaft de nó único
+#   kafka-topicos  execução única   cria o tópico de eventos e a DLT, termina com exit 0
+#   kafka-ui       contínuo         UI do Kafka, só com o profile "tools"
+# Profiles: "tools" (opcional); "observability" e "apps" entram nas T-032 e T-035.
 name: fluxo-caixa
 
 services:
+  # Banco das aplicações (03 §3, D-15): bancos "lancamentos" e "consolidado", cada um com roles
+  # owner/app próprios, criados por deploy/init/. Contínuo; porta no host ${POSTGRES_PORT:-5432}.
   postgres:
     image: postgres:17.11-alpine
     environment:
@@ -27,6 +35,8 @@ services:
       timeout: 5s
       retries: 20
 
+  # Broker de eventos (ADR-004): Kafka em modo KRaft, nó único, sem criação automática de tópicos.
+  # Contínuo; porta no host ${KAFKA_PORT:-9092}.
   kafka:
     image: apache/kafka:3.9.1
     environment:
@@ -55,8 +65,9 @@ services:
       retries: 12
       start_period: 15s
 
-  # Execução única: cria o tópico e a DLT (03 §4, §7.2) e termina com exit 0.
-  kafka-init:
+  # Criação dos tópicos (03 §4, §7.2): execução única, depois que o Kafka fica saudável. Roda
+  # deploy/kafka/create-topics.sh (idempotente), que cria o tópico e a DLT e termina com exit 0.
+  kafka-topicos:
     image: apache/kafka:3.9.1
     depends_on:
       kafka:
@@ -68,6 +79,8 @@ services:
       BOOTSTRAP: kafka:29092
     restart: "no"
 
+  # UI do Kafka para inspecionar tópicos e mensagens. Opcional: só sobe com --profile tools.
+  # Contínuo; http://localhost:${KAFKA_UI_PORT:-8090}.
   kafka-ui:
     image: kafbat/kafka-ui:v1.3.0
     profiles: ["tools"]
