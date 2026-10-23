@@ -10,6 +10,7 @@ import br.com.fluxocaixa.lancamentos.support.IntegracaoWeb;
 import br.com.fluxocaixa.lancamentos.support.TokensDeTeste;
 import java.util.List;
 import java.util.Map;
+import java.util.UUID;
 import org.junit.jupiter.api.Tag;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
@@ -91,6 +92,21 @@ class LogDeAcessoWebTest extends IntegracaoWeb {
     assertThat(linhasDeAcesso(saida, "rid-log-405").getFirst())
         .containsEntry("status", 405)
         .containsEntry("rota", "/api/v1/lancamentos");
+  }
+
+  /** AC-T014.10: a rota do estorno aparece como padrão, sem o UUID do caminho. */
+  @Test
+  void estornoRegistraARotaPadraoSemOId(CapturedOutput saida) throws Exception {
+    UUID original = UUID.randomUUID();
+    mvc.perform(
+            Chamadas.estornar(original, "chave-log-estorno").header("X-Request-Id", "rid-log-est"))
+        .andExpect(status().isNotFound());
+
+    assertThat(linhasDeAcesso(saida, "rid-log-est").getFirst())
+        .containsEntry("status", 404)
+        .containsEntry("metodo", "POST")
+        .containsEntry("rota", "/api/v1/lancamentos/{id}/estornos");
+    assertThat(saida.getAll()).doesNotContain(original.toString());
   }
 
   @Test

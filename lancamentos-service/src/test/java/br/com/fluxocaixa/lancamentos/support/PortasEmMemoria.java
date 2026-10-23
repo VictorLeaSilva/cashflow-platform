@@ -1,12 +1,14 @@
 package br.com.fluxocaixa.lancamentos.support;
 
 import br.com.fluxocaixa.lancamentos.application.IdentificadorExternoDuplicadoException;
+import br.com.fluxocaixa.lancamentos.application.LancamentoJaEstornadoException;
 import br.com.fluxocaixa.lancamentos.application.port.out.EventoOutbox;
 import br.com.fluxocaixa.lancamentos.application.port.out.IdGenerator;
 import br.com.fluxocaixa.lancamentos.application.port.out.IdempotencyKeyRepository;
 import br.com.fluxocaixa.lancamentos.application.port.out.LancamentoRepository;
 import br.com.fluxocaixa.lancamentos.application.port.out.OutboxRepository;
 import br.com.fluxocaixa.lancamentos.domain.Lancamento;
+import br.com.fluxocaixa.lancamentos.domain.TipoLancamento;
 import java.util.ArrayList;
 import java.util.LinkedHashMap;
 import java.util.List;
@@ -163,6 +165,19 @@ public class PortasEmMemoria {
                                   .equals(outro.identificadorExterno()));
       if (duplicado) {
         throw new IdentificadorExternoDuplicadoException();
+      }
+      // ux_estorno_unico (T-014): um único estorno por lançamento original.
+      boolean jaEstornado =
+          lancamento.tipo() == TipoLancamento.ESTORNO
+              && porId.values().stream()
+                  .anyMatch(
+                      outro ->
+                          outro.tipo() == TipoLancamento.ESTORNO
+                              && outro
+                                  .referenciaLancamentoId()
+                                  .equals(lancamento.referenciaLancamentoId()));
+      if (jaEstornado) {
+        throw new LancamentoJaEstornadoException();
       }
       porId.put(lancamento.id(), lancamento);
     }

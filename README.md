@@ -80,6 +80,12 @@ Registre um crédito. Repetir o comando com a mesma `Idempotency-Key` devolve o 
 curl -i -X POST http://localhost:8081/api/v1/lancamentos -H "Authorization: Bearer $TOKEN" -H "Content-Type: application/json" -H "Idempotency-Key: exemplo-1" -d '{"tipo":"CREDITO","valor":"100.00"}'
 ```
 
+Estorne esse lançamento usando o `id` devolvido. O estorno não tem corpo. Ele cria um lançamento `ESTORNO` com a data de hoje, e um segundo estorno do mesmo lançamento responde 409:
+
+```bash
+curl -i -X POST http://localhost:8081/api/v1/lancamentos/<id>/estornos -H "Authorization: Bearer $TOKEN" -H "Idempotency-Key: estorno-1"
+```
+
 O contrato fica em [`lancamentos-v1.yaml`](lancamentos-service/src/main/resources/openapi/lancamentos-v1.yaml). Com o profile `local`, a Swagger UI fica em `http://localhost:8081/swagger-ui/index.html`.
 
 ## Qualidade e hooks locais

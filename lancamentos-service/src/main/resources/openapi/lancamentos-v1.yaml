@@ -3,17 +3,18 @@ info:
   title: Fluxo de Caixa - Lançamentos
   version: 1.0.0
   description: |
-    API de lançamentos (créditos e débitos) do case Fluxo de Caixa. Contrato *contract-first*
-    (03 §5): este arquivo é a fonte única, validado em teste (RNF-014). O comerciante vem só do
-    token (claim `merchant_id`, RF-010); valores monetários são strings decimais; erros seguem o
-    RFC 9457 (`application/problem+json`) com o catálogo de `type` abaixo.
+    API de lançamentos (créditos, débitos e estornos) do case Fluxo de Caixa. Contrato
+    *contract-first* (03 §5): este arquivo é a fonte única, validado em teste (RNF-014). O
+    comerciante vem só do token (claim `merchant_id`, RF-010); valores monetários são strings
+    decimais; erros seguem o RFC 9457 (`application/problem+json`) com o catálogo de `type` abaixo.
 
     Catálogo de erros (`type`): `/erros/requisicao-invalida` (400), `/erros/nao-autenticado`
-    (401), `/erros/acesso-negado` (403), `/erros/nao-aceitavel` (406),
-    `/erros/idempotency-conflict` e `/erros/identificador-externo-duplicado` (409),
+    (401), `/erros/acesso-negado` (403), `/erros/lancamento-nao-encontrado` (404),
+    `/erros/nao-aceitavel` (406), `/erros/idempotency-conflict`,
+    `/erros/identificador-externo-duplicado` e `/erros/lancamento-ja-estornado` (409),
     `/erros/payload-muito-grande` (413), `/erros/tipo-de-midia-nao-suportado` (415),
-    `/erros/data-futura`, `/erros/data-retroativa-excedida` e `/erros/idempotency-key-reuse`
-    (422), `/erros/interno` (500).
+    `/erros/data-futura`, `/erros/data-retroativa-excedida`, `/erros/estorno-de-estorno` e
+    `/erros/idempotency-key-reuse` (422), `/erros/interno` (500).
 servers:
   - url: /api/v1
 security:
@@ -87,6 +88,57 @@ paths:
         '500':
           $ref: '#/components/responses/Interno'
 
+  /lancamentos/{id}/estornos:
+    post:
+      operationId: estornarLancamento
+      summary: Estorna um lançamento (total e único)
+      description: |
+        Cria um lançamento `ESTORNO` com o valor e o tipo do original, na data de hoje no fuso
+        `America/Sao_Paulo` (o original não muda). Cada lançamento tem no máximo um estorno, e um
+        estorno não pode ser estornado. Original inexistente ou de outro comerciante responde 404,
+        sem revelar existência. O corpo é opcional: sem corpo (com qualquer `Content-Type`) ou o
+        objeto vazio `{}` em `application/json`; qualquer propriedade é rejeitada. Idempotente por
+        `Idempotency-Key`, como o registro. Exige o scope `lancamentos:write`.
+      security:
+        - bearerAuth: [lancamentos:write]
+      parameters:
+        - $ref: '#/components/parameters/LancamentoId'
+        - $ref: '#/components/parameters/IdempotencyKey'
+        - $ref: '#/components/parameters/XRequestId'
+      requestBody:
+        required: false
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/EstornarLancamentoRequest'
+            examples:
+              vazio:
+                summary: Objeto vazio (equivale a não enviar corpo)
+                value: {}
+      responses:
+        '201':
+          $ref: '#/components/responses/Estornado'
+        '400':
+          $ref: '#/components/responses/RequisicaoInvalidaDoEstorno'
+        '401':
+          $ref: '#/components/responses/NaoAutenticado'
+        '403':
+          $ref: '#/components/responses/AcessoNegado'
+        '404':
+          $ref: '#/components/responses/LancamentoNaoEncontrado'
+        '406':
+          $ref: '#/components/responses/NaoAceitavel'
+        '409':
+          $ref: '#/components/responses/ConflitoDoEstorno'
+        '413':
+          $ref: '#/components/responses/PayloadMuitoGrande'
+        '415':
+          $ref: '#/components/responses/TipoDeMidiaNaoSuportado'
+        '422':
+          $ref: '#/components/responses/RegraDeNegocioDoEstorno'
+        '500':
+          $ref: '#/components/responses/Interno'
+
 components:
   securitySchemes:
     bearerAuth:
@@ -98,6 +150,18 @@ components:
         `java scripts/DevToken.java --merchant <uuid> --scopes lancamentos:write --ttl 3600`.
 
   parameters:
+    LancamentoId:
+      name: id
+      in: path
+      required: true
+      description: |
+        Id do lançamento a estornar, na forma canônica 8-4-4-4-12 (maiúsculas ou minúsculas);
+        outras formas respondem 400.
+      schema:
+        type: string
+        format: uuid
+        pattern: '^[0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{12}$'
+      example: 7d2f6c1a-3b4e-4f5a-9c8d-1e2f3a4b5c6d
     IdempotencyKey:
       name: Idempotency-Key
       in: header
@@ -171,6 +235,12 @@ components:
           maxLength: 100
           description: Referência do sistema de origem; única por comerciante.
 
+    EstornarLancamentoRequest:
+      type: object
+      additionalProperties: false
+      maxProperties: 0
+      description: O estorno é total e não tem campos (Q-017).
+
     Lancamento:
       type: object
       additionalProperties: false
@@ -183,6 +253,7 @@ components:
         - dataOcorrencia
         - dataReferencia
         - referenciaLancamentoId
+        - tipoOriginal
         - identificadorExterno
         - criadoEm
       properties:
@@ -209,6 +280,11 @@ components:
         referenciaLancamentoId:
           type: [string, 'null']
           format: uuid
+          description: Id do lançamento estornado; só no estorno.
+        tipoOriginal:
+          type: [string, 'null']
+          enum: [CREDITO, DEBITO, null]
+          description: Tipo do lançamento estornado; só no estorno (Q-020).
         identificadorExterno:
           type: [string, 'null']
         criadoEm:
@@ -240,13 +316,16 @@ components:
             - /erros/requisicao-invalida
             - /erros/nao-autenticado
             - /erros/acesso-negado
+            - /erros/lancamento-nao-encontrado
             - /erros/nao-aceitavel
             - /erros/idempotency-conflict
             - /erros/identificador-externo-duplicado
+            - /erros/lancamento-ja-estornado
             - /erros/payload-muito-grande
             - /erros/tipo-de-midia-nao-suportado
             - /erros/data-futura
             - /erros/data-retroativa-excedida
+            - /erros/estorno-de-estorno
             - /erros/idempotency-key-reuse
             - /erros/interno
         title:
@@ -297,6 +376,7 @@ components:
                 dataOcorrencia: '2026-10-23T15:00:00Z'
                 dataReferencia: '2026-10-23'
                 referenciaLancamentoId: null
+                tipoOriginal: null
                 identificadorExterno: null
                 criadoEm: '2026-10-23T15:00:00Z'
             debito:
@@ -310,6 +390,7 @@ components:
                 dataOcorrencia: '2026-10-23T12:15:00Z'
                 dataReferencia: '2026-10-23'
                 referenciaLancamentoId: null
+                tipoOriginal: null
                 identificadorExterno: nf-2026-000123
                 criadoEm: '2026-10-23T15:00:01Z'
             replay-idempotente:
@@ -323,6 +404,7 @@ components:
                 dataOcorrencia: '2026-10-23T15:00:00Z'
                 dataReferencia: '2026-10-23'
                 referenciaLancamentoId: null
+                tipoOriginal: null
                 identificadorExterno: null
                 criadoEm: '2026-10-23T15:00:00Z'
 
@@ -567,5 +649,200 @@ components:
                 status: 500
                 detail: erro interno; tente novamente
                 instance: /api/v1/lancamentos
+                requestId: cliente-req-8f2c1
+                timestamp: '2026-10-23T15:00:00Z'
+
+    Estornado:
+      description: Estorno criado (ou replay de um estorno anterior com a mesma chave).
+      headers:
+        Location:
+          $ref: '#/components/headers/Location'
+        X-Request-Id:
+          $ref: '#/components/headers/XRequestId'
+        Idempotent-Replayed:
+          $ref: '#/components/headers/IdempotentReplayed'
+      content:
+        application/json:
+          schema:
+            $ref: '#/components/schemas/Lancamento'
+          examples:
+            estorno-de-credito:
+              summary: Estorno de um crédito, na data de hoje (SP)
+              value:
+                id: 9a8b7c6d-5e4f-4a3b-8c2d-1e0f9a8b7c6d
+                comercianteId: 0f8fad5b-d9cb-469f-a165-70867728950e
+                tipo: ESTORNO
+                valor: '100.00'
+                descricao: null
+                dataOcorrencia: '2026-10-23T15:00:00Z'
+                dataReferencia: '2026-10-23'
+                referenciaLancamentoId: 7d2f6c1a-3b4e-4f5a-9c8d-1e2f3a4b5c6d
+                tipoOriginal: CREDITO
+                identificadorExterno: null
+                criadoEm: '2026-10-23T15:00:00Z'
+            estorno-de-debito:
+              summary: Estorno de um débito de dias atrás; o efeito é no dia do estorno
+              value:
+                id: 1b2c3d4e-5f6a-4b7c-8d9e-0f1a2b3c4d5e
+                comercianteId: 0f8fad5b-d9cb-469f-a165-70867728950e
+                tipo: ESTORNO
+                valor: '1250.00'
+                descricao: null
+                dataOcorrencia: '2026-10-23T15:05:00Z'
+                dataReferencia: '2026-10-23'
+                referenciaLancamentoId: 3c9e1b2a-6d4f-4e8a-b1c2-d3e4f5a6b7c8
+                tipoOriginal: DEBITO
+                identificadorExterno: null
+                criadoEm: '2026-10-23T15:05:00Z'
+            replay-idempotente:
+              summary: Mesmo corpo do estorno original (com Idempotent-Replayed true)
+              value:
+                id: 9a8b7c6d-5e4f-4a3b-8c2d-1e0f9a8b7c6d
+                comercianteId: 0f8fad5b-d9cb-469f-a165-70867728950e
+                tipo: ESTORNO
+                valor: '100.00'
+                descricao: null
+                dataOcorrencia: '2026-10-23T15:00:00Z'
+                dataReferencia: '2026-10-23'
+                referenciaLancamentoId: 7d2f6c1a-3b4e-4f5a-9c8d-1e2f3a4b5c6d
+                tipoOriginal: CREDITO
+                identificadorExterno: null
+                criadoEm: '2026-10-23T15:00:00Z'
+
+    RequisicaoInvalidaDoEstorno:
+      description: Entrada inválida; os erros de caminho e de cabeçalho voltam juntos em `errors[]`.
+      headers:
+        X-Request-Id:
+          $ref: '#/components/headers/XRequestId'
+      content:
+        application/problem+json:
+          schema:
+            $ref: '#/components/schemas/Problema'
+          examples:
+            id-invalido:
+              summary: Id fora da forma canônica de UUID
+              value:
+                type: /erros/requisicao-invalida
+                title: Bad Request
+                status: 400
+                detail: a requisição tem erros; veja errors[]
+                instance: /api/v1/lancamentos/1-1-1-1-1/estornos
+                errors:
+                  - campo: id
+                    codigo: formato-invalido
+                    mensagem: id deve ser um UUID na forma 8-4-4-4-12, como 7d2f6c1a-3b4e-4f5a-9c8d-1e2f3a4b5c6d
+                requestId: cliente-req-8f2c1
+                timestamp: '2026-10-23T15:00:00Z'
+            chave-ausente:
+              summary: Sem Idempotency-Key
+              value:
+                type: /erros/requisicao-invalida
+                title: Bad Request
+                status: 400
+                detail: a requisição tem erros; veja errors[]
+                instance: /api/v1/lancamentos/7d2f6c1a-3b4e-4f5a-9c8d-1e2f3a4b5c6d/estornos
+                errors:
+                  - campo: Idempotency-Key
+                    codigo: obrigatorio
+                    mensagem: o cabeçalho Idempotency-Key é obrigatório
+                requestId: cliente-req-8f2c1
+                timestamp: '2026-10-23T15:00:00Z'
+            propriedade-desconhecida:
+              summary: Corpo com propriedade (o estorno não tem campos)
+              value:
+                type: /erros/requisicao-invalida
+                title: Bad Request
+                status: 400
+                detail: a requisição tem erros; veja errors[]
+                instance: /api/v1/lancamentos/7d2f6c1a-3b4e-4f5a-9c8d-1e2f3a4b5c6d/estornos
+                errors:
+                  - campo: motivo
+                    codigo: propriedade-desconhecida
+                    mensagem: propriedade não prevista no contrato
+                requestId: cliente-req-8f2c1
+                timestamp: '2026-10-23T15:00:00Z'
+
+    LancamentoNaoEncontrado:
+      description: |
+        Original inexistente ou de outro comerciante; as duas situações respondem igual, sem
+        revelar existência.
+      headers:
+        X-Request-Id:
+          $ref: '#/components/headers/XRequestId'
+      content:
+        application/problem+json:
+          schema:
+            $ref: '#/components/schemas/Problema'
+          examples:
+            nao-encontrado:
+              value:
+                type: /erros/lancamento-nao-encontrado
+                title: Not Found
+                status: 404
+                detail: lançamento não encontrado para este comerciante
+                instance: /api/v1/lancamentos/7d2f6c1a-3b4e-4f5a-9c8d-1e2f3a4b5c6d/estornos
+                requestId: cliente-req-8f2c1
+                timestamp: '2026-10-23T15:00:00Z'
+
+    ConflitoDoEstorno:
+      description: |
+        `lancamento-ja-estornado`: o original já tem estorno (inclusive por requisição
+        concorrente). `idempotency-conflict`: a mesma chave está em disputa; repita após
+        `Retry-After`.
+      headers:
+        X-Request-Id:
+          $ref: '#/components/headers/XRequestId'
+        Retry-After:
+          $ref: '#/components/headers/RetryAfter'
+      content:
+        application/problem+json:
+          schema:
+            $ref: '#/components/schemas/Problema'
+          examples:
+            estorno-duplicado:
+              value:
+                type: /erros/lancamento-ja-estornado
+                title: Conflict
+                status: 409
+                detail: este lançamento já foi estornado; o estorno é único
+                instance: /api/v1/lancamentos/7d2f6c1a-3b4e-4f5a-9c8d-1e2f3a4b5c6d/estornos
+                requestId: cliente-req-8f2c1
+                timestamp: '2026-10-23T15:00:00Z'
+            idempotency-conflict:
+              value:
+                type: /erros/idempotency-conflict
+                title: Conflict
+                status: 409
+                detail: outra requisição com a mesma Idempotency-Key está em processamento; repita
+                instance: /api/v1/lancamentos/7d2f6c1a-3b4e-4f5a-9c8d-1e2f3a4b5c6d/estornos
+                requestId: cliente-req-8f2c1
+                timestamp: '2026-10-23T15:00:00Z'
+
+    RegraDeNegocioDoEstorno:
+      description: O alvo é um estorno, ou a chave de idempotência já foi usada em outra operação.
+      headers:
+        X-Request-Id:
+          $ref: '#/components/headers/XRequestId'
+      content:
+        application/problem+json:
+          schema:
+            $ref: '#/components/schemas/Problema'
+          examples:
+            estorno-de-estorno:
+              value:
+                type: /erros/estorno-de-estorno
+                title: Unprocessable Content
+                status: 422
+                detail: um estorno não pode ser estornado
+                instance: /api/v1/lancamentos/9a8b7c6d-5e4f-4a3b-8c2d-1e0f9a8b7c6d/estornos
+                requestId: cliente-req-8f2c1
+                timestamp: '2026-10-23T15:00:00Z'
+            idempotency-key-reuse:
+              value:
+                type: /erros/idempotency-key-reuse
+                title: Unprocessable Content
+                status: 422
+                detail: a Idempotency-Key já foi usada com outro corpo
+                instance: /api/v1/lancamentos/7d2f6c1a-3b4e-4f5a-9c8d-1e2f3a4b5c6d/estornos
                 requestId: cliente-req-8f2c1
                 timestamp: '2026-10-23T15:00:00Z'

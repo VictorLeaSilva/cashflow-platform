@@ -8,6 +8,7 @@ import java.security.NoSuchAlgorithmException;
 import java.text.Normalizer;
 import java.time.Instant;
 import java.util.HexFormat;
+import java.util.UUID;
 
 /**
  * {@code request_hash} da chave de idempotência: SHA-256 (hex) da representação canônica da
@@ -20,6 +21,7 @@ import java.util.HexFormat;
 public final class RequestFingerprint {
 
   static final String OPERACAO_REGISTRO = "POST /lancamentos";
+  static final String OPERACAO_ESTORNO = "POST /lancamentos/{id}/estornos";
   private static final String SEPARADOR = "|";
   private static final String AUSENTE = "-";
 
@@ -27,6 +29,19 @@ public final class RequestFingerprint {
 
   public static String deRegistro(RegistrarLancamentoCommand comando) {
     return sha256(canonico(comando));
+  }
+
+  /**
+   * Hash do estorno (Q-019): operação como literal fixo e o id do original como campo próprio, na
+   * forma de {@link UUID#toString()}. Ex.: {@code 31:POST /lancamentos/{id}/estornos|36:<uuid>}.
+   */
+  public static String deEstorno(EstornarLancamentoCommand comando) {
+    return sha256(canonico(comando));
+  }
+
+  static String canonico(EstornarLancamentoCommand comando) {
+    return String.join(
+        SEPARADOR, campo(OPERACAO_ESTORNO), campo(comando.lancamentoOriginalId().toString()));
   }
 
   static String canonico(RegistrarLancamentoCommand comando) {

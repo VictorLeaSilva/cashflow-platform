@@ -1,5 +1,6 @@
 package br.com.fluxocaixa.lancamentos.config;
 
+import br.com.fluxocaixa.lancamentos.application.EstornarLancamento;
 import br.com.fluxocaixa.lancamentos.application.ExecucaoIdempotente;
 import br.com.fluxocaixa.lancamentos.application.RegistrarLancamento;
 import br.com.fluxocaixa.lancamentos.application.port.out.IdGenerator;
@@ -31,5 +32,16 @@ public class CasosDeUsoConfig {
       PoliticaLancamento politica,
       Clock clock) {
     return new RegistrarLancamento(execucaoIdempotente, lancamentos, outbox, ids, politica, clock);
+  }
+
+  @Bean
+  EstornarLancamento estornarLancamento(
+      ExecucaoIdempotente execucaoIdempotente,
+      LancamentoRepository lancamentos,
+      OutboxRepository outbox,
+      IdGenerator ids,
+      PoliticaLancamento politica,
+      Clock clock) {
+    return new EstornarLancamento(execucaoIdempotente, lancamentos, outbox, ids, politica, clock);
   }
 }

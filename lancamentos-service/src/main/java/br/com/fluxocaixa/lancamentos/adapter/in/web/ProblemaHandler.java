@@ -3,6 +3,8 @@ package br.com.fluxocaixa.lancamentos.adapter.in.web;
 import br.com.fluxocaixa.lancamentos.application.IdempotencyConflictException;
 import br.com.fluxocaixa.lancamentos.application.IdempotencyKeyReuseException;
 import br.com.fluxocaixa.lancamentos.application.IdentificadorExternoDuplicadoException;
+import br.com.fluxocaixa.lancamentos.application.LancamentoJaEstornadoException;
+import br.com.fluxocaixa.lancamentos.application.LancamentoNaoEncontradoException;
 import br.com.fluxocaixa.lancamentos.domain.LancamentoInvalidoException;
 import br.com.fluxocaixa.lancamentos.domain.LancamentoInvalidoException.ErroCampo;
 import br.com.fluxocaixa.lancamentos.domain.RegraDeNegocioException;
@@ -99,6 +101,25 @@ public class ProblemaHandler extends ResponseEntityExceptionHandler {
         HttpStatus.CONFLICT,
         "identificador-externo-duplicado",
         "já existe um lançamento deste comerciante com este identificadorExterno");
+  }
+
+  /** Inexistente e de outro comerciante respondem igual, sem o id no detalhe (RF-010). */
+  @ExceptionHandler(LancamentoNaoEncontradoException.class)
+  ResponseEntity<Object> naoEncontrado(HttpServletRequest requisicao) {
+    return problemas.resposta(
+        requisicao,
+        HttpStatus.NOT_FOUND,
+        "lancamento-nao-encontrado",
+        "lançamento não encontrado para este comerciante");
+  }
+
+  @ExceptionHandler(LancamentoJaEstornadoException.class)
+  ResponseEntity<Object> jaEstornado(HttpServletRequest requisicao) {
+    return problemas.resposta(
+        requisicao,
+        HttpStatus.CONFLICT,
+        "lancamento-ja-estornado",
+        "este lançamento já foi estornado; o estorno é único");
   }
 
   @ExceptionHandler(Exception.class)

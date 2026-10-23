@@ -77,6 +77,9 @@ public class SegurancaConfig {
                 rotas.requestMatchers(ContratoConfig.ROTAS_PUBLICAS).permitAll();
               }
               rotas.requestMatchers(HttpMethod.POST, "/api/v1/lancamentos").hasAuthority(ESCRITA);
+              rotas
+                  .requestMatchers(HttpMethod.POST, "/api/v1/lancamentos/*/estornos")
+                  .hasAuthority(ESCRITA);
               rotas.anyRequest().authenticated();
             })
         .oauth2ResourceServer(
