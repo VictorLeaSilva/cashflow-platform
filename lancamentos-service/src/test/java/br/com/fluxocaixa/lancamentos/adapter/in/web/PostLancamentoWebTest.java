@@ -287,6 +287,7 @@ class PostLancamentoWebTest extends IntegracaoWeb {
         .doesNotContain("falha inesperada simulada", "IllegalStateException", "at br.com");
     // A mensagem da exceção pode trazer dados da linha (ex.: erro do driver): não vai para o log.
     assertThat(saida.getAll()).doesNotContain("falha inesperada simulada");
+    assertThat(saida.getAll()).contains("erro inesperado", IllegalStateException.class.getName());
   }
 
   /** AC-T013.12 (Q-016): mais de 6 casas nos segundos seria arredondado pelo banco. */

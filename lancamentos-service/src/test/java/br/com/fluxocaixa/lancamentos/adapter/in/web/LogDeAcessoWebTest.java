@@ -3,6 +3,7 @@ package br.com.fluxocaixa.lancamentos.adapter.in.web;
 import static br.com.fluxocaixa.lancamentos.adapter.in.web.Chamadas.COMERCIANTE;
 import static br.com.fluxocaixa.lancamentos.adapter.in.web.Chamadas.postarComo;
 import static org.assertj.core.api.Assertions.assertThat;
+import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.get;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.status;
 
 import br.com.fluxocaixa.lancamentos.support.IntegracaoWeb;
@@ -14,6 +15,7 @@ import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
 import org.springframework.boot.test.system.CapturedOutput;
 import org.springframework.boot.test.system.OutputCaptureExtension;
+import org.springframework.http.MediaType;
 import tools.jackson.databind.json.JsonMapper;
 
 /** AC-T013.5: uma linha JSON de acesso por requisição, sem dados sensíveis. */
@@ -67,6 +69,42 @@ class LogDeAcessoWebTest extends IntegracaoWeb {
         .containsEntry("status", 401)
         .containsEntry("metodo", "POST")
         .containsEntry("rota", "/api/v1/lancamentos");
+  }
+
+  @Test
+  void respostasAntesDoHandlerRegistramARotaPadrao(CapturedOutput saida) throws Exception {
+    String token = TokensDeTeste.valido(COMERCIANTE, TokensDeTeste.ESCRITA);
+    mvc.perform(
+            postarComo(token, "{}", "chave-415")
+                .contentType(MediaType.TEXT_PLAIN)
+                .header("X-Request-Id", "rid-log-415"))
+        .andExpect(status().isUnsupportedMediaType());
+    mvc.perform(
+            get("/api/v1/lancamentos")
+                .header("Authorization", "Bearer " + token)
+                .header("X-Request-Id", "rid-log-405"))
+        .andExpect(status().isMethodNotAllowed());
+
+    assertThat(linhasDeAcesso(saida, "rid-log-415").getFirst())
+        .containsEntry("status", 415)
+        .containsEntry("rota", "/api/v1/lancamentos");
+    assertThat(linhasDeAcesso(saida, "rid-log-405").getFirst())
+        .containsEntry("status", 405)
+        .containsEntry("rota", "/api/v1/lancamentos");
+  }
+
+  @Test
+  void rotaInexistenteEhDesconhecida(CapturedOutput saida) throws Exception {
+    String token = TokensDeTeste.valido(COMERCIANTE, TokensDeTeste.ESCRITA);
+    mvc.perform(
+            get("/api/v1/nao-existe/123")
+                .header("Authorization", "Bearer " + token)
+                .header("X-Request-Id", "rid-log-404"))
+        .andExpect(status().isNotFound());
+
+    assertThat(linhasDeAcesso(saida, "rid-log-404").getFirst())
+        .containsEntry("status", 404)
+        .containsEntry("rota", "desconhecida");
   }
 
   @SuppressWarnings("unchecked")

@@ -13,7 +13,10 @@ import br.com.fluxocaixa.lancamentos.support.TokensDeTeste;
 import java.util.UUID;
 import org.junit.jupiter.api.Tag;
 import org.junit.jupiter.api.Test;
+import org.junit.jupiter.api.extension.ExtendWith;
 import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.boot.test.system.CapturedOutput;
+import org.springframework.boot.test.system.OutputCaptureExtension;
 import org.springframework.boot.webmvc.test.autoconfigure.AutoConfigureMockMvc;
 import org.springframework.jdbc.core.simple.JdbcClient;
 import org.springframework.test.web.servlet.MockMvc;
@@ -28,6 +31,7 @@ import org.springframework.test.web.servlet.MvcResult;
 @Tag("RF-007")
 @Tag("RNF-012")
 @AutoConfigureMockMvc
+@ExtendWith(OutputCaptureExtension.class)
 class PostLancamentoIT extends IntegracaoPostgres {
 
   @Autowired private MockMvc mvc;
@@ -73,7 +77,7 @@ class PostLancamentoIT extends IntegracaoPostgres {
   }
 
   @Test
-  void identificadorExternoRepetidoResponde409SemGravar() throws Exception {
+  void identificadorExternoRepetidoResponde409SemGravar(CapturedOutput saida) throws Exception {
     UUID comerciante = UUID.randomUUID();
     String token = TokensDeTeste.valido(comerciante, TokensDeTeste.ESCRITA);
     String corpo =
@@ -87,6 +91,8 @@ class PostLancamentoIT extends IntegracaoPostgres {
 
     assertThat(duplicado.getResponse().getContentAsString())
         .doesNotContain("nf-it-1", comerciante.toString());
+    // A mensagem real do driver traz o identificador e o comerciante: não pode chegar ao log.
+    assertThat(saida.getAll()).doesNotContain("nf-it-1");
     assertThat(contar("lancamento", comerciante)).isEqualTo(1);
     assertThat(contar("idempotency_key", comerciante)).isEqualTo(1);
   }

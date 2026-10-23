@@ -11,6 +11,9 @@ import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.web.filter.OncePerRequestFilter;
 import org.springframework.web.servlet.HandlerMapping;
+import org.springframework.web.servlet.mvc.condition.PathPatternsRequestCondition;
+import org.springframework.web.servlet.mvc.method.RequestMappingInfo;
+import org.springframework.web.servlet.mvc.method.annotation.RequestMappingHandlerMapping;
 import org.springframework.web.util.ServletRequestPathUtils;
 
 /**
@@ -26,13 +29,13 @@ public class LogDeAcessoFilter extends OncePerRequestFilter {
   private static final Logger ACESSO = LoggerFactory.getLogger(LOGGER);
 
   private final Clock clock;
-  private final Supplier<HandlerMapping> mapeamento;
+  private final Supplier<RequestMappingHandlerMapping> mapeamento;
 
   /**
-   * @param mapeamento mapeamento dos controllers, usado quando a requisição foi respondida antes de
-   *     chegar ao Spring MVC (401, 403, 413) para ainda assim registrar a rota padrão
+   * @param mapeamento mapeamento dos controllers, usado quando a requisição não chegou a um handler
+   *     (401, 403, 405, 406, 413, 415) para ainda assim registrar a rota padrão
    */
-  public LogDeAcessoFilter(Clock clock, Supplier<HandlerMapping> mapeamento) {
+  public LogDeAcessoFilter(Clock clock, Supplier<RequestMappingHandlerMapping> mapeamento) {
     this.clock = clock;
     this.mapeamento = mapeamento;
   }
@@ -63,18 +66,23 @@ public class LogDeAcessoFilter extends OncePerRequestFilter {
     return rota != null ? rota.toString() : ROTA_DESCONHECIDA;
   }
 
-  /** Pergunta ao mapeamento qual handler atenderia; sem handler, a rota é desconhecida. */
-  private Object resolver(HttpServletRequest requisicao) {
-    try {
-      if (!ServletRequestPathUtils.hasParsedRequestPath(requisicao)) {
-        ServletRequestPathUtils.parseAndCache(requisicao);
-      }
-      return mapeamento.get().getHandler(requisicao) != null
-          ? requisicao.getAttribute(HandlerMapping.BEST_MATCHING_PATTERN_ATTRIBUTE)
-          : null;
-    } catch (Exception semHandler) {
-      // Ex.: Content-Type sem handler compatível; o acesso ainda é registrado.
-      return null;
+  /**
+   * Casa só o caminho com os padrões dos controllers (sem método, Content-Type nem Accept), para
+   * que 401, 403, 405, 406, 413 e 415 numa rota existente registrem a rota padrão; sem padrão
+   * compatível, a rota é desconhecida.
+   */
+  private String resolver(HttpServletRequest requisicao) {
+    if (!ServletRequestPathUtils.hasParsedRequestPath(requisicao)) {
+      ServletRequestPathUtils.parseAndCache(requisicao);
     }
+    for (RequestMappingInfo info : mapeamento.get().getHandlerMethods().keySet()) {
+      PathPatternsRequestCondition caminhos = info.getPathPatternsCondition();
+      PathPatternsRequestCondition casou =
+          caminhos != null ? caminhos.getMatchingCondition(requisicao) : null;
+      if (casou != null) {
+        return casou.getFirstPattern().getPatternString();
+      }
+    }
+    return null;
   }
 }

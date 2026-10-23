@@ -13,7 +13,7 @@ import org.springframework.boot.web.servlet.FilterRegistrationBean;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
 import org.springframework.core.Ordered;
-import org.springframework.web.servlet.HandlerMapping;
+import org.springframework.web.servlet.mvc.method.annotation.RequestMappingHandlerMapping;
 
 /**
  * Filtros HTTP antes da cadeia do Spring Security, nesta ordem: request ID (para que 401 e 403 já o
@@ -30,7 +30,8 @@ public class WebConfig {
   @Bean
   FilterRegistrationBean<LogDeAcessoFilter> filtroLogDeAcesso(
       Clock clock,
-      @Qualifier("requestMappingHandlerMapping") ObjectProvider<HandlerMapping> mapeamento) {
+      @Qualifier("requestMappingHandlerMapping")
+          ObjectProvider<RequestMappingHandlerMapping> mapeamento) {
     return registrar(
         new LogDeAcessoFilter(clock, mapeamento::getObject), Ordered.HIGHEST_PRECEDENCE + 1);
   }

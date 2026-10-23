@@ -113,6 +113,19 @@ class OpenApiExemplosTest {
         .contains("credito", "debito", "replay-idempotente");
   }
 
+  /** Controle negativo de {@code format}: sem a asserção ligada, este teste falharia. */
+  @Test
+  void validadorVerificaFormat() {
+    JsonNode uuid = contrato.documento().at("/components/schemas/Lancamento/properties/id");
+    JsonNode data =
+        contrato.documento().at("/components/schemas/Lancamento/properties/dataReferencia");
+
+    assertThat(contrato.validar(uuid, contrato.texto("nao-e-uuid"))).isNotEmpty();
+    assertThat(contrato.validar(data, contrato.texto("2026-13-40"))).isNotEmpty();
+    assertThat(contrato.validar(uuid, contrato.texto("7d2f6c1a-3b4e-4f5a-9c8d-1e2f3a4b5c6d")))
+        .isEmpty();
+  }
+
   @Test
   void validadorRejeitaUmExemploInvalido() {
     JsonNode schema = contrato.schemaDaResposta("/lancamentos", "post", 201, "application/json");
