@@ -2,7 +2,13 @@
 
 Controle de **lançamentos** (créditos e débitos) e **consolidado diário**, com dois serviços independentes comunicando-se por eventos. Case do desafio de Arquiteto de Soluções.
 
-> Estado: **fundação (T-001)**. A documentação de arquitetura e as especificações estão em [`docs/specs/`](docs/specs/). Este README é provisório e será finalizado na T-043.
+> Estado: **fundação, infraestrutura local e documentação de arquitetura** (T-001..T-005). Este README é provisório e será finalizado na T-043.
+
+## Documentação
+
+- [`docs/architecture/architecture.md`](docs/architecture/architecture.md): visão geral, diagramas C4, arquitetura-alvo AWS (**apenas desenho**; o case roda e é provado localmente) e tabela de requisitos não funcionais.
+- [`docs/architecture/decisions/`](docs/architecture/decisions/): decisões de arquitetura (ADR-001 a ADR-010), com alternativas rejeitadas e trade-offs.
+- [`docs/specs/`](docs/specs/): especificação (constituição, domínios e capacidades, requisitos, contratos, padrões de qualidade, backlog).
 
 ## Módulos
 
