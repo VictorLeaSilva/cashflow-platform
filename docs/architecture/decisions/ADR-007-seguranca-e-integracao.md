@@ -28,6 +28,8 @@ As APIs expõem dados financeiros de vários comerciantes e são consumidas por 
 
 No case local os dois tipos são simulados pelo `DevToken.java`; o case não tem front-end (`00 §7`).
 
+**A validar no Cognito (desenho, não verificado):** o *access token* do Cognito pode não trazer `aud` (traz `client_id`), e incluir um claim próprio como `merchant_id` — sobretudo no *client credentials* — pode exigir o *trigger* Lambda de *pre token generation*. Se for assim, a validação de audiência no alvo passa a usar `client_id` e o `merchant_id` vem desse *trigger*. Confirmar na documentação da AWS antes de qualquer implementação em nuvem; nada disso afeta o case local.
+
 **Autorização:**
 - *Scopes* por endpoint: `lancamentos:write`, `lancamentos:read`, `consolidado:read` (403 sem *scope*).
 - **Comerciante só pelo token:** `comercianteId` vem exclusivamente do claim `merchant_id`; nunca de corpo, *query* ou *path* (RF-010, AC-010.2). Toda consulta e todo comando filtram por comerciante; recurso de outro comerciante responde **404**, sem revelar existência. Os testes de isolamento cobrem leitura, listagem, consolidado **e** estorno cruzado (AC-010.1), não só o 403 por *scope*.

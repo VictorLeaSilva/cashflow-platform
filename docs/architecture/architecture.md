@@ -15,7 +15,7 @@ Um comerciante registra **lançamentos** (créditos e débitos) e consulta o **s
 |---|---|---|
 | Serviço de lançamentos e serviço de consolidado | Dois executáveis independentes, um banco lógico cada (ADR-001, ADR-002) | P2 |
 | Lançamentos não pode cair se o Consolidado cair | Nenhuma chamada síncrona entre serviços; outbox transacional + Kafka (ADR-003). Limites da garantia em §1.3 | P6 |
-| 50 req/s no Consolidado em pico, "no máximo 5 % de perda de requisições" | Leitura por chave em projeção pré-agregada; serviços *stateless* escaláveis; a provar com k6 (RNF-002, T-033). "Perda" aqui é **taxa de requisições HTTP com falha** (erro ≥ 500, erro de conexão ou resposta > 2 s, RNF-002) — não perda de lançamentos ou eventos, que é zero por desenho (RNF-004) | P8 |
+| 50 req/s no Consolidado em pico, "no máximo 5 % de perda de requisições" | Leitura por chave em projeção pré-agregada; serviços *stateless* escaláveis; a provar com k6 (RNF-002, T-033). "Perda" aqui é **taxa de requisições HTTP com falha** (erro ≥ 500, erro de conexão ou resposta > 2 s, RNF-002) — não perda de lançamentos ou eventos. Lançamento confirmado com 201 não é descartado pelo fluxo: fica no banco, e o evento fica na outbox até ser publicado (ADR-003). Os casos de perda de dados restantes são de infraestrutura (restauração por PITR, perda da região) e estão no ADR-010 | P8 |
 | Dinheiro e saldo corretos | `BigDecimal`/`NUMERIC`; fatos imutáveis; idempotência fim a fim (ADR-003, ADR-005) | P3, P4, P5 |
 | Segurança | JWT, *scopes*, isolamento por comerciante, critérios de integração (ADR-007) | — |
 | Documentação e decisões | ADR-001..010, specs em `docs/specs/` | P7, P9 |
