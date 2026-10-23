@@ -146,7 +146,11 @@ class MigracaoEPermissoesIT extends IntegracaoPostgres {
         .contains(CREATE_ROLE + " " + PostgresLancamentos.OWNER)
         .contains(CREATE_ROLE + " " + PostgresLancamentos.APP);
 
-    try (Stream<Path> arquivos = Files.walk(Path.of("src", "test"))) {
+    try (Stream<Path> arquivos =
+        Files.walk(
+            PostgresLancamentos.INIT_SQL
+                .resolve("../../lancamentos-service/src/test")
+                .normalize())) {
       List<Path> sqlDeRolesNoTeste =
           arquivos
               .filter(arquivo -> arquivo.toString().endsWith(".sql"))

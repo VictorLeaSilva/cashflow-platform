@@ -1,5 +1,6 @@
 package br.com.fluxocaixa.lancamentos.support;
 
+import java.nio.file.Files;
 import java.nio.file.Path;
 import java.sql.Connection;
 import java.sql.DriverManager;
@@ -19,8 +20,14 @@ public final class PostgresLancamentos {
   /** Mesma tag de {@code deploy/docker-compose.yml} (T-004). */
   public static final String IMAGEM = "postgres:17.11-alpine";
 
-  /** Scripts de inicialização do ambiente local, relativos ao diretório do módulo. */
-  public static final Path INIT_SQL = Path.of("..", "deploy", "init");
+  /**
+   * Scripts de inicialização do ambiente local. Resolvido a partir do diretório do módulo (Maven)
+   * ou da raiz do repositório (IDE).
+   */
+  public static final Path INIT_SQL =
+      Files.isDirectory(Path.of("deploy", "init"))
+          ? Path.of("deploy", "init")
+          : Path.of("..", "deploy", "init");
 
   public static final String BANCO = "lancamentos";
   public static final String OWNER = "lancamentos_owner";
