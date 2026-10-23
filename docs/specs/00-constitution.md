@@ -33,7 +33,7 @@ Entregar o case "Desafio Arquiteto de Soluções": serviço de **controle de lan
 | Mensageria | Apache Kafka (KRaft, 1 broker local) | ADR-004 |
 | Segurança | Spring Security OAuth2 Resource Server (JWT) | ADR-007 |
 | Observabilidade | Actuator + Micrometer + OpenTelemetry; Prometheus/Grafana em profile do compose | ADR-008 |
-| Testes | JUnit 5, AssertJ, Mockito (só em portas), ArchUnit, jqwik, Testcontainers, Awaitility, k6, PIT | `04-quality-standards.md` |
+| Testes | JUnit 5, AssertJ, Mockito (só em portas), ArchUnit, testes de propriedade com gerador reproduzível próprio (sem jqwik, Q-009), Testcontainers, Awaitility, k6, PIT | `04-quality-standards.md` |
 | Contratos | OpenAPI 3.x *contract-first* + JSON Schema para eventos; Swagger UI servida a partir do YAML versionado (webjar `swagger-ui`, sem springdoc) | `03-design-contracts.md §5` |
 | Docs | Markdown + Mermaid (incluindo a arquitetura-alvo AWS) | draw.io, se houver, é criado manualmente pelo autor, fora do backlog |
 

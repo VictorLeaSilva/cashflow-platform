@@ -17,7 +17,7 @@ Ordem: *walking skeleton* (fundação e harness) → fatias verticais por servi�
 | T-004 | Infra local (compose: PostgreSQL com 2 bancos/roles, Kafka KRaft; `.env.example`; init SQL) | T-001 | RNF-009 | `compose up` saudável; roles isolados provados |
 | T-005 | Esqueleto da documentação de arquitetura: ADR-001..010 a partir de D-01..D-16 e Q-005, C4 contexto/contêineres, arquitetura-alvo AWS (apenas desenho), tabelas local → alvo e RNF → mecanismo | T-001 | Obrigatórios do enunciado | Cada D-xx em exatamente um ADR; diagramas renderizam |
 | **Fase 1 — Lançamentos** |||||
-| T-010 | Domínio: `Lancamento`, `Dinheiro`, regras de estorno, `DataReferencia`; JSON Schema do evento alinhado à `03 §4` | T-002 | RF-001..003, RF-009, RNF-004 | Unit + jqwik |
+| T-010 | Domínio: `Lancamento`, `Dinheiro`, regras de estorno, `DataReferencia`; JSON Schema do evento alinhado à `03 §4` | T-002 | RF-001..003, RF-009, RNF-004 | Unit + propriedades com semente |
 | T-011 | Persistência: Flyway V1, repositórios JDBC, constraints | T-004, T-010 | RF-003, RNF-004 | IT com Testcontainers |
 | T-012 | Idempotência + caso de uso `RegistrarLancamento` (transação única com outbox) | T-011 | RF-001, RF-002, RF-007 | IT de concorrência (AC-007.4) |
 | T-013 | API `POST /lancamentos` + JWT + Problem Details + OpenAPI contract-first + `scripts/DevToken.java` | T-012 | RF-001, RF-002, RNF-005 | Fatia web + validação de contrato |
@@ -25,7 +25,7 @@ Ordem: *walking skeleton* (fundação e harness) → fatias verticais por servi�
 | T-015 | Consultas (detalhe e histórico) + isolamento | T-013 | RF-004, RF-010 | AC-004.x, AC-010.x |
 | T-016 | Publicador outbox (poller `SKIP LOCKED`, produtor Kafka, métricas) | T-012, T-004 | RNF-001, RNF-007 | IT: falha entre envio e marcação; Kafka fora |
 | **Fase 2 — Consolidado** |||||
-| T-020 | Domínio da projeção (aplicar evento → deltas) | T-002 | RF-008, RF-009 | jqwik: ordem/duplicatas |
+| T-020 | Domínio da projeção (aplicar evento → deltas) | T-002 | RF-008, RF-009 | Propriedades com semente: ordem/duplicatas |
 | T-021 | Persistência (Flyway, upsert aditivo, `evento_processado`) | T-004, T-020 | RF-008, RNF-004 | IT de concorrência no mesmo dia |
 | T-022 | Consumidor Kafka (schema, tx, ack pós-commit, retry+DLT, métrica de lag) | T-021 | RF-008, RNF-003 | AC-008.x |
 | T-023 | API de consulta (zero-fill, saldo anterior/acumulado) + JWT + OpenAPI | T-021 | RF-005, RF-006, RF-010 | AC-005.x, AC-006.x |

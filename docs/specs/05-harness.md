@@ -88,7 +88,7 @@ Veredito: PASS | PASS_WITH_NOTES | FAIL
 - Mudança de spec só por PR próprio, antes da tarefa que depende dela.
 
 ## 7. Determinismo
-Versões pinadas (BOM + enforcer + tags de imagem); `Clock` e `IdGenerator` fixos em testes; jqwik com semente; Testcontainers com imagens pinadas; *golden files* para OpenAPI e eventos; ordem de testes independente; nenhum teste depende de relógio real ou rede externa.
+Versões pinadas (BOM + enforcer + tags de imagem); `Clock` e `IdGenerator` fixos em testes; testes de propriedade com semente fixa; Testcontainers com imagens pinadas; *golden files* para OpenAPI e eventos; ordem de testes independente; nenhum teste depende de relógio real ou rede externa.
 
 ## 8. Papéis
 | Atividade | Agente implementador | Agente revisor | Humano |

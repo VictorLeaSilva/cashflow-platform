@@ -52,7 +52,7 @@ Convenção: cada critério tem ID `AC-<req>.<n>` em formato Dado/Quando/Então.
 ### RF-008 · Consumo idempotente de eventos
 - **AC-008.1** Evento válido atualiza a projeção e registra `evento_processado` **na mesma transação**; o offset só é confirmado após o commit.
 - **AC-008.2** Evento duplicado (mesmo `eventId`) não altera a projeção.
-- **AC-008.3** Aplicar os mesmos eventos em **qualquer ordem** e com **duplicatas** produz a mesma projeção (propriedade, jqwik). *Escopo:* vale para esta projeção de totais aditivos com deduplicação atômica; regras futuras que dependam de sequência (ex.: validação por saldo, fechamento de dia) exigirão garantias de ordem e não herdam esta propriedade.
+- **AC-008.3** Aplicar os mesmos eventos em **qualquer ordem** e com **duplicatas** produz a mesma projeção (teste de propriedade com gerador reproduzível e semente registrada, Q-009). *Escopo:* vale para esta projeção de totais aditivos com deduplicação atômica; regras futuras que dependam de sequência (ex.: validação por saldo, fechamento de dia) exigirão garantias de ordem e não herdam esta propriedade.
 - **AC-008.4** Evento inválido (schema) ou não processável após 3 tentativas com *backoff* vai para a DLT e incrementa `consolidado_events_dlt_total`; o consumo prossegue.
 - **AC-008.5** Dado um evento que foi para a DLT, quando a causa é corrigida e o evento é reinjetado no tópico principal, então a projeção o aplica exatamente uma vez; reinjetá-lo novamente não altera a projeção (política em `03 §7.2`).
 
