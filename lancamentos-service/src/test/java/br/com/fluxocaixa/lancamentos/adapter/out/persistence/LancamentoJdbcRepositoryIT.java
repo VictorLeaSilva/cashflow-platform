@@ -1,7 +1,9 @@
 package br.com.fluxocaixa.lancamentos.adapter.out.persistence;
 
 import static org.assertj.core.api.Assertions.assertThat;
+import static org.assertj.core.api.Assertions.assertThatThrownBy;
 
+import br.com.fluxocaixa.lancamentos.application.IdentificadorExternoDuplicadoException;
 import br.com.fluxocaixa.lancamentos.application.port.out.LancamentoRepository;
 import br.com.fluxocaixa.lancamentos.domain.Lancamento;
 import br.com.fluxocaixa.lancamentos.domain.PoliticaLancamento;
@@ -19,6 +21,7 @@ import org.junit.jupiter.api.Test;
 import org.junit.jupiter.params.ParameterizedTest;
 import org.junit.jupiter.params.provider.ValueSource;
 import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.dao.DuplicateKeyException;
 
 /** AC-T011.6 e AC-T011.7: round-trip exato e leitura sempre filtrada por comerciante. */
 @Tag("RNF-004")
@@ -99,6 +102,36 @@ class LancamentoJdbcRepositoryIT extends IntegracaoPostgres {
   @Test
   void buscarPorIdInexistenteRetornaVazio() {
     assertThat(repositorio.buscarPorId(UUID.randomUUID(), UUID.randomUUID())).isEmpty();
+  }
+
+  /** AC-T013.11 (Q-015): a violação de ux_identificador_externo vira exceção de aplicação. */
+  @Test
+  void identificadorExternoRepetidoViraExcecaoDeAplicacaoSemExporDados() {
+    UUID comerciante = UUID.randomUUID();
+    repositorio.inserir(registrar(comerciante, TipoLancamento.CREDITO, "1.00", null, "nf-dup-1"));
+
+    assertThatThrownBy(
+            () ->
+                repositorio.inserir(
+                    registrar(comerciante, TipoLancamento.DEBITO, "2.00", null, "nf-dup-1")))
+        .isInstanceOf(IdentificadorExternoDuplicadoException.class)
+        .hasMessageNotContaining("nf-dup-1")
+        .hasMessageNotContaining(comerciante.toString());
+  }
+
+  /** Outras violações de unicidade não são traduzidas (o estorno único é da T-014). */
+  @Test
+  void estornoDuplicadoContinuaComoChaveDuplicada() {
+    Lancamento credito = registrar(UUID.randomUUID(), TipoLancamento.CREDITO, "5.00", null, null);
+    repositorio.inserir(credito);
+    repositorio.inserir(Lancamento.estornar(UUID.randomUUID(), credito, POLITICA, CLOCK));
+
+    assertThatThrownBy(
+            () ->
+                repositorio.inserir(
+                    Lancamento.estornar(UUID.randomUUID(), credito, POLITICA, CLOCK)))
+        .isInstanceOf(DuplicateKeyException.class)
+        .isNotInstanceOf(IdentificadorExternoDuplicadoException.class);
   }
 
   private static Lancamento registrar(

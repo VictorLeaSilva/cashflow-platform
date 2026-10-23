@@ -22,6 +22,7 @@ public abstract class IntegracaoPostgres {
   @DynamicPropertySource
   static void postgres(DynamicPropertyRegistry registro) {
     PostgresLancamentos.registrarPropriedades(registro);
+    TokensDeTeste.registrarPropriedades(registro);
   }
 
   @BeforeEach

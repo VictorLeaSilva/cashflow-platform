@@ -1,4 +1,9 @@
 # Credenciais só por variável de ambiente (valores de dev em .env.example, T-004); nenhum segredo aqui.
+server:
+  port: 8081
+  error:
+    include-stacktrace: never
+
 spring:
   datasource:
     # A aplicação opera como lancamentos_app (D-15): SELECT/INSERT, sem DDL.
@@ -9,3 +14,23 @@ spring:
     # O Flyway migra como lancamentos_owner, dono do banco e das tabelas.
     user: lancamentos_owner
     password: ${LANCAMENTOS_OWNER_PASSWORD:}
+  security:
+    oauth2:
+      resourceserver:
+        jwt:
+          # Sem padrão de desenvolvimento (Q-012): fora do profile local, vêm do ambiente.
+          public-key-location: ${LANCAMENTOS_JWT_PUBLIC_KEY_LOCATION:}
+          issuer-uri: ${LANCAMENTOS_JWT_ISSUER:}
+          audiences: ${LANCAMENTOS_JWT_AUDIENCE:}
+
+# Logs JSON com o MDC (requestId); tracing e traceId são da T-032.
+logging:
+  structured:
+    format:
+      console: logstash
+
+# Regras de lançamento (constituição A4, A7, A11; Q-007).
+lancamentos:
+  max-valor: 10000000.00
+  max-backdate-days: 30
+  max-future-skew: 60s

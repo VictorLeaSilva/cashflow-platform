@@ -48,6 +48,9 @@
     <findsecbugs.version>1.14.0</findsecbugs.version>
     <jacoco-maven-plugin.version>0.8.14</jacoco-maven-plugin.version>
     <archunit.version>1.4.2</archunit.version>
+    <!-- T-013: Swagger UI (só no profile local) e validação do contrato OpenAPI 3.1 (Q-002). -->
+    <swagger-ui.version>5.33.1</swagger-ui.version>
+    <json-schema-validator.version>3.0.8</json-schema-validator.version>
   </properties>
 
   <dependencyManagement>
@@ -56,6 +59,17 @@
         <groupId>com.tngtech.archunit</groupId>
         <artifactId>archunit</artifactId>
         <version>${archunit.version}</version>
+        <scope>test</scope>
+      </dependency>
+      <dependency>
+        <groupId>org.webjars</groupId>
+        <artifactId>swagger-ui</artifactId>
+        <version>${swagger-ui.version}</version>
+      </dependency>
+      <dependency>
+        <groupId>com.networknt</groupId>
+        <artifactId>json-schema-validator</artifactId>
+        <version>${json-schema-validator.version}</version>
         <scope>test</scope>
       </dependency>
     </dependencies>

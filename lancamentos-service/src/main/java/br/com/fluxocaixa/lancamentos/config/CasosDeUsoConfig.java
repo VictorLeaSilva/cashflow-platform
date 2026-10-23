@@ -16,15 +16,6 @@ import org.springframework.transaction.support.TransactionTemplate;
 @Configuration(proxyBeanMethods = false)
 public class CasosDeUsoConfig {
 
-  /**
-   * Valores padrão da constituição (A4, A7, A11). O binding de {@code lancamentos.max-valor},
-   * {@code max-backdate-days} e {@code max-future-skew} é da T-013.
-   */
-  @Bean
-  PoliticaLancamento politicaLancamento() {
-    return PoliticaLancamento.padrao();
-  }
-
   @Bean
   ExecucaoIdempotente execucaoIdempotente(
       IdempotencyKeyRepository chaves, TransactionTemplate transactionTemplate) {
