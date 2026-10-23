@@ -50,7 +50,7 @@ No case local os dois tipos são simulados pelo `DevToken.java`; o case não tem
 | Repetição segura | `Idempotency-Key` obrigatória nos `POST` (ADR-003) |
 | Eventos como entrada não confiável | O consumidor valida o JSON Schema; inválido ou não processável vai para a DLT com alerta (OWASP API10) |
 
-**Validação estrita de entrada (`03 §5.2`, RNF-013):** rejeitar em vez de "sanitizar" (alterar em silêncio um dado financeiro muda o que foi gravado e quebra a comparação de idempotência). 415 para tipo de conteúdo errado, 406 para `Accept` incompatível, 413 acima de 16 KiB, 400 para caractere de controle ou espaço nas pontas em texto livre e para `Idempotency-Key`/`X-Request-Id` fora do formato; texto normalizado em NFC; sem escape de HTML na entrada.
+**Validação estrita de entrada (`03 §5.2`, RNF-013):** rejeitar em vez de "sanitizar" (alterar em silêncio um dado financeiro muda o que foi gravado e quebra a comparação de idempotência). 415 para tipo de conteúdo errado, 406 para `Accept` incompatível, 413 acima de 16 KiB, 400 para caractere de controle ou espaço nas pontas em texto livre e para `Idempotency-Key` fora do formato (um `X-Request-Id` fora do formato não é rejeitado: é substituído por um gerado, RNF-012 e `03 §5.2`; Q-014); texto normalizado em NFC; sem escape de HTML na entrada.
 
 **Dados e operação:** segredos fora do Git (variáveis de ambiente localmente; Secrets Manager no alvo); criptografia em repouso com KMS no alvo; logs sem token, segredo nem payload financeiro completo; erros em RFC 9457 sem *stack trace*; Actuator em porta separada expondo só `health` e `prometheus`; Swagger UI só em `dev`/`local`. Mapeamento completo OWASP API Top 10 em `04 §2.6` e `docs/security/` (T-034).
 
@@ -73,6 +73,8 @@ No case local os dois tipos são simulados pelo `DevToken.java`; o case não tem
 ## Decidido depois da redação inicial (Q-008, 2026-10-23)
 - **Token válido sem `merchant_id` (ou com valor que não é UUID):** rejeitado com **401** (`problem+json`, `WWW-Authenticate: Bearer error="invalid_token"`): sem comerciante não há identidade utilizável nesta API. Aplicado na T-013.
 - **Tolerância de relógio para `exp`/`nbf`:** padrão do Spring Security (60 s), sem nova chave de configuração.
+- **`X-Request-Id` fora do formato (Q-014, proposta na spec da T-013):** substituído por um gerado, não rejeitado; só a `Idempotency-Key` inválida dá 400.
+- **Chave de desenvolvimento (Q-012, proposta na spec da T-013):** gerada pelo `DevToken.java` em `deploy/dev-keys/` (fora do Git); nenhuma chave no repositório.
 
 ## Referências
 RF-010, RNF-005; `03 §1` (D-11), `03 §5`, `03 §6`; `04 §2.6`; `01 §4`; T-013, T-015, T-023, T-034.
