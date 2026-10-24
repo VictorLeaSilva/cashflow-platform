@@ -1,0 +1,11 @@
+# Profile de desenvolvimento local (Q-012, Q-050): a chave pública é a gerada por scripts/DevToken.java
+# em deploy/dev-keys/ (fora do Git). Caminho relativo ao módulo, de onde o serviço sobe com
+# ./mvnw -pl consolidado-service spring-boot:run -Dspring-boot.run.profiles=local
+spring:
+  security:
+    oauth2:
+      resourceserver:
+        jwt:
+          public-key-location: file:../deploy/dev-keys/jwt-public.pem
+          issuer-uri: https://dev.fluxocaixa.local
+          audiences: consolidado-api

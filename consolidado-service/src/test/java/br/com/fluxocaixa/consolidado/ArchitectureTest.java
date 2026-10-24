@@ -45,4 +45,9 @@ class ArchitectureTest {
   void noStandardStreams() {
     ArchitectureRules.NO_STANDARD_STREAMS.check(PRODUCTION_CLASSES);
   }
+
+  @Test
+  void controllersReturnWebRecords() {
+    ArchitectureRules.CONTROLLERS_RETURN_WEB_RECORDS.check(PRODUCTION_CLASSES);
+  }
 }

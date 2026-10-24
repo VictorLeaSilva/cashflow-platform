@@ -27,13 +27,15 @@ import java.util.stream.Collectors;
  * <p>Na primeira execução, gera o par RSA 2048 em {@code deploy/dev-keys/} (relativo ao diretório
  * atual; a pasta é ignorada pelo Git): {@code jwt-private.pem} (PKCS#8) e {@code jwt-public.pem}
  * (X.509), que o profile {@code local} do serviço lê. Imprime só o token em {@code stdout}; erros de
- * uso vão para {@code stderr} com código de saída 2. Emissor e audiência são os do profile {@code
- * local}. Usa apenas o JDK.
+ * uso vão para {@code stderr} com código de saída 2. Emissor e audiências são os do profile {@code
+ * local} dos dois serviços: o mesmo token vale no Lançamentos e no Consolidado (Q-050), e os scopes
+ * separam o que cada um permite. Usa apenas o JDK.
  */
 public final class DevToken {
 
   static final String EMISSOR = "https://dev.fluxocaixa.local";
-  static final String AUDIENCIA = "lancamentos-api";
+  /** Os dois serviços (Q-050); os scopes separam o que cada um permite. */
+  static final String AUDIENCIAS = "[\"lancamentos-api\",\"consolidado-api\"]";
   static final Path CHAVES = Path.of("deploy", "dev-keys");
   static final Path PRIVADA = CHAVES.resolve("jwt-private.pem");
   static final Path PUBLICA = CHAVES.resolve("jwt-public.pem");
@@ -64,9 +66,9 @@ public final class DevToken {
     String claims =
         "{\"iss\":\""
             + EMISSOR
-            + "\",\"aud\":\""
-            + AUDIENCIA
-            + "\",\"sub\":\""
+            + "\",\"aud\":"
+            + AUDIENCIAS
+            + ",\"sub\":\""
             + opcoes.get("--merchant")
             + "\",\"merchant_id\":\""
             + opcoes.get("--merchant")
