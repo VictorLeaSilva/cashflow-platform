@@ -280,7 +280,7 @@ Dias sem movimento: zeros e `atualizadoEm: null`. `GET /consolidado/{data}` devo
 | Kafka fora | `POST` segue 201; a **outbox cresce** (idade do evento mais antigo sobe); o publicador falha rápido por timeout e não esgota o pool da API; retoma com *backoff* |
 | Publicação duplicada / reentrega | Dedup por `eventId` |
 | Falha após atualizar projeção, antes do offset | Reentrega; dedup evita reaplicar |
-| Evento inválido ou não processável | 3 tentativas com *backoff* (1 s, 2 s, 4 s) → DLT + alerta + política de recuperação (§7.2) |
+| Evento inválido ou não processável | Fora do contrato ou do domínio: direto para a DLT. Demais falhas: 1 tentativa + 3 novas tentativas com *backoff* (1 s, 2 s, 4 s) → DLT (Q-045). Em ambos: alerta + política de recuperação (§7.2) |
 | Outbox crescendo | Alerta; limite de capacidade documentado |
 
 ### 7.1 Limites operacionais (valores iniciais; revisados com a medição da T-033; mudar exige atualizar esta tabela)
