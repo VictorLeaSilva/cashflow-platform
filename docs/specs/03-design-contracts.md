@@ -220,8 +220,8 @@ Arquivos: `lancamentos-service/src/main/resources/openapi/lancamentos-v1.yaml` e
 | POST | `/lancamentos/{id}/estornos` (`Idempotency-Key` obrigatório) | `lancamentos:write` | 201, 400 (Q-018), 401, 403, 404, 406, 409 (já estornado; Q-013), 413, 415 (Q-017), 422 |
 | GET | `/lancamentos` (filtros, `page`, `size ≤ 100`; Q-023..Q-025) | `lancamentos:read` | 200, 400, 401, 403, 406 |
 | GET | `/lancamentos/{id}` | `lancamentos:read` | 200, 400 (Q-026), 401, 403, 404, 406 |
-| GET | `/consolidado?dataInicio&dataFim` | `consolidado:read` | 200, 400, 401, 403 |
-| GET | `/consolidado/{data}` | `consolidado:read` | 200, 400, 401, 403 |
+| GET | `/consolidado?dataInicio&dataFim` (obrigatórios, até 366 dias; Q-052) | `consolidado:read` | 200, 400, 401, 403, 406 (Q-051) |
+| GET | `/consolidado/{data}` | `consolidado:read` | 200, 400, 401, 403, 406 (Q-051) |
 
 Corpo do POST: `{ "tipo": "CREDITO|DEBITO", "valor": "100.00", "descricao"?: "...", "dataOcorrencia"?: "ISO-8601", "identificadorExterno"?: "..." }`.
 Corpo do estorno (Q-017): nenhum campo; sem corpo ou `{}` (com `application/json`); qualquer propriedade → 400. `{id}` só na forma canônica de UUID (Q-018).
@@ -264,7 +264,7 @@ Portas: Lançamentos `8081` (gestão `9081`); Consolidado `8082` (gestão `9082`
 ```
 Dias sem movimento: zeros e `atualizadoEm: null`. `GET /consolidado/{data}` devolve um objeto de dia com os mesmos campos (`saldoAcumulado` calculado desde o início).
 
-`scripts/DevToken.java` (somente dev): `java scripts/DevToken.java --merchant <uuid> --scopes a,b,c --ttl <segundos>` imprime um JWT RS256 assinado com a chave de desenvolvimento.
+`scripts/DevToken.java` (somente dev): `java scripts/DevToken.java --merchant <uuid> --scopes a,b,c --ttl <segundos>` imprime um JWT RS256 assinado com a chave de desenvolvimento, com `aud: ["lancamentos-api", "consolidado-api"]` (Q-050): o mesmo token serve aos dois serviços, e os *scopes* separam as permissões.
 
 ## 6. Segurança
 - **Autenticação:** JWT com validação de assinatura, `iss`, `aud` e `exp`. `dev`: chave pública local e token gerado por `scripts/DevToken.java`. `prod`: `issuer-uri` do IdP (Cognito/Keycloak).
