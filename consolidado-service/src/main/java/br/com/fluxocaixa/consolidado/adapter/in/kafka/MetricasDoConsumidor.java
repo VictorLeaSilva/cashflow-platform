@@ -7,7 +7,7 @@ import java.time.Duration;
 
 /**
  * Medidores do consumidor (03 §8, Q-048). As três contagens não se sobrepõem: aplicados, duplicados
- * e publicados na DLT. A exposição Prometheus é da T-032.
+ * e publicados na DLT.
  */
 public final class MetricasDoConsumidor {
 
@@ -33,6 +33,8 @@ public final class MetricasDoConsumidor {
         Timer.builder("consolidado.event.lag")
             .description("Commit da projeção menos occurredAt do evento (ponta a ponta)")
             .publishPercentileHistogram()
+            .minimumExpectedValue(Duration.ofMillis(50))
+            .maximumExpectedValue(Duration.ofSeconds(60))
             .register(registro);
   }
 
