@@ -154,14 +154,17 @@ CREATE TABLE consolidado_diario (
   total_estornos_debito NUMERIC(18,2) NOT NULL DEFAULT 0,
   qtd_lancamentos INTEGER NOT NULL DEFAULT 0,
   atualizado_em TIMESTAMPTZ NOT NULL,
-  PRIMARY KEY (comerciante_id, data_referencia)
+  PRIMARY KEY (comerciante_id, data_referencia),
+  CONSTRAINT ck_totais_nao_negativos CHECK (           -- Q-039: mesma invariante de MovimentoDiario
+    total_creditos >= 0 AND total_debitos >= 0 AND total_estornos_credito >= 0
+    AND total_estornos_debito >= 0 AND qtd_lancamentos >= 0)
 );
 CREATE TABLE evento_processado (
   event_id UUID PRIMARY KEY,
-  processado_em TIMESTAMPTZ NOT NULL DEFAULT now()
+  processado_em TIMESTAMPTZ NOT NULL DEFAULT now()  -- gravado com o instante do Clock (Q-038); o DEFAULT só cobre inserção manual
 );
 ```
-Upsert aditivo atômico (sem ler-modificar-escrever): `INSERT ... ON CONFLICT (comerciante_id, data_referencia) DO UPDATE SET total_x = consolidado_diario.total_x + EXCLUDED.total_x, ...`.
+Upsert aditivo atômico (sem ler-modificar-escrever): `INSERT ... ON CONFLICT (comerciante_id, data_referencia) DO UPDATE SET total_x = consolidado_diario.total_x + EXCLUDED.total_x, ...`, com `atualizado_em = GREATEST(atual, novo)` (Q-038). A deduplicação e o *upsert* são **um único comando** (CTE com `INSERT INTO evento_processado ... ON CONFLICT DO NOTHING RETURNING`), atômico sozinho e parte da transação do consumidor quando chamado dentro dela (Q-037); o fluxo de §2.2 é a descrição lógica desse comando. Sem limpeza de `evento_processado` no MVP (Q-041).
 
 Regra de efeito por evento: `CREDITO` → `total_creditos += valor`; `DEBITO` → `total_debitos += valor`; `ESTORNO` com `tipoOriginal=CREDITO` → `total_estornos_credito += valor`; com `DEBITO` → `total_estornos_debito += valor`. Em todos: `qtd_lancamentos += 1`.
 

@@ -31,6 +31,7 @@ Com integração assíncrona (ADR-003), o Consolidado é uma **projeção** deri
 ## Revisitar quando
 - Histórico longo deixar a soma de `saldoAnterior` lenta → *snapshots* periódicos de saldo.
 - Exigência regulatória diferente para estornos.
+- Volume medido tornar `evento_processado` cara (ela não tem limpeza no MVP, Q-041) → limpeza que retenha mais que a janela de reinjeção (DLT ≥ 30 dias, `03 §7.2`) e a retenção do tópico; apagar antes disso faria uma reentrega antiga somar de novo.
 
 ## Referências
 RF-005, RF-006, RF-008, RF-009, RNF-003, RNF-004; `03 §1` (D-06, D-07), `03 §2.2`, `03 §3.2`; `00` P4, A4, A5; T-020, T-021, T-023.
