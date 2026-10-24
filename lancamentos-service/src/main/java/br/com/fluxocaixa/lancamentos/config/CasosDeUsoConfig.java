@@ -4,9 +4,11 @@ import br.com.fluxocaixa.lancamentos.application.ConsultarLancamentos;
 import br.com.fluxocaixa.lancamentos.application.EstornarLancamento;
 import br.com.fluxocaixa.lancamentos.application.ExecucaoIdempotente;
 import br.com.fluxocaixa.lancamentos.application.RegistrarLancamento;
+import br.com.fluxocaixa.lancamentos.application.port.out.ContextoDeTrace;
 import br.com.fluxocaixa.lancamentos.application.port.out.IdGenerator;
 import br.com.fluxocaixa.lancamentos.application.port.out.IdempotencyKeyRepository;
 import br.com.fluxocaixa.lancamentos.application.port.out.LancamentoRepository;
+import br.com.fluxocaixa.lancamentos.application.port.out.MetricasDeLancamentos;
 import br.com.fluxocaixa.lancamentos.application.port.out.OutboxRepository;
 import br.com.fluxocaixa.lancamentos.domain.PoliticaLancamento;
 import java.time.Clock;
@@ -31,8 +33,11 @@ public class CasosDeUsoConfig {
       OutboxRepository outbox,
       IdGenerator ids,
       PoliticaLancamento politica,
-      Clock clock) {
-    return new RegistrarLancamento(execucaoIdempotente, lancamentos, outbox, ids, politica, clock);
+      Clock clock,
+      MetricasDeLancamentos metricas,
+      ContextoDeTrace trace) {
+    return new RegistrarLancamento(
+        execucaoIdempotente, lancamentos, outbox, ids, politica, clock, metricas, trace);
   }
 
   @Bean
@@ -47,7 +52,10 @@ public class CasosDeUsoConfig {
       OutboxRepository outbox,
       IdGenerator ids,
       PoliticaLancamento politica,
-      Clock clock) {
-    return new EstornarLancamento(execucaoIdempotente, lancamentos, outbox, ids, politica, clock);
+      Clock clock,
+      MetricasDeLancamentos metricas,
+      ContextoDeTrace trace) {
+    return new EstornarLancamento(
+        execucaoIdempotente, lancamentos, outbox, ids, politica, clock, metricas, trace);
   }
 }

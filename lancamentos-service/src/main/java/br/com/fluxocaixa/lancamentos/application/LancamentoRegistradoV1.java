@@ -8,9 +8,9 @@ import java.time.LocalDate;
 import java.util.UUID;
 
 /**
- * Evento {@code LancamentoRegistrado.v1} (03 §4). {@code traceId} fica de fora até a T-032; {@code
- * tipoOriginal} e {@code referenciaLancamentoId} só existem em estornos. Sem descrição nem dados
- * pessoais.
+ * Evento {@code LancamentoRegistrado.v1} (03 §4). {@code tipoOriginal} e {@code
+ * referenciaLancamentoId} só existem em estornos; {@code traceId} é o da requisição de origem e só
+ * existe com tracing ativo (T-032, Q-061). Sem descrição nem dados pessoais.
  */
 public record LancamentoRegistradoV1(
     UUID eventId,
@@ -23,14 +23,24 @@ public record LancamentoRegistradoV1(
     BigDecimal valor,
     LocalDate dataReferencia,
     TipoLancamento tipoOriginal,
-    UUID referenciaLancamentoId) {
+    UUID referenciaLancamentoId,
+    String traceId) {
 
   public static final String TOPICO = "cashflow.lancamentos.v1";
   public static final String EVENT_TYPE = "LancamentoRegistrado";
   public static final int SCHEMA_VERSION = 1;
 
-  /** Evento do lançamento recém-criado; {@code occurredAt} é o instante do {@code Clock}. */
+  /** Evento do lançamento recém-criado, sem {@code traceId}. */
   public static LancamentoRegistradoV1 de(Lancamento lancamento, UUID eventId, Instant occurredAt) {
+    return de(lancamento, eventId, occurredAt, null);
+  }
+
+  /**
+   * Evento do lançamento recém-criado; {@code occurredAt} é o instante do {@code Clock} e {@code
+   * traceId} (opcional) o da requisição de origem.
+   */
+  public static LancamentoRegistradoV1 de(
+      Lancamento lancamento, UUID eventId, Instant occurredAt, String traceId) {
     return new LancamentoRegistradoV1(
         eventId,
         EVENT_TYPE,
@@ -42,7 +52,8 @@ public record LancamentoRegistradoV1(
         lancamento.valor().valor(),
         lancamento.dataReferencia(),
         lancamento.tipoOriginal(),
-        lancamento.referenciaLancamentoId());
+        lancamento.referenciaLancamentoId(),
+        traceId);
   }
 
   /** Sem valor (sem payload financeiro em log). */
