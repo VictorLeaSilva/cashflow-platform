@@ -77,6 +77,9 @@ public final class TratamentoDeErroComCorrelacao extends DefaultErrorHandler {
     }
 
     private static String causa(Exception falha) {
+      if (falha == null) {
+        return "desconhecida";
+      }
       Throwable raiz = falha.getCause() != null ? falha.getCause() : falha;
       return raiz.getClass().getName();
     }
