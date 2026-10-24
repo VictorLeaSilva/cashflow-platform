@@ -25,7 +25,7 @@ Gerada por `scripts/check-traceability.sh --write`; não edite à mão. Requisit
 | RNF-009 | @Tag + evidência | 2; docs/specs/reviews/T-001.evidence.md; docs/specs/reviews/T-004.evidence.md; docs/specs/reviews/T-006.evidence.md; docs/specs/reviews/T-007.evidence.md; docs/specs/reviews/T-035.evidence.md (pendente) | T-001, T-004, T-006, T-007, T-035 |
 | RNF-010 | evidência | docs/specs/reviews/T-033.evidence.md (pendente) | T-033 |
 | RNF-011 | só desenho | — |  |
-| RNF-012 | @Tag | 15 | T-013, T-014, T-015, T-016, T-022, T-023, T-032 |
+| RNF-012 | @Tag | 16 | T-013, T-014, T-015, T-016, T-022, T-023, T-032 |
 | RNF-013 | @Tag | 4 | T-013, T-014, T-015, T-023, T-034 |
 | RNF-014 | @Tag | 8 | T-013, T-014, T-015, T-023 |
 
@@ -244,6 +244,7 @@ Gerada por `scripts/check-traceability.sh --write`; não edite à mão. Requisit
 - `RequestIdWebTest` (lancamentos-service)
 - `TraceIdNosErrosWebTest` (consolidado-service)
 - `TraceIdNosErrosWebTest` (lancamentos-service)
+- `TratamentoDeErroComCorrelacaoTest` (consolidado-service)
 
 ### RNF-013
 - `GetConsolidadoWebTest` (consolidado-service)
