@@ -29,6 +29,7 @@ id: T-xxx
 title: <título>
 depends_on: [T-...]
 covers: [RF-001, RNF-004]
+evidence_only: []                # requisitos de covers provados por evidência, sem @Tag (Q-057)
 allowed_paths:
   - <glob de arquivos que podem ser criados/alterados>
 allowed_new_dependencies: []     # coordenadas Maven permitidas; vazio = nenhuma
@@ -111,3 +112,16 @@ Versões pinadas (BOM + enforcer + tags de imagem); `Clock` e `IdGenerator` fixo
 
 ## 9. Configuração para Claude Code (opcional)
 `CLAUDE.md` importa `AGENTS.md`; subagente `reviewer` em `.claude/agents/reviewer.md` com a rubrica acima e permissão somente de leitura + escrita do relatório; *hooks* para rodar `spotless:apply` após edições. Detalhes na T-003.
+
+## 10. Armadilhas conhecidas do ambiente (Q-056)
+Aprendidas nas tarefas anteriores; valem para qualquer agente implementador.
+- **Antes de qualquer tarefa:** `./mvnw -q install -DskipTests`, porque o Consolidado depende do artefato `contracts` fora do *reactor*.
+- **Gates do `verify`:** SpotBugs `CT_CONSTRUCTOR_THROW` (classe que valida no construtor deve ser `final`); Checkstyle com método ≤ 50 linhas, complexidade ≤ 10 e nomes de método sem acento; Spotless (`./mvnw spotless:apply` antes de commitar).
+- **Testcontainers do Kafka:** falha transitória ao subir (código 126); rodar de novo antes de investigar.
+- **Testes com token:** um token emitido com o `RelogioFixo` só vale num contexto que também usa o `RelogioFixo`; senão, 401.
+- **OneDrive:** nunca `git stash -u` (apaga arquivos não rastreados); clones de teste ficam fora do OneDrive e com `git -c core.longpaths=true clone`.
+- **Git Bash:** caminho absoluto passado ao `docker` é convertido pelo MSYS (use `MSYS_NO_PATHCONV=1`); acentos digitados no terminal podem não chegar como UTF-8.
+- **PowerShell 5.1:** `curl` é *alias* (use `curl.exe`); JSON na linha perde as aspas (use `-d "@arquivo"`); `bash` é o do WSL (use o caminho do Git Bash).
+- **gitleaks:** a regra `generic-api-key` dispara em `Key: <valor>` com entropia > 3,5, inclusive em documentação; cite valores de exemplo sem `: ` logo depois do nome do cabeçalho (Q-055).
+- **Stack do autor:** nunca derrubar nem alterar o projeto `fluxo-caixa`; toda verificação de compose usa `COMPOSE_PROJECT_NAME` isolado (§3).
+- **Lacuna ou conflito na spec:** parar e registrar em `open-questions.md` (P9). Não decidir sozinho, mesmo que pareça óbvio.
