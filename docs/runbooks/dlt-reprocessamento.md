@@ -5,7 +5,7 @@ Política em `03 §7.2`; criado na T-022. Um evento na `cashflow.lancamentos.v1.
 Os comandos abaixo valem para o ambiente local (`docker compose -p fluxo-caixa -f deploy/docker-compose.yml`), em **PowerShell**, a partir da raiz do repositório; as ferramentas do Kafka e o `psql` rodam dentro dos contêineres. No alvo (ADR-010), os passos são os mesmos, com as ferramentas do MSK e do RDS.
 
 ## 1. Alerta e triagem
-O alerta dispara quando `consolidado_events_dlt_total` aumenta (regra na T-032). Para cada mensagem na DLT, leia os cabeçalhos:
+O alerta `EventoNaDlt` (`deploy/prometheus/alertas.yml`) dispara quando `consolidado_events_dlt_total` aumenta; o painel do Grafana mostra o contador e o lag da projeção (`--profile observability`, README). Os logs do Consolidado trazem a correlação do evento nas linhas de tentativa e de DLT: `eventId`, `requestId` (o `x-request-id` da requisição de origem), `traceIdOrigem` (o `traceId` da requisição que criou o lançamento, preenchido no evento) e `traceId` (o trace do publicador, propagado pelo cabeçalho `traceparent`). Com qualquer um deles se acha a mesma operação nos logs dos dois serviços. Para cada mensagem na DLT, leia os cabeçalhos:
 
 ```powershell
 docker compose -p fluxo-caixa -f deploy/docker-compose.yml exec kafka `
@@ -22,6 +22,7 @@ docker compose -p fluxo-caixa -f deploy/docker-compose.yml exec kafka `
 | `kafka_dlt-exception-fqcn` | O *wrapper* do spring-kafka (`ListenerExecutionFailedException`); serve pouco para a triagem |
 | `kafka_dlt-exception-message`, `kafka_dlt-exception-stacktrace` | Mensagem e pilha. As exceções do consumidor nunca trazem valores do evento (AC-T022.6) |
 | `x-request-id` | O da requisição de origem, se havia; liga a mensagem aos logs dos dois serviços (RNF-012) |
+| `traceparent` | O trace do publicador (W3C), de onde vem o `traceId` dos logs do consumidor |
 
 A chave da mensagem é o `comercianteId`. O valor é o evento original, sem alteração.
 

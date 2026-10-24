@@ -2,7 +2,7 @@
 
 Controle de **lançamentos** (créditos e débitos) e **consolidado diário** (o resumo de cada dia), com dois serviços independentes que conversam por eventos. Case do desafio de Arquiteto de Soluções.
 
-> **Estado:** os dois serviços funcionam de ponta a ponta. O de **Lançamentos** registra, estorna e consulta lançamentos e publica um evento para cada um. O de **Consolidado** recebe esses eventos e responde o resumo diário com saldos. Faltam as provas de resiliência e carga, a observabilidade e a demo guiada (Fase 3). O README final é da T-043; até lá, este documento é atualizado a cada tarefa (veja [Manter este README vivo](#manter-este-readme-vivo)).
+> **Estado:** os dois serviços funcionam de ponta a ponta. O de **Lançamentos** registra, estorna e consulta lançamentos e publica um evento para cada um. O de **Consolidado** recebe esses eventos e responde o resumo diário com saldos. Faltam as provas de resiliência e carga e a demo guiada (Fase 3). O README final é da T-043; até lá, este documento é atualizado a cada tarefa (veja [Manter este README vivo](#manter-este-readme-vivo)).
 
 ## Sumário
 
@@ -11,6 +11,7 @@ Controle de **lançamentos** (créditos e débitos) e **consolidado diário** (o
 - [Passo a passo: subir e usar a aplicação do zero](#passo-a-passo-subir-e-usar-a-aplicação-do-zero)
 - [Como funcionam os bancos de dados](#como-funcionam-os-bancos-de-dados)
 - [Se algo der errado](#se-algo-der-errado)
+- [Observabilidade: métricas, alertas e painel](#observabilidade-métricas-alertas-e-painel-opcional)
 - [Rodar os testes e as verificações de qualidade](#rodar-os-testes-e-as-verificações-de-qualidade)
 - [Contêineres do ambiente local](#contêineres-do-ambiente-local)
 - [Documentação, método e status](#documentação)
@@ -486,7 +487,7 @@ docker compose --env-file .env -f deploy/docker-compose.yml exec postgres psql -
 
 **Desligar os serviços:** nos Terminais 1 e 2, aperte **Ctrl+C**. No PowerShell, se aparecer `Deseja finalizar o arquivo em lotes (S/N)?`, responda **S**.
 
-Os comandos abaixo podem ser rodados em qualquer terminal aberto na pasta do projeto (por exemplo, o Terminal 1, já livre). Se você usou uma stack separada (aviso do passo 3), o terminal precisa ter o mesmo `COMPOSE_PROJECT_NAME`.
+Os comandos abaixo podem ser rodados em qualquer terminal aberto na pasta do projeto (por exemplo, o Terminal 1, já livre). Se você usou uma stack separada (aviso do passo 3), o terminal precisa ter o mesmo `COMPOSE_PROJECT_NAME`. Se subiu também o Prometheus e o Grafana, acrescente `--profile observability` aos comandos `down` abaixo (veja [Observabilidade](#observabilidade-métricas-alertas-e-painel-opcional)); sem isso, esses dois contêineres continuam de pé.
 
 **Desligar a infraestrutura e guardar os dados** para a próxima vez:
 
@@ -527,6 +528,69 @@ Remove-Item "$env:TEMP\credito.json", "$env:TEMP\debito.json", "$env:TEMP\retroa
 ```
 
 No bash não há nada a apagar: o corpo vai direto no comando.
+
+## Observabilidade: métricas, alertas e painel (opcional)
+
+**Para que serve:** ver o que os serviços estão fazendo (quantos lançamentos, idade da fila de eventos, atraso do consolidado, erros) e ser avisado quando algo foge do normal. Tudo é local; nada sai da sua máquina.
+
+**1. Conferir as métricas dos serviços.** Com os serviços de pé (passos 7 e 8), cada um tem uma **porta de gestão**, separada da API, que não pede token: `9081` no Lançamentos e `9082` no Consolidado. Só `health` e `prometheus` estão disponíveis; a porta da API (8081 e 8082) não serve `/actuator`.
+
+```bash
+curl -s http://localhost:9081/actuator/health
+curl -s http://localhost:9081/actuator/prometheus | grep -E '^(lancamentos_registrados_total|outbox_pending_events)'
+curl -s http://localhost:9082/actuator/prometheus | grep -E '^(consolidado_events_processed_total|consolidado_event_lag_seconds_count)'
+```
+
+```powershell
+curl.exe -s http://localhost:9081/actuator/health
+curl.exe -s http://localhost:9081/actuator/prometheus | Select-String '^(lancamentos_registrados_total|outbox_pending_events)'
+curl.exe -s http://localhost:9082/actuator/prometheus | Select-String '^(consolidado_events_processed_total|consolidado_event_lag_seconds_count)'
+```
+
+**O que você deve ver:** `{"status":"UP"}` (ou `DOWN`, se o banco ou o Kafka estiverem fora) e linhas de métricas como `lancamentos_registrados_total{tipo="CREDITO",...} 3.0`, `outbox_pending_events 0.0` e `consolidado_events_processed_total 3.0`. Se os números estiverem em zero, registre um lançamento (passo 9) e consulte de novo.
+
+**2. Subir o Prometheus e o Grafana.** Eles só sobem com o *profile* `observability` e leem as portas de gestão dos serviços que estão rodando na sua máquina:
+
+```bash
+docker compose --env-file .env -f deploy/docker-compose.yml --profile observability up -d --wait --remove-orphans
+```
+
+```powershell
+docker compose --env-file .env -f deploy/docker-compose.yml --profile observability up -d --wait --remove-orphans
+```
+
+**O que você deve ver:** as linhas `Healthy` do passo 3 e mais duas: `Container fluxo-caixa-prometheus-1 Healthy` e `Container fluxo-caixa-grafana-1 Healthy`.
+
+**3. Olhar os resultados.**
+- <http://localhost:9090/targets> (Prometheus): os alvos `lancamentos` e `consolidado` devem estar `UP`. Um alvo `DOWN` quer dizer que o serviço não está rodando ou que a porta de gestão foi trocada.
+- <http://localhost:9090/alerts>: as sete regras de alerta (`deploy/prometheus/alertas.yml`). Todas devem estar `inactive` em operação normal; `OutboxComIdadeAlta` e `ConsolidadoForaDoAr` são as que acendem se você derrubar o Kafka ou o Consolidado.
+- <http://localhost:3000> (Grafana, só leitura e sem login): o painel **Fluxo de Caixa - operação** mostra lançamentos por tipo, a fila da outbox, os eventos do Consolidado, o atraso da projeção (p95), o atraso do consumidor, os erros 5xx e a ocupação dos bancos de conexões.
+
+As portas do Prometheus e do Grafana podem ser trocadas no `.env` (`PROMETHEUS_PORT` e `GRAFANA_PORT`). Se você trocar as portas de gestão dos serviços (`LANCAMENTOS_MANAGEMENT_PORT` e `CONSOLIDADO_MANAGEMENT_PORT`), troque também os alvos em `deploy/prometheus/prometheus.yml`.
+
+**4. Seguir uma requisição pelos logs.** Todo erro da API traz `traceId` e `requestId` no corpo (`problem+json`), e a mesma linha de acesso nos logs do serviço leva os dois campos. O evento publicado leva o `traceId` da requisição, que o Consolidado registra como `traceIdOrigem` na linha do evento aplicado. Procure o valor nos logs dos dois terminais.
+
+**5. Testar as regras de alerta** (sem os serviços, só com o Docker; roda a partir da raiz do projeto):
+
+```bash
+docker run --rm --entrypoint promtool -v "$PWD/deploy/prometheus:/work:ro" prom/prometheus:v3.15.1 test rules /work/alertas.test.yml
+```
+
+```powershell
+docker run --rm --entrypoint promtool -v "${PWD}/deploy/prometheus:/work:ro" prom/prometheus:v3.15.1 test rules /work/alertas.test.yml
+```
+
+**O que você deve ver:** `SUCCESS`. Cada alerta tem um caso que dispara e um que não dispara.
+
+**6. Desligar.** O `down` do passo 14 só enxerga os serviços do *profile* que você informar; para desligar também o Prometheus e o Grafana, acrescente `--profile observability`:
+
+```bash
+docker compose --env-file .env -f deploy/docker-compose.yml --profile observability down
+```
+
+```powershell
+docker compose --env-file .env -f deploy/docker-compose.yml --profile observability down
+```
 
 ## Como funcionam os bancos de dados
 
@@ -647,9 +711,12 @@ Remove-Item Env:BASE
 | `kafka` | `apache/kafka:3.9.1` | Broker KRaft de nó único, sem criação automática de tópicos | `KAFKA_PORT` (9092) | padrão | Contínuo, com *healthcheck* |
 | `kafka-topicos` | `apache/kafka:3.9.1` | Cria o tópico `cashflow.lancamentos.v1` e a DLT (`deploy/kafka/create-topics.sh`) | — | padrão | Execução única: roda depois que o `kafka` fica saudável e termina com exit 0 |
 | `kafka-ui` | `kafbat/kafka-ui:v1.3.0` | Página para ver tópicos e mensagens | `KAFKA_UI_PORT` (8090) | `tools` | Contínuo, opcional |
+| `prometheus` | `prom/prometheus:v3.15.1` | Métricas e alertas dos dois serviços (`deploy/prometheus/`) | `PROMETHEUS_PORT` (9090) | `observability` | Contínuo, opcional, com *healthcheck* |
+| `grafana` | `grafana/grafana:13.2.4` | Painel de operação, só leitura e sem login (`deploy/grafana/`) | `GRAFANA_PORT` (3000) | `observability` | Contínuo, opcional, com *healthcheck* |
 
 - **Kafka UI:** para ver as mensagens no navegador, acrescente `--profile tools` ao comando do passo 3 e abra <http://localhost:8090>.
-- **Serviços em contêiner:** os contêineres dos dois serviços (profile `apps`) e os de observabilidade (profile `observability`) entram nas T-035 e T-032. Até lá, os serviços sobem pelo Maven, como nos passos 7 e 8.
+- **Observabilidade:** para ver as métricas e o painel, acrescente `--profile observability` ao comando do passo 3 (veja [Observabilidade](#observabilidade-métricas-alertas-e-painel-opcional)).
+- **Serviços em contêiner:** os contêineres dos dois serviços (profile `apps`) entram na T-035. Até lá, os serviços sobem pelo Maven, como nos passos 7 e 8.
 - **`--remove-orphans`:** remove contêineres de serviços que saíram do compose ou foram renomeados, como o de criação de tópicos na T-006.
 - **Volumes soltos:** a imagem do Kafka declara volumes próprios. Ao remover um contêiner órfão, ficam volumes anônimos soltos, que o `down -v` não alcança. Liste-os com `docker volume ls -f dangling=true` antes de apagar.
 
@@ -693,5 +760,6 @@ Os comandos afetados são **executados de novo, em bash e em PowerShell**, e o "
   - **Fundação:** build reproduzível e gates de qualidade (T-001, T-002); infraestrutura local (T-004, T-006); documentação de arquitetura (T-005); este README executável (T-007); gate por tarefa, matriz de rastreabilidade e subagente revisor (T-003).
   - **Lançamentos (M1):** domínio, persistência, registro idempotente, API, estorno, consultas e publicador da outbox (T-010 a T-016).
   - **Consolidado (M2):** domínio da projeção, persistência, consumidor Kafka com DLT e API de consulta (T-020 a T-023).
+  - **Fase 3 (parcial):** contrato do evento verificado nos dois lados (T-030) e observabilidade com métricas, alertas e painel (T-032).
 - **Parcial:** o caminho do README ainda tem mais que os 5 comandos da RNF-009; a demo em um comando chega com a T-035, e a prova final, com a T-043.
-- **Próximo:** contrato do evento validado nos dois lados (T-030), seguido dos testes de resiliência, da observabilidade, da carga e da demo guiada (Fase 3). A ordem está em [`docs/specs/06-tasks.md`](docs/specs/06-tasks.md).
+- **Próximo:** testes de resiliência, a demo guiada, a carga e o *hardening* (Fase 3). A ordem está em [`docs/specs/06-tasks.md`](docs/specs/06-tasks.md).
