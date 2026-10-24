@@ -23,4 +23,10 @@ public record ConsolidadoDoPeriodo(
     Objects.requireNonNull(saldoAnterior, "saldoAnterior");
     dias = List.copyOf(dias);
   }
+
+  /** Sem comerciante nem valores: dado financeiro não vai para log. */
+  @Override
+  public String toString() {
+    return "ConsolidadoDoPeriodo[dataInicio=" + dataInicio + ", dataFim=" + dataFim + "]";
+  }
 }

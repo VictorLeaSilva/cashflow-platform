@@ -30,7 +30,9 @@ paths:
         movimento vêm zerados, com `atualizadoEm: null`. No máximo 366 dias, contando os dois
         extremos (Q-052); datas futuras são aceitas e vêm zeradas. `saldoAnterior` e os dias
         vêm do mesmo instante da projeção (Q-053). Parâmetro desconhecido (inclusive
-        `comercianteId`) ou repetido responde 400. Exige o scope `consolidado:read`.
+        `comercianteId`) ou repetido responde 400. Responde só `application/json`; um `Accept` que
+        não o admita responde 406 (o OpenAPI 3.1 não permite declarar `Accept` como parâmetro).
+        Exige o scope `consolidado:read`.
       security:
         - bearerAuth: [consolidado:read]
       parameters:
@@ -57,7 +59,8 @@ paths:
       summary: Consolidado de um dia
       description: |
         O dia, com o `saldoAcumulado` desde o início (todos os dias até ele). Sem movimento,
-        responde 200 com zeros (AC-005.4). Não aceita parâmetros de query. Exige o scope
+        responde 200 com zeros (AC-005.4). Não aceita parâmetros de query. Responde só
+        `application/json`; um `Accept` que não o admita responde 406. Exige o scope
         `consolidado:read`.
       security:
         - bearerAuth: [consolidado:read]

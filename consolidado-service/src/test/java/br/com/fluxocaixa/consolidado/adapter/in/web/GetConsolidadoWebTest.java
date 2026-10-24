@@ -123,6 +123,15 @@ class GetConsolidadoWebTest extends IntegracaoWeb {
         .andExpect(jsonPath("$.errors", hasSize(3)));
   }
 
+  /** N1 da revisão: ano com sinal ou com mais de 4 dígitos não é data AAAA-MM-DD. */
+  @ParameterizedTest
+  @ValueSource(strings = {"-2026-10-21", "+12026-10-21", "%2B2026-10-21"})
+  void anoComSinalOuMaisDeQuatroDigitosEhInvalidoNoPeriodo(String data) throws Exception {
+    mvc.perform(periodo("dataInicio=" + data + "&dataFim=2026-10-21"))
+        .andExpect(problema(400, "requisicao-invalida"))
+        .andExpect(erroDeCampo("dataInicio", "formato-invalido"));
+  }
+
   @Test
   void parametroRepetidoEhRejeitado() throws Exception {
     mvc.perform(periodo("dataInicio=2026-10-01&dataInicio=2026-10-02&dataFim=2026-10-03"))
@@ -157,7 +166,8 @@ class GetConsolidadoWebTest extends IntegracaoWeb {
   }
 
   @ParameterizedTest
-  @ValueSource(strings = {"2026-02-30", "2026-10-2", "21-10-2026", "hoje"})
+  @ValueSource(
+      strings = {"2026-02-30", "2026-10-2", "21-10-2026", "hoje", "-2026-10-21", "+12026-10-21"})
   void diaComDataInvalidaResponde400(String data) throws Exception {
     mvc.perform(dia(data))
         .andExpect(problema(400, "requisicao-invalida", URL + "/" + data))

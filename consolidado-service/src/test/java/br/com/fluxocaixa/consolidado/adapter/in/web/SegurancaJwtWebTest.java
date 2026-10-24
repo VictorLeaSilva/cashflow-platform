@@ -114,6 +114,10 @@ class SegurancaJwtWebTest extends IntegracaoWeb {
     String comScope = TokensDeTeste.valido(COMERCIANTE, TokensDeTeste.LEITURA);
 
     mvc.perform(head(URL + "?" + PERIODO)).andExpect(status().isUnauthorized());
+    mvc.perform(head(URL + "?" + PERIODO).header("Authorization", "Bearer " + semScope))
+        .andExpect(status().isForbidden());
+    mvc.perform(head(URL + "?" + PERIODO).header("Authorization", "Bearer " + comScope))
+        .andExpect(status().isOk());
     mvc.perform(head(URL + "/2026-10-21").header("Authorization", "Bearer " + semScope))
         .andExpect(status().isForbidden());
     mvc.perform(head(URL + "/2026-10-21").header("Authorization", "Bearer " + comScope))

@@ -2,6 +2,8 @@ package br.com.fluxocaixa.consolidado.adapter.in.web;
 
 import static org.assertj.core.api.Assertions.assertThat;
 
+import java.math.BigDecimal;
+import java.time.LocalDate;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.Map;
@@ -91,6 +93,60 @@ class OpenApiExemplosTest {
                 dia, valido.replace("\"atualizadoEm\":null", "\"atualizadoEm\":\"ontem\"")))
         .isNotEmpty();
     assertThat(contrato.validar(dia, valido.replace(",\"atualizadoEm\":null", ""))).isNotEmpty();
+  }
+
+  /**
+   * N5 da revisão: os exemplos de sucesso são coerentes entre si. Cada dia segue a fórmula do
+   * AC-005.2; no período, os dias são consecutivos de {@code dataInicio} a {@code dataFim} e o
+   * acumulado encadeia a partir do {@code saldoAnterior} (AC-006.1, AC-006.2).
+   */
+  @Test
+  void aritmeticaDosExemplosDeSucessoBate() {
+    ContratoOpenApi.exemplos(
+            contrato
+                .resolver(contrato.operacao(PERIODO, "get").path("responses").path("200"))
+                .path("content")
+                .path("application/json"),
+            contrato)
+        .forEach(
+            (nome, periodo) -> {
+              BigDecimal acumulado = new BigDecimal(periodo.path("saldoAnterior").asString());
+              LocalDate esperado = LocalDate.parse(periodo.path("dataInicio").asString());
+              for (JsonNode dia : periodo.path("dias")) {
+                assertThat(dia.path("data").asString()).as(nome).isEqualTo(esperado.toString());
+                acumulado = acumulado.add(saldoDiaConferido(nome, dia));
+                assertThat(new BigDecimal(dia.path("saldoAcumulado").asString()))
+                    .as("acumulado de %s em %s", dia.path("data").asString(), nome)
+                    .isEqualByComparingTo(acumulado);
+                esperado = esperado.plusDays(1);
+              }
+              assertThat(esperado.minusDays(1).toString())
+                  .as(nome)
+                  .isEqualTo(periodo.path("dataFim").asString());
+            });
+    ContratoOpenApi.exemplos(
+            contrato
+                .resolver(contrato.operacao(DIA, "get").path("responses").path("200"))
+                .path("content")
+                .path("application/json"),
+            contrato)
+        .forEach(this::saldoDiaConferido);
+  }
+
+  /** {@code saldoDia} do exemplo conferido contra a fórmula; devolve o valor. */
+  private BigDecimal saldoDiaConferido(String nome, JsonNode dia) {
+    BigDecimal saldo =
+        valor(dia, "totalCreditos")
+            .subtract(valor(dia, "totalEstornosCredito"))
+            .subtract(valor(dia, "totalDebitos").subtract(valor(dia, "totalEstornosDebito")));
+    assertThat(valor(dia, "saldoDia"))
+        .as("saldoDia de %s em %s", dia.path("data").asString(), nome)
+        .isEqualByComparingTo(saldo);
+    return saldo;
+  }
+
+  private static BigDecimal valor(JsonNode dia, String campo) {
+    return new BigDecimal(dia.path(campo).asString());
   }
 
   private List<String> parametros(String caminho) {

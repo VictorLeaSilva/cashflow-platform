@@ -74,6 +74,17 @@ class ConsultarConsolidadoTest {
   }
 
   @Test
+  void toStringNaoTrazComercianteNemValores() {
+    gravar("2026-10-20", "4321.98", "0", "0", "0");
+
+    ConsolidadoDoPeriodo periodo =
+        consultar.intervalo(COMERCIANTE, data("2026-10-20"), data("2026-10-20"));
+
+    assertThat(periodo.toString()).doesNotContain(COMERCIANTE.toString(), "4321");
+    assertThat(periodo.dias().getFirst().toString()).doesNotContain("4321").contains("2026-10-20");
+  }
+
+  @Test
   void limitesDoPeriodoSaoConferidosTambemNoCasoDeUso() {
     assertThat(consultar.intervalo(COMERCIANTE, data("2024-01-01"), data("2024-12-31")).dias())
         .hasSize(ConsultarConsolidado.MAXIMO_DE_DIAS);

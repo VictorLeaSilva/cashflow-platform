@@ -25,4 +25,10 @@ public record DiaConsolidado(
     Objects.requireNonNull(saldoDia, "saldoDia");
     Objects.requireNonNull(saldoAcumulado, "saldoAcumulado");
   }
+
+  /** Sem valores: dado financeiro não vai para log. */
+  @Override
+  public String toString() {
+    return "DiaConsolidado[data=" + data + "]";
+  }
 }

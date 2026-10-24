@@ -8,6 +8,7 @@ import java.util.ArrayList;
 import java.util.List;
 import java.util.Map;
 import java.util.Set;
+import java.util.regex.Pattern;
 import org.springframework.util.MultiValueMap;
 
 /**
@@ -22,6 +23,7 @@ final class EntradaDeConsolidado {
   private static final String DATA_FIM = "dataFim";
   private static final Set<String> PARAMETROS_DO_PERIODO = Set.of(DATA_INICIO, DATA_FIM);
   private static final String FORMATO_INVALIDO = "formato-invalido";
+  private static final Pattern AAAA_MM_DD = Pattern.compile("^[0-9]{4}-[0-9]{2}-[0-9]{2}$");
 
   private EntradaDeConsolidado() {}
 
@@ -95,14 +97,21 @@ final class EntradaDeConsolidado {
     return valores.size() == 1 ? data(nome, valores.getFirst(), erros) : null;
   }
 
-  /** ISO estrita: {@code 2026-02-30} e {@code 2026-10-2} são rejeitadas, nunca ajustadas. */
+  /**
+   * ISO estrita: {@code 2026-02-30} e {@code 2026-10-2} são rejeitadas, nunca ajustadas. O formato
+   * {@code AAAA-MM-DD} é exigido antes do <i>parse</i>, porque o ISO do JDK também aceita ano com
+   * sinal ou com mais de 4 dígitos ({@code -2026-10-21}, {@code +12026-10-21}).
+   */
   private static LocalDate data(String campo, String valor, List<ErroDeCampo> erros) {
-    try {
-      return LocalDate.parse(valor, DateTimeFormatter.ISO_LOCAL_DATE);
-    } catch (DateTimeParseException e) {
-      erros.add(erro(campo, FORMATO_INVALIDO, campo + " deve ser uma data AAAA-MM-DD"));
-      return null;
+    if (AAAA_MM_DD.matcher(valor).matches()) {
+      try {
+        return LocalDate.parse(valor, DateTimeFormatter.ISO_LOCAL_DATE);
+      } catch (DateTimeParseException e) {
+        // Data inexistente (ex.: 2026-02-30): cai no mesmo erro de formato abaixo.
+      }
     }
+    erros.add(erro(campo, FORMATO_INVALIDO, campo + " deve ser uma data AAAA-MM-DD"));
+    return null;
   }
 
   private static ErroDeCampo erro(String campo, String codigo, String mensagem) {
