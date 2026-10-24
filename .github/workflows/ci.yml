@@ -27,6 +27,22 @@ jobs:
       - name: ./mvnw verify
         run: ./mvnw -B -ntp verify
 
+  alertas:
+    name: Regras de alerta (promtool)
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - name: promtool check rules
+        run: >
+          docker run --rm --entrypoint promtool
+          -v "$PWD/deploy/prometheus:/work:ro"
+          prom/prometheus:v3.15.1 check rules /work/alertas.yml
+      - name: promtool test rules
+        run: >
+          docker run --rm --entrypoint promtool
+          -v "$PWD/deploy/prometheus:/work:ro"
+          prom/prometheus:v3.15.1 test rules /work/alertas.test.yml
+
   secrets:
     name: Segredos (gitleaks)
     runs-on: ubuntu-latest

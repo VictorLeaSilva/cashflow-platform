@@ -1,0 +1,130 @@
+{
+  "uid": "fluxo-caixa",
+  "title": "Fluxo de Caixa - operação",
+  "tags": ["fluxo-caixa"],
+  "timezone": "browser",
+  "schemaVersion": 39,
+  "version": 1,
+  "refresh": "5s",
+  "time": { "from": "now-30m", "to": "now" },
+  "templating": { "list": [] },
+  "annotations": { "list": [] },
+  "panels": [
+    {
+      "id": 1,
+      "type": "timeseries",
+      "title": "Lançamentos registrados por tipo (por segundo)",
+      "datasource": { "type": "prometheus", "uid": "prometheus" },
+      "gridPos": { "h": 8, "w": 12, "x": 0, "y": 0 },
+      "targets": [
+        {
+          "refId": "A",
+          "expr": "sum by (tipo) (rate(lancamentos_registrados_total[1m]))",
+          "legendFormat": "{{tipo}}"
+        }
+      ]
+    },
+    {
+      "id": 2,
+      "type": "timeseries",
+      "title": "Outbox: idade do evento mais antigo (s) e pendentes",
+      "datasource": { "type": "prometheus", "uid": "prometheus" },
+      "gridPos": { "h": 8, "w": 12, "x": 12, "y": 0 },
+      "targets": [
+        {
+          "refId": "A",
+          "expr": "outbox_oldest_pending_age_seconds",
+          "legendFormat": "idade (s)"
+        },
+        {
+          "refId": "B",
+          "expr": "outbox_pending_events",
+          "legendFormat": "pendentes"
+        }
+      ]
+    },
+    {
+      "id": 3,
+      "type": "timeseries",
+      "title": "Consolidado: eventos processados, duplicados e na DLT (por segundo)",
+      "datasource": { "type": "prometheus", "uid": "prometheus" },
+      "gridPos": { "h": 8, "w": 12, "x": 0, "y": 8 },
+      "targets": [
+        {
+          "refId": "A",
+          "expr": "rate(consolidado_events_processed_total[1m])",
+          "legendFormat": "processados"
+        },
+        {
+          "refId": "B",
+          "expr": "rate(consolidado_events_duplicates_total[1m])",
+          "legendFormat": "duplicados"
+        },
+        {
+          "refId": "C",
+          "expr": "increase(consolidado_events_dlt_total[5m])",
+          "legendFormat": "na DLT (5 min)"
+        }
+      ]
+    },
+    {
+      "id": 4,
+      "type": "timeseries",
+      "title": "Lag de projeção p95 (s, ponta a ponta)",
+      "datasource": { "type": "prometheus", "uid": "prometheus" },
+      "gridPos": { "h": 8, "w": 12, "x": 12, "y": 8 },
+      "fieldConfig": { "defaults": { "unit": "s" }, "overrides": [] },
+      "targets": [
+        {
+          "refId": "A",
+          "expr": "histogram_quantile(0.95, sum by (le) (rate(consolidado_event_lag_seconds_bucket[1m])))",
+          "legendFormat": "p95"
+        }
+      ]
+    },
+    {
+      "id": 5,
+      "type": "timeseries",
+      "title": "Lag do consumidor Kafka (registros)",
+      "datasource": { "type": "prometheus", "uid": "prometheus" },
+      "gridPos": { "h": 8, "w": 12, "x": 0, "y": 16 },
+      "targets": [
+        {
+          "refId": "A",
+          "expr": "kafka_consumer_fetch_manager_records_lag_max{job=\"consolidado\"}",
+          "legendFormat": "lag máximo"
+        }
+      ]
+    },
+    {
+      "id": 6,
+      "type": "timeseries",
+      "title": "Taxa de respostas 5xx",
+      "datasource": { "type": "prometheus", "uid": "prometheus" },
+      "gridPos": { "h": 8, "w": 12, "x": 12, "y": 16 },
+      "fieldConfig": { "defaults": { "unit": "percentunit" }, "overrides": [] },
+      "targets": [
+        {
+          "refId": "A",
+          "expr": "sum by (job) (rate(http_server_requests_seconds_count{status=~\"5..\"}[1m])) / sum by (job) (rate(http_server_requests_seconds_count[1m]))",
+          "legendFormat": "{{job}}"
+        }
+      ]
+    },
+    {
+      "id": 7,
+      "type": "timeseries",
+      "title": "Ocupação dos pools JDBC (conexões em uso / máximo)",
+      "datasource": { "type": "prometheus", "uid": "prometheus" },
+      "gridPos": { "h": 8, "w": 24, "x": 0, "y": 24 },
+      "fieldConfig": { "defaults": { "unit": "percentunit", "max": 1, "min": 0 }, "overrides": [] },
+      "targets": [
+        {
+          "refId": "A",
+          "expr": "hikaricp_connections_active / hikaricp_connections_max",
+          "legendFormat": "{{job}} / {{pool}}"
+        }
+      ]
+    }
+  ]
+}
