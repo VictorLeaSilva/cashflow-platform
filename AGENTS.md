@@ -26,5 +26,7 @@ Método: **Spec Driven Development (SDD)** com harness de verificação e revis�
 
 ## Comandos
 - `./mvnw -q verify` — gate completo local (formato, lint, testes, arquitetura, cobertura)
-- `scripts/verify-task.sh T-xxx` — gate da tarefa (inclui escopo e rastreabilidade)
+- `BASE=<branch base da tarefa> scripts/verify-task.sh T-xxx` — gate da tarefa (inclui escopo e rastreabilidade); `BASE` é a base do diff (padrão `main`; use a branch base quando o `main` local estiver defasado)
+- `scripts/check-traceability.sh [--write]` — lista os requisitos obrigatórios sem teste; `--write` regenera `docs/specs/traceability.md`, que o PR da tarefa commita
+- `scripts/test/run-tests.sh` — testes dos scripts do harness
 - `docker compose -f deploy/docker-compose.yml up -d` — infraestrutura local
