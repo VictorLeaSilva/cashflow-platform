@@ -128,7 +128,8 @@ class ProjecaoPropertiesTest {
           ProjecaoDeReferencia projecao =
               ProjecaoDeReferencia.aplicandoTodos(caso.cenario().entrega1());
           LancamentoRegistrado extra = caso.extra();
-          ChaveDiaria chave = Efeito.de(extra).chave();
+          ChaveDiaria chave = new ChaveDiaria(extra.comercianteId(), extra.dataReferencia());
+          assertThat(Efeito.de(extra).chave()).isEqualTo(chave);
           MovimentoDiario anterior = antes.getOrDefault(chave, MovimentoDiario.ZERO);
 
           projecao.aplicar(extra);

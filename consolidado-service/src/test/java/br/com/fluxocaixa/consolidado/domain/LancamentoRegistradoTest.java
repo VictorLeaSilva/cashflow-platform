@@ -118,6 +118,30 @@ class LancamentoRegistradoTest {
   }
 
   @Test
+  void violacoesDeGruposDiferentesAparecemTodas() {
+    assertThatThrownBy(
+            () ->
+                new LancamentoRegistrado(
+                    null,
+                    COMERCIANTE,
+                    LANCAMENTO,
+                    TipoLancamento.CREDITO,
+                    new BigDecimal("1.001"),
+                    DIA,
+                    TipoLancamento.DEBITO,
+                    ORIGINAL))
+        .isInstanceOf(EventoInvalidoException.class)
+        .extracting(e -> ((EventoInvalidoException) e).erros())
+        .asInstanceOf(InstanceOfAssertFactories.LIST)
+        .extracting("campo", "codigo")
+        .containsExactlyInAnyOrder(
+            tuple("eventId", "obrigatorio"),
+            tuple("valor", "casas-decimais"),
+            tuple("tipoOriginal", "proibido-fora-do-estorno"),
+            tuple("referenciaLancamentoId", "proibido-fora-do-estorno"));
+  }
+
+  @Test
   void mensagemDoErroNaoTrazValorNemComerciante() {
     assertThatThrownBy(
             () ->

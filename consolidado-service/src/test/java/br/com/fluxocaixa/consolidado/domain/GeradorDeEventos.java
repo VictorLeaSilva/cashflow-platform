@@ -3,6 +3,7 @@ package br.com.fluxocaixa.consolidado.domain;
 import java.math.BigDecimal;
 import java.math.BigInteger;
 import java.time.LocalDate;
+import java.time.temporal.ChronoUnit;
 import java.util.ArrayList;
 import java.util.Collections;
 import java.util.List;
@@ -78,8 +79,9 @@ final class GeradorDeEventos {
     for (int i = 0; i < quantidade; i++) {
       if (!estornaveis.isEmpty() && aleatorio.nextInt(4) == 0) {
         LancamentoRegistrado original = estornaveis.remove(aleatorio.nextInt(estornaveis.size()));
-        int atraso = aleatorio.nextInt(0, quantidadeDeDatas);
-        eventos.add(estorno(uuid(aleatorio), original, original.dataReferencia().plusDays(atraso)));
+        int indiceDoOriginal = (int) ChronoUnit.DAYS.between(DIA_BASE, original.dataReferencia());
+        int indiceDoEstorno = aleatorio.nextInt(indiceDoOriginal, quantidadeDeDatas);
+        eventos.add(estorno(uuid(aleatorio), original, DIA_BASE.plusDays(indiceDoEstorno)));
       } else {
         LancamentoRegistrado novo =
             evento(
