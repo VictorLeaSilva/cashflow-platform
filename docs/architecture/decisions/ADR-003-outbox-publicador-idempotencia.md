@@ -33,7 +33,7 @@ Cada lançamento precisa chegar ao Consolidado, mas o registro não pode depende
 
 ## Consequências
 - **Ganho:** nenhum evento perdido nem inventado; Lançamentos segue respondendo 201 com Consolidado ou Kafka fora (a outbox acumula e drena depois).
-- **Custo assumido:** tabela outbox, publicador e limpeza (`outbox.retention-days`, padrão 7); latência de publicação ≈ intervalo de *polling*; duplicatas na entrega, absorvidas pelo consumidor.
+- **Custo assumido:** tabela outbox, publicador e limpeza (`lancamentos.outbox.retention-days`, padrão 7); latência de publicação ≈ intervalo de *polling*; duplicatas na entrega, absorvidas pelo consumidor.
 - *Claim/lease* (publicar fora da transação) fica fora do MVP: só se a medição mostrar contenção.
 
 ## Revisitar quando
