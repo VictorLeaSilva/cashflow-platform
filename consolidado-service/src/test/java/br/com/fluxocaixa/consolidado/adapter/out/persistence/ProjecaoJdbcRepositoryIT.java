@@ -10,6 +10,7 @@ import br.com.fluxocaixa.consolidado.domain.MovimentoDiario;
 import br.com.fluxocaixa.consolidado.support.IntegracaoPostgres;
 import br.com.fluxocaixa.consolidado.support.TabelasDoConsolidado;
 import java.math.BigDecimal;
+import java.sql.SQLException;
 import java.time.Instant;
 import java.time.LocalDate;
 import java.time.ZoneOffset;
@@ -98,7 +99,10 @@ class ProjecaoJdbcRepositoryIT extends IntegracaoPostgres {
         .containsOnly(
             Map.entry(CHAVE, movimento("10000000.01", "0.10", "0.01", "9999999.99", 5)),
             Map.entry(outroDia, movimento("0.30", "0", "0", "0", 1)));
-    assertThat(dias.get(CHAVE).totalCreditos().scale()).isEqualTo(2);
+    // Lido direto do ResultSet, sem passar pelo construtor de MovimentoDiario (que normaliza a
+    // escala): BigDecimal.equals compara também a escala.
+    assertThat(TabelasDoConsolidado.totalCreditosComoGravado(CHAVE))
+        .isEqualTo(new BigDecimal("10000000.01"));
     assertThat(dias.get(CHAVE).saldoDia()).isEqualTo(new BigDecimal("19999999.89"));
   }
 
@@ -115,7 +119,8 @@ class ProjecaoJdbcRepositoryIT extends IntegracaoPostgres {
     UUID evento = id(1);
 
     assertThatThrownBy(() -> projecao.aplicarSeNovo(evento, credito(CHAVE, "0.01"), T2))
-        .isInstanceOf(DataAccessException.class);
+        .isInstanceOf(DataAccessException.class)
+        .satisfies(ProjecaoJdbcRepositoryIT::foiEstouroNumerico);
 
     assertThat(TabelasDoConsolidado.dias()).isEqualTo(antes);
     assertThat(TabelasDoConsolidado.processadoEm(evento)).isEmpty();
@@ -137,7 +142,8 @@ class ProjecaoJdbcRepositoryIT extends IntegracaoPostgres {
     Map<ChaveDiaria, MovimentoDiario> antes = TabelasDoConsolidado.dias();
 
     assertThatThrownBy(() -> projecao.aplicarSeNovo(id(1), credito(CHAVE, "1.00"), T2))
-        .isInstanceOf(DataAccessException.class);
+        .isInstanceOf(DataAccessException.class)
+        .satisfies(ProjecaoJdbcRepositoryIT::foiEstouroNumerico);
 
     assertThat(TabelasDoConsolidado.dias()).isEqualTo(antes);
     assertThat(TabelasDoConsolidado.eventosProcessados()).isZero();
@@ -177,6 +183,16 @@ class ProjecaoJdbcRepositoryIT extends IntegracaoPostgres {
         new BigDecimal(estornosCredito),
         new BigDecimal(estornosDebito),
         qtd);
+  }
+
+  /** SQLState 22003 ({@code numeric_value_out_of_range}) na cadeia de causas. */
+  private static void foiEstouroNumerico(Throwable erro) {
+    Throwable causa = erro;
+    while (causa != null && !(causa instanceof SQLException)) {
+      causa = causa.getCause();
+    }
+    assertThat(causa).as("SQLException na cadeia de causas de %s", erro).isNotNull();
+    assertThat(((SQLException) causa).getSQLState()).isEqualTo("22003");
   }
 
   private static UUID id(int n) {

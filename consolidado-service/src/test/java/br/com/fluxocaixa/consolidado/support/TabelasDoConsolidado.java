@@ -2,6 +2,7 @@ package br.com.fluxocaixa.consolidado.support;
 
 import br.com.fluxocaixa.consolidado.domain.ChaveDiaria;
 import br.com.fluxocaixa.consolidado.domain.MovimentoDiario;
+import java.math.BigDecimal;
 import java.sql.Connection;
 import java.sql.PreparedStatement;
 import java.sql.ResultSet;
@@ -52,6 +53,16 @@ public final class TabelasDoConsolidado {
     return instante(
         "SELECT atualizado_em FROM consolidado_diario"
             + " WHERE comerciante_id = ? AND data_referencia = ?",
+        chave.comercianteId(),
+        chave.dataReferencia());
+  }
+
+  /** {@code total_creditos} como o driver devolve, sem normalização de escala. */
+  public static BigDecimal totalCreditosComoGravado(ChaveDiaria chave) {
+    return consultar(
+        "SELECT total_creditos FROM consolidado_diario"
+            + " WHERE comerciante_id = ? AND data_referencia = ?",
+        linhas -> linhas.next() ? linhas.getBigDecimal(1) : null,
         chave.comercianteId(),
         chave.dataReferencia());
   }
