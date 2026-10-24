@@ -84,7 +84,7 @@ class IsolamentoPorComercianteIT extends IntegracaoPostgres {
     return resultado
         .getResponse()
         .getContentAsString()
-        .replaceAll("\"(instance|requestId|timestamp)\":\"[^\"]*\"", "");
+        .replaceAll("\"(instance|requestId|traceId|timestamp)\":\"[^\"]*\"", "");
   }
 
   private final class Comerciante {
