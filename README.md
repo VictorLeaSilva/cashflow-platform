@@ -646,9 +646,9 @@ Os comandos afetados são **executados de novo, em bash e em PowerShell**, e o "
 ## Status
 
 - **Concluído:**
-  - **Fundação:** build reproduzível e gates de qualidade (T-001, T-002); infraestrutura local (T-004, T-006); documentação de arquitetura (T-005).
+  - **Fundação:** build reproduzível e gates de qualidade (T-001, T-002); infraestrutura local (T-004, T-006); documentação de arquitetura (T-005); este README executável (T-007).
   - **Lançamentos (M1):** domínio, persistência, registro idempotente, API, estorno, consultas e publicador da outbox (T-010 a T-016).
   - **Consolidado (M2):** domínio da projeção, persistência, consumidor Kafka com DLT e API de consulta (T-020 a T-023).
-- **Em revisão:** este README executável (T-007), aguardando aprovação. O caminho ainda tem mais que os 5 comandos da RNF-009; a demo em um comando chega com a T-035, e a prova final, com a T-043.
+- **Parcial:** o caminho do README ainda tem mais que os 5 comandos da RNF-009; a demo em um comando chega com a T-035, e a prova final, com a T-043.
 - **Pendente da fundação:** o harness automatizado (T-003).
 - **Próximo:** contrato do evento validado nos dois lados (T-030), seguido dos testes de resiliência, da observabilidade, da carga e da demo guiada (Fase 3). A ordem está em [`docs/specs/06-tasks.md`](docs/specs/06-tasks.md).
