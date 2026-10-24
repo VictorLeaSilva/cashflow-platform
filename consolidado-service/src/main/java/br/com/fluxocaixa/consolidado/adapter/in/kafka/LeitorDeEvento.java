@@ -63,7 +63,8 @@ public final class LeitorDeEvento {
               opcional(evento, "referenciaLancamentoId") == null
                   ? null
                   : UUID.fromString(opcional(evento, "referenciaLancamentoId"))),
-          OffsetDateTime.parse(evento.get("occurredAt").asString()).toInstant());
+          OffsetDateTime.parse(evento.get("occurredAt").asString()).toInstant(),
+          opcional(evento, "traceId"));
     } catch (IllegalArgumentException | DateTimeParseException e) {
       // Defesa: o schema com format conferido já barra isso; o texto do erro não é repassado.
       throw new EventoForaDoContratoException(List.of(":formato"));

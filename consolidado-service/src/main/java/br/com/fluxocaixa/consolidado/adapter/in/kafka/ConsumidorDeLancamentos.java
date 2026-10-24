@@ -3,14 +3,10 @@ package br.com.fluxocaixa.consolidado.adapter.in.kafka;
 import br.com.fluxocaixa.consolidado.application.AplicarEvento;
 import br.com.fluxocaixa.consolidado.application.AplicarEvento.Resultado;
 import br.com.fluxocaixa.consolidado.domain.LancamentoRegistrado;
-import java.nio.charset.StandardCharsets;
 import java.time.Clock;
 import java.time.Duration;
 import java.util.Objects;
-import java.util.Optional;
-import java.util.regex.Pattern;
 import org.apache.kafka.clients.consumer.ConsumerRecord;
-import org.apache.kafka.common.header.Header;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.slf4j.MDC;
@@ -22,8 +18,10 @@ import org.springframework.kafka.annotation.KafkaListener;
  * este método retorna, isto é, depois do <i>commit</i> no banco ({@code AckMode.RECORD}, Q-044).
  * Exceções sobem para o tratamento de erro ({@code ConsumidorConfig}): <i>retry</i> e DLT (Q-045).
  *
- * <p>MDC (Q-046): {@code requestId} só com {@code x-request-id} válido (03 §5.2); {@code eventId}
- * depois da leitura. Uma linha por evento no logger {@value #LOGGER_DE_CONSUMO}, sem valor nem
+ * <p>MDC (Q-046, Q-061): {@code requestId} só com {@code x-request-id} válido (03 §5.2); {@code
+ * eventId} e {@code traceIdOrigem} (o {@code traceId} do payload, se válido) depois da leitura; o
+ * {@code traceId} é o do <i>trace</i> que a observação do Kafka continua a partir do {@code
+ * traceparent}. Uma linha por evento no logger {@value #LOGGER_DE_CONSUMO}, sem valor nem
  * comerciante.
  */
 public final class ConsumidorDeLancamentos {
@@ -33,9 +31,6 @@ public final class ConsumidorDeLancamentos {
   public static final String ID_DO_LISTENER = "consolidado-consumidor";
   public static final String CABECALHO_REQUEST_ID = "x-request-id";
   static final String LOGGER_DE_CONSUMO = "br.com.fluxocaixa.consolidado.consumo";
-
-  /** Mesma regra do {@code X-Request-Id} HTTP (03 §5.2). */
-  private static final Pattern REQUEST_ID_VALIDO = Pattern.compile("^[A-Za-z0-9._-]{1,64}$");
 
   private static final Logger CONSUMO = LoggerFactory.getLogger(LOGGER_DE_CONSUMO);
 
@@ -63,10 +58,13 @@ public final class ConsumidorDeLancamentos {
       autoStartup = "${consolidado.consumer.enabled}")
   public void consumir(ConsumerRecord<String, String> registro) {
     try {
-      requestIdValido(registro).ifPresent(id -> MDC.put("requestId", id));
+      CorrelacaoDoRegistro.requestId(registro)
+          .ifPresent(id -> MDC.put(CorrelacaoDoRegistro.REQUEST_ID, id));
       EventoLido lido = leitor.ler(registro.value());
       LancamentoRegistrado evento = lido.evento();
-      MDC.put("eventId", evento.eventId().toString());
+      MDC.put(CorrelacaoDoRegistro.EVENT_ID, evento.eventId().toString());
+      CorrelacaoDoRegistro.traceIdDeOrigemValido(lido.traceId())
+          .ifPresent(id -> MDC.put(CorrelacaoDoRegistro.TRACE_ID_ORIGEM, id));
       Resultado resultado = aplicarEvento.aplicar(evento);
       if (resultado == Resultado.APLICADO) {
         metricas.aplicado(Duration.between(lido.occurredAt(), clock.instant()));
@@ -80,17 +78,9 @@ public final class ConsumidorDeLancamentos {
           evento.tipo(),
           evento.dataReferencia());
     } finally {
-      MDC.remove("requestId");
-      MDC.remove("eventId");
+      MDC.remove(CorrelacaoDoRegistro.REQUEST_ID);
+      MDC.remove(CorrelacaoDoRegistro.EVENT_ID);
+      MDC.remove(CorrelacaoDoRegistro.TRACE_ID_ORIGEM);
     }
-  }
-
-  private static Optional<String> requestIdValido(ConsumerRecord<String, String> registro) {
-    Header cabecalho = registro.headers().lastHeader(CABECALHO_REQUEST_ID);
-    if (cabecalho == null || cabecalho.value() == null) {
-      return Optional.empty();
-    }
-    String valor = new String(cabecalho.value(), StandardCharsets.UTF_8);
-    return REQUEST_ID_VALIDO.matcher(valor).matches() ? Optional.of(valor) : Optional.empty();
   }
 }
