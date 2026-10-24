@@ -33,12 +33,12 @@ Ordem: *walking skeleton* (fundação e harness) → fatias verticais por servi�
 | T-023 | API de consulta (zero-fill, saldo anterior/acumulado) + JWT + OpenAPI com exemplos completos + filtro `X-Request-Id` + validação estrita + log de acesso | T-021 | RF-005, RF-006, RF-010, RNF-012, RNF-013, RNF-014 | AC-005.x, AC-006.x, contrato e exemplos |
 | **Fase 3 — Transversais** |||||
 | T-030 | Contrato de evento: validação automática do JSON Schema (alinhado na T-010; biblioteca: Q-006) e *golden files* nos dois lados | T-016, T-022 | RF-008 | Testes de contrato |
-| T-031 | Resiliência E2E (Consolidado parado, Kafka fora, consumidor pausado, retroativo) | T-016, T-023 | RNF-001, RNF-007, RF-009 | Testes E2E |
-| T-032 | Observabilidade (métricas, logs JSON, tracing via Kafka, Prometheus/Grafana, alertas) | T-016, T-022 | RNF-006 | Dashboard e regras carregam; testes de actuator |
-| T-033 | Scripts k6: `smoke.js` (teste normal) e `load.js` (carga: 50 req/s + escrita simultânea; 100/200 informativo) + relatório | T-023, T-032 | RNF-002, RNF-003, RNF-010 | Thresholds passam; resultado em `docs/performance/` |
-| T-034 | Hardening e segurança (cabeçalhos, limites, workflows de segurança, OWASP mapping, threat model enxuto) | T-013, T-023 | RNF-005 | Workflows verdes; documento |
-| T-035 | Demo guiada `scripts/demo.sh` (idempotência, estorno, retroativo, isolamento, Consolidado parado, opcional Kafka parado) + profile `apps` no compose | T-016, T-023, T-032 | RNF-001, RNF-007, RF-007, RF-009, RF-010 | Execução ponta a ponta com exit 0 |
-| T-036 | **Opcional, cortável.** IdP local de demonstração: Keycloak no profile `auth` do compose (só local; no alvo o IdP é o Cognito, ADR-010), *realm* versionado, *client credentials* e *authorization code* + PKCE pela Swagger UI | T-013, T-023, T-035 | RNF-005 | Token do Keycloak aceito pelos dois serviços só por configuração; testes e k6 seguem com o `DevToken` |
+| T-031 | Resiliência (Consolidado parado, consumidor reiniciado, DLT fora, retroativo), por serviço; a prova cruzada é a demo da T-035 (Q-060) | T-016, T-023 | RNF-001, RNF-007, RF-009 | Testes E2E |
+| T-032 | Observabilidade (métricas, logs JSON, tracing via Kafka, Prometheus/Grafana, alertas) | T-016, T-022 | RNF-006, RNF-003, RNF-012 | Dashboard e regras carregam; testes de actuator |
+| T-033 | Scripts k6: `smoke.js` (teste normal) e `load.js` (carga: 50 req/s + escrita simultânea; 100/200 informativo) + relatório | T-023, T-032, T-035 (Q-056) | RNF-002, RNF-003, RNF-010 | Thresholds passam; resultado em `docs/performance/` |
+| T-034 | Hardening e segurança (cabeçalhos, limites, workflows de segurança, OWASP mapping, threat model enxuto); datas estritas e `OPTIONS` (Q-067) | T-013, T-023, T-035 (Q-056) | RNF-005, RNF-013 | Workflows verdes; documento |
+| T-035 | Demo guiada `scripts/demo.sh` (idempotência, estorno, retroativo, isolamento, Consolidado parado, opcional Kafka parado) + profile `apps` no compose | T-016, T-023, T-032 | RNF-001, RNF-007, RNF-009, RF-007, RF-009, RF-010 | Execução ponta a ponta com exit 0 |
+| T-036 | **Cortada (Q-056).** **Opcional, cortável.** IdP local de demonstração: Keycloak no profile `auth` do compose (só local; no alvo o IdP é o Cognito, ADR-010), *realm* versionado, *client credentials* e *authorization code* + PKCE pela Swagger UI | T-013, T-023, T-035 | RNF-005 | Token do Keycloak aceito pelos dois serviços só por configuração; testes e k6 seguem com o `DevToken` |
 | **Fase 4 — Documentação e entrega** |||||
 | T-040 | Completar `architecture.md` iniciado na T-005 (visões de runtime e deploy com números medidos, revisão cruzada final ADRs × código) | T-005, T-032 | Obrigatórios do enunciado | Revisão cruzada com as specs |
 | T-041 | Arquitetura de transição (enxuta): coexistência com processo legado, importação idempotente por `identificador_externo`, saldo de abertura e seu efeito no evento e no `saldoAnterior`, migração de identidade (usuários e comerciantes), *shadow mode* | T-040 | Diferencial | Até 3 páginas + 1 diagrama |
@@ -52,6 +52,9 @@ Ordem: *walking skeleton* (fundação e harness) → fatias verticais por servi�
 - **M2** (T-020..T-023): Consolidado completo, consome e consulta.
 - **M3** (T-030..T-035): provas de resiliência, carga, segurança e demo guiada. T-036 é opcional e não bloqueia o marco.
 - **M4** (T-040..T-044): documentação final e release.
+
+## Ordem de implementação da Fase 3 (Q-056, decidida em 2026-10-24)
+T-003 → T-030 → T-032 → T-031 → T-035 → T-033 → T-034. Cortados: T-036, PIT e ZAP (itens 1 e 2 do corte abaixo). A T-040 a T-044 são detalhadas depois da T-033, com os números medidos (P8).
 
 ## Corte de escopo (se o tempo apertar, nesta ordem)
 1. T-036 (Keycloak local; o `DevToken` cobre o case). 2. PIT e ZAP (G4). 3. Grafana provisionado (manter métricas e alertas em arquivo). 4. T-041/T-042 em versão mínima. **Nunca cortar:** T-005, T-031, T-033, T-035, T-040, T-043.
