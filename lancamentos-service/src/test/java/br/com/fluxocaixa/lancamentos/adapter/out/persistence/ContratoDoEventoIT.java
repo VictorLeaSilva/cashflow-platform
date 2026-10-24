@@ -21,6 +21,7 @@ import java.util.ArrayDeque;
 import java.util.Deque;
 import java.util.List;
 import java.util.UUID;
+import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.Tag;
 import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
@@ -51,6 +52,11 @@ class ContratoDoEventoIT extends IntegracaoPostgres {
   @Autowired private PoliticaLancamento politica;
   @Autowired private RelogioFixo.Controlado relogio;
   @Autowired private JdbcClient jdbc;
+
+  @AfterEach
+  void relogioEmAgora() {
+    relogio.restaurar();
+  }
 
   @Test
   void eventoProduzidoEIgualAoGoldenDeCreditoDebitoEEstorno() {
