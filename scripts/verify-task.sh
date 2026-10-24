@@ -5,6 +5,11 @@
 # docs/specs/reviews/T-xxx.verify.log. Exit 0 só se todos passarem.
 set -u
 
+if [ "${BASH_VERSINFO[0]}" -lt 4 ]; then
+  echo "bash 4 ou superior é necessário (mapfile); no macOS: brew install bash" >&2
+  exit 2
+fi
+
 AQUI="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 RAIZ="$(cd "$AQUI/.." && pwd)"
 # shellcheck source=lib/frontmatter.sh
@@ -44,7 +49,14 @@ falha() { # $1 = número, $2 = nome, demais = linhas de detalhe
   for d in "$@"; do RESULTADOS+=("    $d"); done
 }
 
-mapfile -t ALTERADOS < <(git -c core.quotepath=false diff --no-renames --name-only "$BASE"...HEAD)
+if ! NOMES_ALTERADOS="$(git -c core.quotepath=false diff --no-renames --name-only "$BASE"...HEAD)"; then
+  echo "não foi possível calcular o diff contra BASE=$BASE (sem base de merge em comum?)" >&2
+  exit 2
+fi
+ALTERADOS=()
+if [ -n "$NOMES_ALTERADOS" ]; then
+  mapfile -t ALTERADOS <<< "$NOMES_ALTERADOS"
+fi
 mapfile -t COVERS < <(fm_lista "$ARQ_TAREFA" covers)
 mapfile -t EVID < <(fm_lista "$ARQ_TAREFA" evidence_only)
 mapfile -t PERMITIDOS < <(fm_lista "$ARQ_TAREFA" allowed_paths)
@@ -86,7 +98,7 @@ item2() {
 # --- item 3: dependências
 item3() {
   local novas=() c
-  mapfile -t novas < <(comm -13 <(pom_coordenadas_em "$BASE") <(pom_coordenadas_em HEAD))
+  mapfile -t novas < <(LC_ALL=C comm -13 <(pom_coordenadas_em "$BASE") <(pom_coordenadas_em HEAD))
   local nao_autorizadas=()
   for c in "${novas[@]}"; do
     [ -z "$c" ] && continue

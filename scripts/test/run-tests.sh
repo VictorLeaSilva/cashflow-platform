@@ -267,6 +267,103 @@ roda_verify
 espera_codigo 0
 espera_texto "OK item 3"
 
+cenario "item 3: dependência nova em dependencyManagement também conta"
+reseta_tarefa
+T_ALLOWED="  - app/pom.xml
+  - app/src/main/**
+  - app/src/test/**
+  - docs/specs/tasks/T-900.md"
+mk_repo
+java_teste FooTest '@Tag("RF-001")' '  void a() {}'
+cat > "$R/app/pom.xml" <<'XML'
+<project>
+  <dependencyManagement>
+    <dependencies>
+      <dependency>
+        <groupId>com.exemplo</groupId>
+        <artifactId>gerenciada</artifactId>
+      </dependency>
+    </dependencies>
+  </dependencyManagement>
+  <dependencies>
+    <dependency>
+      <groupId>org.springframework.boot</groupId>
+      <artifactId>spring-boot-starter</artifactId>
+    </dependency>
+  </dependencies>
+</project>
+XML
+commita "dependencyManagement"
+roda_verify
+espera_codigo nz
+espera_texto "FALHA item 3"
+espera_texto "com.exemplo:gerenciada"
+
+cenario "item 3: exclusions e dependência comentada no XML não contam; dependência movida entre módulos não é nova"
+reseta_tarefa
+T_ALLOWED="  - app/pom.xml
+  - other/pom.xml
+  - app/src/main/**
+  - app/src/test/**
+  - docs/specs/tasks/T-900.md"
+T_DEPS="
+  - com.exemplo:com-exclusao"
+mk_repo
+java_teste FooTest '@Tag("RF-001")' '  void a() {}'
+mkdir -p "$R/other"
+cat > "$R/app/pom.xml" <<'XML'
+<project>
+  <dependencies>
+    <dependency>
+      <groupId>com.exemplo</groupId>
+      <artifactId>com-exclusao</artifactId>
+      <exclusions>
+        <exclusion>
+          <groupId>com.excluida</groupId>
+          <artifactId>lib</artifactId>
+        </exclusion>
+      </exclusions>
+    </dependency>
+    <!--
+    <dependency>
+      <groupId>com.comentada</groupId>
+      <artifactId>lib</artifactId>
+    </dependency>
+    -->
+  </dependencies>
+</project>
+XML
+pom "$R/other/pom.xml" "org.springframework.boot:spring-boot-starter"
+commita "exclusions, comentário e movimentação"
+roda_verify
+espera_codigo 0
+espera_texto "OK item 3"
+
+cenario "item 2: * simples também casa qualquer sequência, inclusive /"
+reseta_tarefa
+T_ALLOWED="  - app/src/main/**
+  - app/src/test/**
+  - docs/specs/tasks/T-900.md
+  - extras/*.txt"
+mk_repo
+java_teste FooTest '@Tag("RF-001")' '  void a() {}'
+mkdir -p "$R/extras/sub"; echo x > "$R/extras/a.txt"; echo x > "$R/extras/sub/b.txt"
+commita "glob simples"
+roda_verify
+espera_codigo 0
+espera_texto "OK item 2"
+
+cenario "BASE sem base de merge: o gate falha em vez de passar em vazio"
+reseta_tarefa; mk_repo
+java_teste FooTest '@Tag("RF-001")' '  void a() {}'
+java_main Foo '  // TODO'
+commita "com problema"
+(cd "$R" && git checkout -q --orphan outra && git rm -rf -q . && echo x > x.txt && git add x.txt && git commit -q -m orfao && git checkout -q task/T-900)
+BASE_TESTE=outra roda_verify
+espera_codigo nz
+espera_texto "não foi possível calcular o diff"
+unset BASE_TESTE
+
 cenario "item 4: covers sem @Tag em teste do diff"
 reseta_tarefa; mk_repo
 java_teste FooTest '' '  void a() {}'

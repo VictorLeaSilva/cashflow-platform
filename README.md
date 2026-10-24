@@ -599,7 +599,7 @@ O `pre-commit` roda o gitleaks (se instalado) e a checagem de formatação. O `p
 
 Quem implementa uma tarefa do projeto usa três scripts (precisam de Git, Java 25 e, para o gate completo, do Docker). No PowerShell, chame o `bash` do Git (o `bash` solto pode ser o do WSL).
 
-**1. Testar os próprios scripts** (leva cerca de um minuto; não usa Docker nem a sua pasta de trabalho):
+**1. Testar os próprios scripts** (leva de um a alguns minutos, conforme a máquina; não usa Docker nem altera a sua pasta de trabalho):
 
 ```bash
 scripts/test/run-tests.sh
@@ -609,7 +609,7 @@ scripts/test/run-tests.sh
 & "C:\Program Files\Git\bin\bash.exe" scripts/test/run-tests.sh
 ```
 
-**O que você deve ver:** uma linha por cenário e, no fim, `OK: 75 conferências, 0 falhas` (o número de conferências cresce quando entram cenários novos).
+**O que você deve ver:** uma linha por cenário e, no fim, `OK: 84 conferências, 0 falhas` (o número de conferências cresce quando entram cenários novos).
 
 **2. Listar os requisitos sem teste** (sai com erro enquanto houver requisito obrigatório sem prova) e regenerar a matriz [`docs/specs/traceability.md`](docs/specs/traceability.md):
 
@@ -634,6 +634,7 @@ BASE=main scripts/verify-task.sh T-003
 ```powershell
 $env:BASE = "main"
 & "C:\Program Files\Git\bin\bash.exe" scripts/verify-task.sh T-003
+Remove-Item Env:BASE
 ```
 
 **O que você deve ver:** uma linha `OK item N (...)` ou `FALHA item N (...)` para cada um dos seis itens (build, escopo, dependências, rastreabilidade, padrões proibidos e artefatos), seguida de `RESULTADO: OK` ou `RESULTADO: FALHA`. O resultado também fica em `docs/specs/reviews/T-xxx.verify.log` (arquivo local, ignorado pelo Git). O gate lê os *commits*: faça o commit antes de rodar.
