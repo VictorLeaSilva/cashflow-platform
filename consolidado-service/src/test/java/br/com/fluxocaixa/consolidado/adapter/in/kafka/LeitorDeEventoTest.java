@@ -118,15 +118,13 @@ class LeitorDeEventoTest {
       String caso, Consumer<Map<String, Object>> mudanca, String campo, String palavraChave) {
     Map<String, Object> campos = credito();
     mudanca.accept(campos);
+    // JSON Pointer exato (RFC 6901): vazio é a raiz do evento, "/campo" um campo dele.
+    String esperada = (campo.isEmpty() ? "" : "/" + campo) + ":" + palavraChave;
 
     assertThatThrownBy(() -> leitor.ler(EventosJson.json(campos)))
         .isInstanceOf(EventoForaDoContratoException.class)
         .extracting(e -> ((EventoForaDoContratoException) e).violacoes())
-        .satisfies(
-            violacoes ->
-                assertThat(violacoes)
-                    .as(caso)
-                    .anyMatch(v -> v.contains(campo) && v.endsWith(":" + palavraChave)));
+        .satisfies(violacoes -> assertThat(violacoes).as(caso).contains(esperada));
   }
 
   @Test

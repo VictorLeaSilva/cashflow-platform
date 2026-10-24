@@ -6,8 +6,8 @@ import java.util.List;
 /**
  * Mensagem que não é um {@code LancamentoRegistrado.v1} válido: JSON malformado ou fora do schema
  * de {@code contracts/} (Q-043). Não é recuperável e vai direto para a DLT (Q-045). As violações só
- * trazem o ponteiro do campo e a palavra-chave do schema (ex.: {@code $.valor:pattern}), nunca o
- * valor recebido.
+ * trazem o ponteiro do campo e a palavra-chave do schema (JSON Pointer, RFC 6901; ex.: {@code
+ * /valor:pattern}; a raiz é o ponteiro vazio), nunca o valor recebido.
  */
 public final class EventoForaDoContratoException extends RuntimeException {
 

@@ -69,7 +69,8 @@ class MetricasDoConsumidorIT extends IntegracaoKafka {
     await()
         .atMost(ESPERA)
         .until(() -> contador("consolidado.events.duplicates") - duplicadosAntes >= 1.0);
-    assertThat(contador("consolidado.events.dlt") - dltAntes).isEqualTo(1.0);
+    // O contador sobe depois do ack da DLT, que pode chegar depois da mensagem estar visível.
+    await().atMost(ESPERA).until(() -> contador("consolidado.events.dlt") - dltAntes == 1.0);
     assertThat(lag().count()).isEqualTo(contagemDepoisDoPrimeiro);
   }
 

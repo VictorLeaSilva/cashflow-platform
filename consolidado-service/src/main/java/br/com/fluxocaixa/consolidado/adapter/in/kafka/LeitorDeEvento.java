@@ -34,7 +34,8 @@ public final class LeitorDeEvento {
   /** Recurso do artefato {@code contracts}, sem cópia no serviço (Q-043). */
   static final String SCHEMA = "events/lancamento-registrado.v1.schema.json";
 
-  static final String JSON_MALFORMADO = "$:json-malformado";
+  /** Violações na raiz usam o ponteiro vazio (RFC 6901): {@code :json-malformado}. */
+  static final String JSON_MALFORMADO = ":json-malformado";
 
   private final ObjectReader json;
   private final Schema schema;
@@ -65,7 +66,7 @@ public final class LeitorDeEvento {
           OffsetDateTime.parse(evento.get("occurredAt").asString()).toInstant());
     } catch (IllegalArgumentException | DateTimeParseException e) {
       // Defesa: o schema com format conferido já barra isso; o texto do erro não é repassado.
-      throw new EventoForaDoContratoException(List.of("$:formato"));
+      throw new EventoForaDoContratoException(List.of(":formato"));
     }
   }
 

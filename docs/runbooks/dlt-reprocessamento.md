@@ -2,16 +2,16 @@
 
 Política em `03 §7.2`; criado na T-022. Um evento na `cashflow.lancamentos.v1.DLT` significa que o **consolidado daquele comerciante está incompleto** até o reprocessamento. A fonte de verdade é a tabela `lancamento`, do serviço de Lançamentos.
 
-Os comandos abaixo valem para o ambiente local (`docker compose -p fluxo-caixa -f deploy/docker-compose.yml`). No alvo (ADR-010), os passos são os mesmos, com as ferramentas do MSK e do RDS.
+Os comandos abaixo valem para o ambiente local (`docker compose -p fluxo-caixa -f deploy/docker-compose.yml`), em **PowerShell**, a partir da raiz do repositório; as ferramentas do Kafka e o `psql` rodam dentro dos contêineres. No alvo (ADR-010), os passos são os mesmos, com as ferramentas do MSK e do RDS.
 
 ## 1. Alerta e triagem
 O alerta dispara quando `consolidado_events_dlt_total` aumenta (regra na T-032). Para cada mensagem na DLT, leia os cabeçalhos:
 
-```bash
-docker compose -p fluxo-caixa -f deploy/docker-compose.yml exec kafka \
-  /opt/kafka/bin/kafka-console-consumer.sh --bootstrap-server kafka:29092 \
-  --topic cashflow.lancamentos.v1.DLT --from-beginning --timeout-ms 10000 \
-  --property print.partition=true --property print.offset=true \
+```powershell
+docker compose -p fluxo-caixa -f deploy/docker-compose.yml exec kafka `
+  /opt/kafka/bin/kafka-console-consumer.sh --bootstrap-server kafka:29092 `
+  --topic cashflow.lancamentos.v1.DLT --from-beginning --timeout-ms 10000 `
+  --property print.partition=true --property print.offset=true `
   --property print.key=true --property print.headers=true
 ```
 
@@ -37,25 +37,31 @@ A chave da mensagem é o `comercianteId`. O valor é o evento original, sem alte
 ## 3. Reinjeção no tópico principal
 **Antes de reinjetar, confirme que o `eventId` não está em `evento_processado`:**
 
-```bash
-docker compose -p fluxo-caixa -f deploy/docker-compose.yml exec postgres \
+```powershell
+docker compose -p fluxo-caixa -f deploy/docker-compose.yml exec postgres `
   psql -U postgres -d consolidado -c "SELECT event_id, processado_em FROM evento_processado WHERE event_id = '<eventId>'"
 ```
 
 - Se **estiver**, não reinjete: o evento já foi aplicado e a nova cópia seria ignorada.
 - Pior ainda: se o conteúdo tiver sido "corrigido", a correção também seria ignorada, porque a deduplicação é só por `eventId` (ADR-005, Q-036). Nesse caso, há divergência: vá para a reconciliação (passo 4) e registre o incidente.
 
-Para reinjetar, publique a mesma chave, o mesmo valor e o mesmo `x-request-id`, **sem** os cabeçalhos `kafka_dlt-*`. Coloque numa linha `x-request-id:<valor>`, um TAB, a chave, um TAB e o valor em JSON numa linha só:
+Para reinjetar, publique a mesma chave, o mesmo valor e o mesmo `x-request-id`, **sem** os cabeçalhos `kafka_dlt-*`.
 
-```bash
-docker compose -p fluxo-caixa -f deploy/docker-compose.yml exec -T kafka \
-  /opt/kafka/bin/kafka-console-producer.sh --bootstrap-server kafka:29092 \
-  --topic cashflow.lancamentos.v1 \
-  --property parse.headers=true --property headers.delimiter=$'\t' \
-  --property parse.key=true --property key.separator=$'\t' < reinjecao.tsv
+Monte o arquivo `reinjecao.tsv` com uma mensagem por linha, nesta ordem: `x-request-id:<valor>`, TAB, a chave, TAB e o valor em JSON numa linha só. O TAB já é o separador padrão do `kafka-console-producer` para cabeçalhos e chave.
+
+O PowerShell não aceita `<` para redirecionar a entrada. Por isso o arquivo vai pelo *pipe*, com `-T`, para o `exec` aceitar a entrada:
+
+```powershell
+Get-Content reinjecao.tsv | docker compose -p fluxo-caixa -f deploy/docker-compose.yml exec -T kafka `
+  /opt/kafka/bin/kafka-console-producer.sh --bootstrap-server kafka:29092 `
+  --topic cashflow.lancamentos.v1 --property parse.headers=true --property parse.key=true
 ```
 
-Sem `x-request-id` na origem, use `--property parse.headers=false` e uma linha `chave<TAB>valor`.
+Sem `x-request-id` na origem, use `--property parse.headers=false` e linhas `chave<TAB>valor`.
+
+> **Atenção:** estes comandos de console ainda não foram executados numa stack real, porque a T-022 não podia tocar na stack `fluxo-caixa`.
+> - A mecânica (mesma chave, mesmo valor e mesmo `x-request-id`, sem os `kafka_dlt-*`) está provada por `DltIT#reinjecaoDaDltAplicaUmaVezEReinjetarDeNovoNaoMuda`.
+> - Na primeira execução real, confira o resultado pelo passo 4 e corrija este runbook se algo divergir.
 
 O consumidor aplica o evento uma única vez: o evento falho não entrou em `evento_processado`. Uma segunda reinjeção é ignorada, e o contador `consolidado_events_duplicates_total` sobe (AC-008.5).
 

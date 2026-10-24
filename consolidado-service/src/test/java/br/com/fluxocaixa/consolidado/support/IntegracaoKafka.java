@@ -8,17 +8,20 @@ import org.springframework.boot.test.context.TestConfiguration;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Import;
 import org.springframework.context.annotation.Primary;
+import org.springframework.test.annotation.DirtiesContext;
 import org.springframework.test.context.DynamicPropertyRegistry;
 import org.springframework.test.context.DynamicPropertySource;
 import org.springframework.test.context.TestPropertySource;
 
 /**
  * Base dos ITs do consumidor (T-022): PostgreSQL e Kafka reais, com o consumidor ligado, o relógio
- * de {@link RelogioFixo} e a porta de projeção decorada por {@link ProjecaoComFalhas}. Todos os ITs
- * do consumidor compartilham este contexto (mesmas propriedades), então o {@code listener} é um só;
+ * de {@link RelogioFixo} e a porta de projeção decorada por {@link ProjecaoComFalhas}. Cada classe
+ * fecha o próprio contexto ({@code @DirtiesContext}), e com ele o {@code listener} e os medidores:
+ * nenhum consumidor de outra classe fica vivo, e os contadores começam do zero. Dentro da classe,
  * cada teste usa comerciantes e {@code eventId}s próprios e espera pelos próprios eventos.
  */
 @TestPropertySource(properties = "consolidado.consumer.enabled=true")
+@DirtiesContext
 @Import({RelogioFixo.class, IntegracaoKafka.Falhas.class})
 public abstract class IntegracaoKafka extends IntegracaoPostgres {
 

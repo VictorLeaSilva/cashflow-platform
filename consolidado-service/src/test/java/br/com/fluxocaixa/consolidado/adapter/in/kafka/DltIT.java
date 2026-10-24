@@ -23,6 +23,7 @@ import org.apache.kafka.clients.producer.RecordMetadata;
 import org.junit.jupiter.api.Tag;
 import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.dao.TransientDataAccessResourceException;
 
 /**
  * AC-008.4 (fora do contrato ou do domínio direto para a DLT; falha persistente depois de 1 + 3
@@ -72,7 +73,9 @@ class DltIT extends IntegracaoKafka {
       ChaveDiaria dia = new ChaveDiaria(comerciante, LocalDate.parse(DIA));
       await().atMost(ESPERA).until(() -> TabelasDoConsolidado.dias().containsKey(dia));
       assertThat(TabelasDoConsolidado.dias().get(dia).qtdLancamentos()).isEqualTo(1);
-      assertThat(contador("consolidado.events.dlt") - dltAntes).isEqualTo(valores.size());
+      await()
+          .atMost(ESPERA)
+          .until(() -> contador("consolidado.events.dlt") - dltAntes == valores.size());
     }
   }
 
@@ -114,8 +117,10 @@ class DltIT extends IntegracaoKafka {
     falhas.falharAntes(evento, ProjecaoComFalhas.SEMPRE);
     String valor = EventosJson.json(EventosJson.credito(evento, comerciante, "5.00", DIA));
 
+    double dltAntes = contador("consolidado.events.dlt");
+
     try (LeitorDaDlt dlt = KafkaConsolidado.leitorDaDlt()) {
-      KafkaConsolidado.publicar(chave, valor, "req-persistente");
+      RecordMetadata publicado = KafkaConsolidado.publicar(chave, valor, "req-persistente");
       UUID depois = UUID.randomUUID();
       KafkaConsolidado.publicar(
           chave, EventosJson.json(EventosJson.credito(depois, comerciante, "1.00", DIA)), null);
@@ -126,6 +131,14 @@ class DltIT extends IntegracaoKafka {
               .until(() -> dlt.ler(chave, Duration.ofMillis(200)), l -> !l.isEmpty());
 
       assertThat(naDlt).singleElement().extracting(MensagemDaDlt::valor).isEqualTo(valor);
+      MensagemDaDlt mensagem = naDlt.get(0);
+      assertThat(mensagem.cabecalho("x-request-id")).isEqualTo("req-persistente");
+      assertThat(mensagem.particao()).isEqualTo(publicado.partition());
+      assertThat(mensagem.particaoDeOrigem()).isEqualTo(publicado.partition());
+      assertThat(mensagem.offsetDeOrigem()).isEqualTo(publicado.offset());
+      assertThat(mensagem.cabecalho("kafka_dlt-exception-cause-fqcn"))
+          .isEqualTo(TransientDataAccessResourceException.class.getName());
+      await().atMost(ESPERA).until(() -> contador("consolidado.events.dlt") - dltAntes == 1.0);
       assertThat(falhas.chamadas(evento)).isEqualTo(4);
       List<Long> instantes = falhas.instantesDasChamadas(evento);
       assertThat(instantes.get(1) - instantes.get(0)).isGreaterThanOrEqualTo(1_000);
