@@ -1,0 +1,5 @@
+# Q-055: falsos positivos da regra generic-api-key no valor de exemplo exemplo-retroativo-1 (cabeçalho Idempotency-Key)
+# do README (T-007). O valor foi trocado; estas fingerprints valem só para os dois commits que ainda o contêm.
+7624c128dc268c88d282678a8dff0db2e71297d9:README.md:generic-api-key:326
+7624c128dc268c88d282678a8dff0db2e71297d9:README.md:generic-api-key:333
+f4390008c2c51ea58b035bfc0a121c4814e7f6c0:README.md:generic-api-key:356

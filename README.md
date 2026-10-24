@@ -346,14 +346,14 @@ curl.exe -i -X POST "http://localhost:8081/api/v1/lancamentos/$ID/estornos" -H "
 
 ```bash
 TRES_DIAS_ATRAS=$(TZ=America/Sao_Paulo date -d "3 days ago" +%F)
-curl -i -X POST http://localhost:8081/api/v1/lancamentos -H "Authorization: Bearer $TOKEN" -H "Content-Type: application/json" -H "Idempotency-Key: exemplo-retroativo-1" -d "{\"tipo\":\"CREDITO\",\"valor\":\"50.00\",\"dataOcorrencia\":\"${TRES_DIAS_ATRAS}T12:00:00-03:00\"}"
+curl -i -X POST http://localhost:8081/api/v1/lancamentos -H "Authorization: Bearer $TOKEN" -H "Content-Type: application/json" -H "Idempotency-Key: exemplo-passado-1" -d "{\"tipo\":\"CREDITO\",\"valor\":\"50.00\",\"dataOcorrencia\":\"${TRES_DIAS_ATRAS}T12:00:00-03:00\"}"
 ```
 
 ```powershell
 $agoraSP = [System.TimeZoneInfo]::ConvertTimeBySystemTimeZoneId([DateTime]::UtcNow, "E. South America Standard Time")
 $TRES_DIAS_ATRAS = $agoraSP.AddDays(-3).ToString("yyyy-MM-dd")
 Set-Content -Path "$env:TEMP\retroativo.json" -Encoding ascii -Value "{`"tipo`":`"CREDITO`",`"valor`":`"50.00`",`"dataOcorrencia`":`"$($TRES_DIAS_ATRAS)T12:00:00-03:00`"}"
-curl.exe -i -X POST http://localhost:8081/api/v1/lancamentos -H "Authorization: Bearer $TOKEN" -H "Content-Type: application/json" -H "Idempotency-Key: exemplo-retroativo-1" -d "@$env:TEMP\retroativo.json"
+curl.exe -i -X POST http://localhost:8081/api/v1/lancamentos -H "Authorization: Bearer $TOKEN" -H "Content-Type: application/json" -H "Idempotency-Key: exemplo-passado-1" -d "@$env:TEMP\retroativo.json"
 ```
 
 **O que você deve ver:** `HTTP/1.1 201`, com `"dataReferencia"` igual à data de 3 dias atrás.
