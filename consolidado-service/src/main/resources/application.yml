@@ -1,5 +1,14 @@
 # Credenciais só por variável de ambiente (valores de dev em .env.example, T-004); nenhum segredo aqui.
+server:
+  port: 8082
+  error:
+    include-stacktrace: never
+
 spring:
+  web:
+    resources:
+      # Sem recursos estáticos fora do contrato: Swagger UI e webjars só no profile local (ContratoConfig).
+      add-mappings: false
   datasource:
     # A aplicação opera como consolidado_app (D-15): sem DDL e sem DELETE.
     url: jdbc:postgresql://localhost:${POSTGRES_PORT:5432}/consolidado
@@ -33,6 +42,14 @@ spring:
     listener:
       # Q-044: o offset de cada registro só é confirmado depois que o listener retorna (o commit).
       ack-mode: record
+  security:
+    oauth2:
+      resourceserver:
+        jwt:
+          # Sem padrão de desenvolvimento (Q-012, Q-050): fora do profile local, vêm do ambiente.
+          public-key-location: ${CONSOLIDADO_JWT_PUBLIC_KEY_LOCATION:}
+          issuer-uri: ${CONSOLIDADO_JWT_ISSUER:}
+          audiences: ${CONSOLIDADO_JWT_AUDIENCE:}
 
 # Logs JSON com o MDC (requestId, eventId), como no Lançamentos (ADR-008, Q-049).
 logging:

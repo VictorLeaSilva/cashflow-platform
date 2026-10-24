@@ -49,4 +49,9 @@ class ArchitectureRulesNegativeTest {
   void standardStreamUsageViolatesRule() {
     assertViolated(ArchitectureRules.NO_STANDARD_STREAMS);
   }
+
+  @Test
+  void controllerReturningDomainViolatesRule() {
+    assertViolated(ArchitectureRules.CONTROLLERS_RETURN_WEB_RECORDS);
+  }
 }
