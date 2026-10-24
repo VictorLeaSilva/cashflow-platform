@@ -115,6 +115,8 @@ curl -i "http://localhost:8081/api/v1/lancamentos?dataInicio=2026-10-01&tipo=CRE
 
 O contrato fica em [`lancamentos-v1.yaml`](lancamentos-service/src/main/resources/openapi/lancamentos-v1.yaml). Com o profile `local`, a Swagger UI fica em `http://localhost:8081/swagger-ui/index.html`.
 
+Cada lançamento e cada estorno também é gravado na outbox, na mesma transação. Um publicador dentro do serviço envia esses eventos ao tópico `cashflow.lancamentos.v1` do Kafka do compose, a cada 500 ms (`localhost:9092`, ou `KAFKA_BOOTSTRAP_SERVERS`). Se o Kafka estiver fora, a API continua respondendo: os eventos acumulam na outbox e saem quando o broker volta. Para ver as mensagens, use a UI do Kafka (`--profile tools`).
+
 ## Qualidade e hooks locais
 
 O `./mvnw verify` é o gate G2: formatação (Spotless), estilo (Checkstyle), regras de arquitetura (ArchUnit), testes, SpotBugs/FindSecBugs e cobertura (JaCoCo). Se a formatação falhar, corrija com:
