@@ -45,6 +45,13 @@ allowed_new_dependencies: []     # coordenadas Maven permitidas; vazio = nenhuma
 
 Se a tarefa muda como subir ou usar a aplicação, `README.md` entra nos `allowed_paths` (Q-054).
 
+**Stack isolada para executar o README (Q-054).** Os comandos do README são executados num clone limpo, fora do OneDrive (no Windows, `git -c core.longpaths=true clone`), e numa stack que não é a `fluxo-caixa` do autor:
+- `COMPOSE_PROJECT_NAME` próprio (por exemplo, `readme-teste-bash` e `readme-teste-ps`), definido em cada terminal;
+- no `.env` do clone, `POSTGRES_PORT`, `KAFKA_PORT` e `KAFKA_UI_PORT` trocados por portas livres;
+- os serviços sobem com um `SERVER_PORT` livre, e as chamadas usam essa porta.
+
+Fora isso, os comandos são os do README. Ao fim, só os processos dessas portas são encerrados, por PID, e a stack isolada sai com `down -v`. A evidência registra o *shell*, a versão e o resultado de cada passo executado.
+
 ## 4. Gate automático `scripts/verify-task.sh T-xxx` (especificação do script — implementado na T-003)
 Falha (exit ≠ 0) se qualquer item falhar; grava `docs/specs/reviews/T-xxx.verify.log`.
 1. `./mvnw -q verify` verde.
@@ -69,7 +76,7 @@ Executada por um revisor **sem o contexto de raciocínio do implementador** (out
 | R7 | Qualidade dos testes | Teste que passaria com o código quebrado; `sleep`; sem asserção significativa |
 | R8 | Arquitetura | Regra ArchUnit contornada; dependência de camada invertida |
 | R9 | Observabilidade | Métrica/log previsto em `03 §8` ausente |
-| R10 | Documentação | README/OpenAPI/ADR/spec desatualizados pela mudança; comando do README que deixou de funcionar, ou que falta para usar o que a tarefa entregou, sem a execução em bash e PowerShell registrada na evidência (Q-054) |
+| R10 | Documentação | README/OpenAPI/ADR/spec desatualizados pela mudança. Também falha em qualquer um de dois casos (Q-054): (1) um comando do README deixou de funcionar, ou falta um comando para usar o que a tarefa entregou; (2) a tarefa muda como subir ou usar a aplicação, e a evidência não registra os comandos afetados executados em bash **e** em PowerShell numa stack isolada (§3) |
 
 ### Modelo do relatório
 ```markdown

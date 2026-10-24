@@ -63,9 +63,25 @@ Você vai usar **três terminais abertos ao mesmo tempo**, todos na pasta do pro
 
 > Os números de porta e os valores de exemplo (comerciante, valores) podem ficar como estão.
 
-### 1. Abrir o terminal na pasta do projeto (Terminal 1)
+### 1. Baixar o projeto e abrir o terminal na pasta dele (Terminal 1)
 
-**Para que serve:** todos os comandos partem da pasta raiz do projeto, onde fica este README.
+**Para que serve:** todos os comandos partem da pasta raiz do projeto, onde fica este README. Se você ainda não tem o projeto no computador, o `git clone` baixa uma cópia dele.
+
+Se você **ainda não tem** o projeto, abra o terminal na pasta onde quer guardá-lo e rode:
+
+```bash
+git clone https://github.com/VictorLeaSilva/cashflow-platform.git
+cd cashflow-platform
+```
+
+```powershell
+git -c core.longpaths=true clone https://github.com/VictorLeaSilva/cashflow-platform.git
+cd cashflow-platform
+```
+
+> **No Windows**, o `-c core.longpaths=true` evita o erro `Filename too long`: alguns caminhos do projeto passam do limite antigo de 260 caracteres do Windows, principalmente se a pasta escolhida já tiver um caminho longo (por exemplo, dentro do OneDrive). No Git Bash do Windows, use o mesmo comando do PowerShell.
+
+Se você **já tem** o projeto, só entre na pasta dele:
 
 ```bash
 cd caminho/para/cashflow-platform
@@ -75,7 +91,7 @@ cd caminho/para/cashflow-platform
 cd C:\caminho\para\cashflow-platform
 ```
 
-**O que você deve ver:** nada especial. Para conferir, `ls` (bash) ou `dir` (PowerShell) lista, entre outros, `README.md`, `deploy`, `lancamentos-service` e `consolidado-service`.
+**O que você deve ver:** o `git clone` mostra `Cloning into 'cashflow-platform'...` e termina sem erro. Para conferir que está na pasta certa, `ls` (bash) ou `dir` (PowerShell) lista, entre outros, `README.md`, `deploy`, `lancamentos-service` e `consolidado-service`.
 
 ### 2. Criar o arquivo de configuração `.env` (só na primeira vez)
 
@@ -114,6 +130,13 @@ docker compose --env-file .env -f deploy/docker-compose.yml up -d --wait --remov
 ```
 
 > No PowerShell, essas mensagens do Docker podem aparecer em vermelho. É normal: o Docker escreve o progresso na saída de erro. O que importa é o `Healthy` no fim.
+
+> **Já subiu este projeto antes nesta máquina?** O nome da stack é sempre `fluxo-caixa`. Se ela já existe, este passo **reaproveita** os bancos e as mensagens que ela já tem, e o `down -v` do passo 14 os **apaga**. Para fazer o passo a passo sem tocar nesses dados, use uma stack separada, com outro nome e outras portas:
+> 1. no `.env`, troque `POSTGRES_PORT` e `KAFKA_PORT` (por exemplo, `55432` e `59092`);
+> 2. em **cada** terminal, antes dos comandos, defina o nome da stack: bash `export COMPOSE_PROJECT_NAME=fluxo-caixa-teste`; PowerShell `$env:COMPOSE_PROJECT_NAME = "fluxo-caixa-teste"`;
+> 3. se os serviços da outra stack estiverem rodando, suba estes com outra porta (veja `SERVER_PORT` em [Se algo der errado](#se-algo-der-errado)) e use essa porta nas chamadas.
+>
+> Os comandos `docker compose` deste README passam a valer para a stack `fluxo-caixa-teste`, inclusive o `down -v`.
 
 ### 4. Conferir a infraestrutura
 
@@ -176,7 +199,7 @@ O que cada opção quer dizer:
 - **`--scopes`:** as permissões. `lancamentos:write` registra e estorna, `lancamentos:read` consulta lançamentos, `consolidado:read` consulta o resumo.
 - **`--ttl 3600`:** a validade, em segundos (1 hora).
 
-**O que você deve ver:** na primeira vez, a linha `par de chaves gerado em ...\deploy\dev-keys`. Depois, um texto longo que começa com `eyJhbGciOiJSUzI1NiIs...`: é o token, guardado na variável `TOKEN` deste terminal.
+**O que você deve ver:** na primeira vez, a linha `par de chaves gerado em ...\deploy\dev-keys` (no Linux e no macOS, `.../deploy/dev-keys`). Depois, um texto longo que começa com `eyJhbGciOiJSUzI1NiIs...`: é o token, guardado na variável `TOKEN` deste terminal.
 
 > O token vale 1 hora. Depois disso, as chamadas respondem **401**: rode este passo de novo para gerar outro. Se você fechar o terminal, a variável `TOKEN` se perde, e é preciso gerar de novo.
 
@@ -238,7 +261,7 @@ A última linha quer dizer que o consumidor está ligado ao Kafka. **Deixe este 
 
 **Para que serve:** criar dados de verdade. Toda criação leva um cabeçalho **`Idempotency-Key`**, uma etiqueta escolhida por você. Se a mesma requisição for enviada duas vezes com a mesma etiqueta (por exemplo, numa falha de rede), o lançamento não é duplicado.
 
-> **No PowerShell, o corpo JSON vai num arquivo**, criado com `Set-Content`, e é enviado com `-d "@arquivo.json"`. No Windows PowerShell 5.1, um JSON escrito direto na linha chega ao serviço sem as aspas, e a resposta é `400` com `json-malformado`.
+> **No PowerShell, o corpo JSON vai num arquivo**, criado com `Set-Content` na pasta temporária do Windows (`$env:TEMP`, fora do projeto), e é enviado com `-d "@arquivo.json"`. No Windows PowerShell 5.1, um JSON escrito direto na linha chega ao serviço sem as aspas, e a resposta é `400` com `json-malformado`.
 
 > **Use textos sem acento nos exemplos.** No Git Bash do Windows, acentos digitados no terminal podem não chegar como UTF-8, e a resposta é `400` com `json-malformado`.
 
@@ -252,8 +275,8 @@ echo "ID=$ID"
 ```
 
 ```powershell
-Set-Content -Path credito.json -Encoding ascii -Value '{"tipo":"CREDITO","valor":"100.00","descricao":"Venda do dia"}'
-$RESPOSTA = curl.exe -s -X POST http://localhost:8081/api/v1/lancamentos -H "Authorization: Bearer $TOKEN" -H "Content-Type: application/json" -H "Idempotency-Key: exemplo-credito-1" -d "@credito.json"
+Set-Content -Path "$env:TEMP\credito.json" -Encoding ascii -Value '{"tipo":"CREDITO","valor":"100.00","descricao":"Venda do dia"}'
+$RESPOSTA = curl.exe -s -X POST http://localhost:8081/api/v1/lancamentos -H "Authorization: Bearer $TOKEN" -H "Content-Type: application/json" -H "Idempotency-Key: exemplo-credito-1" -d "@$env:TEMP\credito.json"
 $RESPOSTA
 $ID = ($RESPOSTA | ConvertFrom-Json).id
 "ID=$ID"
@@ -275,7 +298,7 @@ curl -i -X POST http://localhost:8081/api/v1/lancamentos -H "Authorization: Bear
 ```
 
 ```powershell
-curl.exe -i -X POST http://localhost:8081/api/v1/lancamentos -H "Authorization: Bearer $TOKEN" -H "Content-Type: application/json" -H "Idempotency-Key: exemplo-credito-1" -d "@credito.json"
+curl.exe -i -X POST http://localhost:8081/api/v1/lancamentos -H "Authorization: Bearer $TOKEN" -H "Content-Type: application/json" -H "Idempotency-Key: exemplo-credito-1" -d "@$env:TEMP\credito.json"
 ```
 
 **O que você deve ver:** `HTTP/1.1 201`, o mesmo `id` do passo anterior e o cabeçalho `Idempotent-Replayed: true`. Nenhum lançamento novo foi criado.
@@ -287,8 +310,8 @@ curl -i -X POST http://localhost:8081/api/v1/lancamentos -H "Authorization: Bear
 ```
 
 ```powershell
-Set-Content -Path debito.json -Encoding ascii -Value '{"tipo":"DEBITO","valor":"30.00","descricao":"Fornecedor"}'
-curl.exe -i -X POST http://localhost:8081/api/v1/lancamentos -H "Authorization: Bearer $TOKEN" -H "Content-Type: application/json" -H "Idempotency-Key: exemplo-debito-1" -d "@debito.json"
+Set-Content -Path "$env:TEMP\debito.json" -Encoding ascii -Value '{"tipo":"DEBITO","valor":"30.00","descricao":"Fornecedor"}'
+curl.exe -i -X POST http://localhost:8081/api/v1/lancamentos -H "Authorization: Bearer $TOKEN" -H "Content-Type: application/json" -H "Idempotency-Key: exemplo-debito-1" -d "@$env:TEMP\debito.json"
 ```
 
 **O que você deve ver:** `HTTP/1.1 201` e um JSON com `"tipo":"DEBITO"` e `"valor":"30.00"`.
@@ -329,8 +352,8 @@ curl -i -X POST http://localhost:8081/api/v1/lancamentos -H "Authorization: Bear
 ```powershell
 $agoraSP = [System.TimeZoneInfo]::ConvertTimeBySystemTimeZoneId([DateTime]::UtcNow, "E. South America Standard Time")
 $TRES_DIAS_ATRAS = $agoraSP.AddDays(-3).ToString("yyyy-MM-dd")
-Set-Content -Path retroativo.json -Encoding ascii -Value "{`"tipo`":`"CREDITO`",`"valor`":`"50.00`",`"dataOcorrencia`":`"$($TRES_DIAS_ATRAS)T12:00:00-03:00`"}"
-curl.exe -i -X POST http://localhost:8081/api/v1/lancamentos -H "Authorization: Bearer $TOKEN" -H "Content-Type: application/json" -H "Idempotency-Key: exemplo-retroativo-1" -d "@retroativo.json"
+Set-Content -Path "$env:TEMP\retroativo.json" -Encoding ascii -Value "{`"tipo`":`"CREDITO`",`"valor`":`"50.00`",`"dataOcorrencia`":`"$($TRES_DIAS_ATRAS)T12:00:00-03:00`"}"
+curl.exe -i -X POST http://localhost:8081/api/v1/lancamentos -H "Authorization: Bearer $TOKEN" -H "Content-Type: application/json" -H "Idempotency-Key: exemplo-retroativo-1" -d "@$env:TEMP\retroativo.json"
 ```
 
 **O que você deve ver:** `HTTP/1.1 201`, com `"dataReferencia"` igual à data de 3 dias atrás.
@@ -353,7 +376,7 @@ curl.exe -s "http://localhost:8081/api/v1/lancamentos?size=10" -H "Authorization
 
 **O que você deve ver:**
 - **o detalhe:** `HTTP/1.1 200` com o crédito do passo 9.1;
-- **o histórico:** `{"itens":[...],"page":0,"size":10,"total":4}`, com os 4 lançamentos (crédito, débito, estorno e retroativo), do mais recente para o mais antigo.
+- **o histórico:** `{"itens":[...],"page":0,"size":10,"total":4}`, com os 4 lançamentos (crédito, débito, estorno e retroativo). Eles vêm ordenados pela `dataReferencia`, do dia mais recente para o mais antigo: primeiro os três de hoje, depois o retroativo. Dentro do mesmo dia, a ordem é fixa, mas não é a ordem em que você os registrou.
 
 O histórico aceita os filtros `dataInicio`, `dataFim` (datas `AAAA-MM-DD`) e `tipo` (`CREDITO`, `DEBITO` ou `ESTORNO`), mais `page` (a partir de 0) e `size` (até 100). Por exemplo: `?tipo=CREDITO&dataInicio=2026-10-01`.
 
@@ -453,7 +476,7 @@ docker compose --env-file .env -f deploy/docker-compose.yml exec postgres psql -
 **O que você deve ver:**
 - **o `\dt` do consolidado:** as tabelas `consolidado_diario`, `evento_processado` e `flyway_schema_history`. No banco `lancamentos`, as tabelas são `lancamento`, `outbox_event`, `idempotency_key` e `flyway_schema_history`;
 - **o consolidado:** uma linha por dia com movimento (no exemplo, 3 dias atrás e hoje);
-- **os lançamentos:** os 4 lançamentos (débito, crédito, estorno e retroativo).
+- **os lançamentos:** os 4 lançamentos, na ordem em que foram gravados: crédito, débito, estorno e retroativo.
 
 > O `-U postgres` é o usuário administrador definido em `POSTGRES_SUPERUSER` no `.env`. Se você trocou esse valor, use o seu.
 
@@ -462,6 +485,8 @@ docker compose --env-file .env -f deploy/docker-compose.yml exec postgres psql -
 **Para que serve:** desligar tudo quando terminar.
 
 **Desligar os serviços:** nos Terminais 1 e 2, aperte **Ctrl+C**. No PowerShell, se aparecer `Deseja finalizar o arquivo em lotes (S/N)?`, responda **S**.
+
+Os comandos abaixo podem ser rodados em qualquer terminal aberto na pasta do projeto (por exemplo, o Terminal 1, já livre). Se você usou uma stack separada (aviso do passo 3), o terminal precisa ter o mesmo `COMPOSE_PROJECT_NAME`.
 
 **Desligar a infraestrutura e guardar os dados** para a próxima vez:
 
@@ -477,7 +502,7 @@ docker compose --env-file .env -f deploy/docker-compose.yml down
 
 **Apagar tudo, inclusive os dados:**
 
-> **Cuidado:** apaga os dois bancos e as mensagens do Kafka, sem volta.
+> **Cuidado:** apaga os dois bancos e as mensagens do Kafka, sem volta. Isso vale para **toda** a stack `fluxo-caixa` desta máquina, inclusive dados de antes deste passo a passo (veja o aviso do passo 3).
 
 ```bash
 docker compose --env-file .env -f deploy/docker-compose.yml down -v
@@ -495,6 +520,14 @@ docker compose --env-file .env -f deploy/docker-compose.yml down -v
 
 A compilação (passo 5) e a chave (passo 6) não se perdem.
 
+**Apagar os arquivos de exemplo do PowerShell (opcional):** os JSON do passo 9 ficaram na pasta temporária do Windows, fora do projeto. Para apagá-los:
+
+```powershell
+Remove-Item "$env:TEMP\credito.json", "$env:TEMP\debito.json", "$env:TEMP\retroativo.json" -ErrorAction SilentlyContinue
+```
+
+No bash não há nada a apagar: o corpo vai direto no comando.
+
 ## Como funcionam os bancos de dados
 
 - **Uma instância de PostgreSQL com dois bancos:** `lancamentos` e `consolidado`. Cada serviço tem dois usuários:
@@ -505,7 +538,7 @@ A compilação (passo 5) e a chave (passo 6) não se perdem.
 - **Quem cria os bancos e os usuários:** o script `deploy/init/01-bancos-e-roles.sql`, executado pelo PostgreSQL **só na primeira vez** que o volume de dados é criado (o primeiro `up`, ou o primeiro depois de um `down -v`).
 - **Quem cria as tabelas:** cada serviço, pelo Flyway, **ao subir** (passos 7 e 8). As migrações ficam em `lancamentos-service/src/main/resources/db/migration/` e `consolidado-service/src/main/resources/db/migration/`. Se o serviço nunca subiu, o banco existe, mas está **vazio**. Nas subidas seguintes, o Flyway só aplica as migrações novas.
 - **De onde vêm os dados do consolidado:** dos eventos que o Lançamentos publica no Kafka. Na primeira subida, o Consolidado lê todos os eventos que o Kafka ainda guarda, desde o início.
-  - **O Kafka guarda os eventos por 7 dias.** Se o Consolidado subir pela primeira vez mais de 7 dias depois de um lançamento, esse lançamento não entra no resumo.
+  - **O Kafka guarda os eventos por 7 dias.** Se o Consolidado subir pela primeira vez mais de 7 dias depois de um lançamento, esse lançamento não entra no resumo. Os 7 dias são o padrão do Kafka, não um valor fixado pelo projeto para o tópico principal (só a DLT tem retenção própria, de 30 dias, em `deploy/kafka/create-topics.sh`). Se a imagem do Kafka mudar esse padrão, este prazo muda junto.
   - Reconstruir o consolidado a partir dos lançamentos é uma evolução prevista ([ADR-006](docs/architecture/decisions/ADR-006-estrategia-de-rebuild.md)), fora deste MVP.
 - **O que cada comando faz com os dados:**
 
@@ -613,8 +646,9 @@ Os comandos afetados são **executados de novo, em bash e em PowerShell**, e o "
 ## Status
 
 - **Concluído:**
-  - **Fundação:** build reproduzível e gates de qualidade (T-001, T-002); infraestrutura local (T-004, T-006); documentação de arquitetura (T-005); este README executável (T-007).
+  - **Fundação:** build reproduzível e gates de qualidade (T-001, T-002); infraestrutura local (T-004, T-006); documentação de arquitetura (T-005).
   - **Lançamentos (M1):** domínio, persistência, registro idempotente, API, estorno, consultas e publicador da outbox (T-010 a T-016).
   - **Consolidado (M2):** domínio da projeção, persistência, consumidor Kafka com DLT e API de consulta (T-020 a T-023).
+- **Em revisão:** este README executável (T-007), aguardando aprovação. O caminho ainda tem mais que os 5 comandos da RNF-009; a demo em um comando chega com a T-035, e a prova final, com a T-043.
 - **Pendente da fundação:** o harness automatizado (T-003).
 - **Próximo:** contrato do evento validado nos dois lados (T-030), seguido dos testes de resiliência, da observabilidade, da carga e da demo guiada (Fase 3). A ordem está em [`docs/specs/06-tasks.md`](docs/specs/06-tasks.md).
