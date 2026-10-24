@@ -11,7 +11,7 @@ Gerada por `scripts/check-traceability.sh --write`; não edite à mão. Requisit
 | RF-005 | @Tag | 6 | T-020, T-023 |
 | RF-006 | @Tag | 5 | T-023 |
 | RF-007 | @Tag + evidência | 14; docs/specs/reviews/T-035.evidence.md (pendente) | T-012, T-013, T-014, T-035 |
-| RF-008 | @Tag | 14 | T-020, T-021, T-022, T-030 |
+| RF-008 | @Tag | 18 | T-020, T-021, T-022, T-030 |
 | RF-009 | @Tag + evidência | 7; docs/specs/reviews/T-035.evidence.md (pendente) | T-010, T-014, T-020, T-022, T-031, T-035 |
 | RF-010 | @Tag + evidência | 10; docs/specs/reviews/T-035.evidence.md (pendente) | T-013, T-014, T-015, T-023, T-035 |
 | RNF-001 | @Tag + evidência | 2; docs/specs/reviews/T-035.evidence.md (pendente) | T-004, T-016, T-031, T-035 |
@@ -107,6 +107,10 @@ Gerada por `scripts/check-traceability.sh --write`; não edite à mão. Requisit
 - `ConfiguracaoDoConsumidorIT` (consolidado-service)
 - `ConsumidorDeLancamentosIT` (consolidado-service)
 - `ContratoDoConsumidorIT` (consolidado-service)
+- `ContratoDoEventoIT` (consolidado-service)
+- `ContratoDoEventoIT` (lancamentos-service)
+- `ContratoDoSchemaTest` (lancamentos-service)
+- `ContratoDosExemplosTest` (consolidado-service)
 - `DeduplicacaoConcorrenteIT` (consolidado-service)
 - `DltIT` (consolidado-service)
 - `EfeitoTest` (consolidado-service)

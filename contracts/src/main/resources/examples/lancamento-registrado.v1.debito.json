@@ -1,0 +1,11 @@
+{
+  "eventId": "e5f6a7b8-c9d0-4123-8def-5678901234ef",
+  "eventType": "LancamentoRegistrado",
+  "schemaVersion": 1,
+  "occurredAt": "2026-10-22T18:45:00Z",
+  "comercianteId": "0f8fad5b-d9cb-469f-a165-70867728950e",
+  "lancamentoId": "f6a7b8c9-d0e1-4234-9fab-6789012345f0",
+  "tipo": "DEBITO",
+  "valor": "42.50",
+  "dataReferencia": "2026-10-22"
+}

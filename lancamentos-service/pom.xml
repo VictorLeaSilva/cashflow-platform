@@ -102,6 +102,13 @@
       <artifactId>json-schema-validator</artifactId>
       <scope>test</scope>
     </dependency>
+    <!-- Schema e exemplos do evento, fonte única dos dois lados; só em teste (T-030, Q-059). -->
+    <dependency>
+      <groupId>br.com.fluxocaixa</groupId>
+      <artifactId>contracts</artifactId>
+      <version>${project.version}</version>
+      <scope>test</scope>
+    </dependency>
     <dependency>
       <groupId>com.tngtech.archunit</groupId>
       <artifactId>archunit</artifactId>
