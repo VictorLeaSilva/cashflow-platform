@@ -1,3 +1,5 @@
+import java.io.FileDescriptor;
+import java.io.FileOutputStream;
 import java.io.IOException;
 import java.io.PrintStream;
 import java.nio.charset.StandardCharsets;
@@ -65,7 +67,8 @@ public final class CheckTraceability {
   }
 
   public static void main(String[] args) throws IOException {
-    PrintStream out = new PrintStream(System.out, false, StandardCharsets.UTF_8);
+    PrintStream out =
+        new PrintStream(new FileOutputStream(FileDescriptor.out), false, StandardCharsets.UTF_8);
     if (args.length < 1) {
       uso();
       return;
