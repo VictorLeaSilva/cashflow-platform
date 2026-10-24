@@ -53,14 +53,22 @@ Se a tarefa muda como subir ou usar a aplicação, `README.md` entra nos `allowe
 
 Fora isso, os comandos são os do README. Ao fim, só os processos dessas portas são encerrados, por PID, e a stack isolada sai com `down -v`. A evidência registra o *shell*, a versão e o resultado de cada passo executado.
 
-## 4. Gate automático `scripts/verify-task.sh T-xxx` (especificação do script — implementado na T-003)
-Falha (exit ≠ 0) se qualquer item falhar; grava `docs/specs/reviews/T-xxx.verify.log`.
+## 4. Gate automático `scripts/verify-task.sh T-xxx` (implementado na T-003)
+Falha (exit ≠ 0) se qualquer item falhar; roda todos os itens, mesmo depois de uma falha, e grava `docs/specs/reviews/T-xxx.verify.log` com o resultado de cada um. A base do *diff* é a variável `BASE` (padrão `main`): `git -c core.quotepath=false diff --no-renames --name-only "$BASE"...HEAD`. Se o `main` local estiver defasado, use `BASE=<branch base da tarefa>`.
 1. `./mvnw -q verify` verde.
-2. **Escopo:** `git diff --name-only main...HEAD` ⊆ `allowed_paths` (exceto `docs/specs/reviews/**`).
+2. **Escopo:** arquivos do *diff* ⊆ `allowed_paths` (exceto `docs/specs/reviews/**` e `docs/specs/traceability.md`, sempre permitidos, Q-068).
 3. **Dependências:** nenhuma coordenada nova em `pom.xml` fora de `allowed_new_dependencies`.
-4. **Rastreabilidade:** cada ID em `covers` aparece em ao menos um `@Tag` de teste alterado/criado.
+4. **Rastreabilidade:** cada ID em `covers` que não está em `evidence_only` aparece em ao menos um `@Tag` de teste alterado/criado no *diff*; e `docs/specs/traceability.md` versionado é igual ao gerado (`scripts/check-traceability.sh --check-file`).
 5. **Padrões proibidos** nas linhas adicionadas: `TODO`, `FIXME`, `System.out`, `printStackTrace`, `@Disabled`, `Thread.sleep` em testes.
 6. **Artefatos:** arquivos de "Saídas" existem.
+
+### 4.1 Regras de detalhe (Q-057, Q-058, Q-068)
+- **Item 2:** *globs* de `allowed_paths` com `*` e `**` casando qualquer sequência, inclusive `/`; comentários `#` no frontmatter são ignorados.
+- **Item 3:** coordenada nova = `groupId:artifactId` de um `<dependency>` presente num `pom.xml` em `HEAD` e ausente em todos os `pom.xml` da base. Ela precisa estar em `allowed_new_dependencies`. O inventário `docs/specs/dependency-allowlist.md` lista todas as dependências diretas, com a tarefa ou Q que aprovou, e é atualizado depois do *merge*; o gate não o confere.
+- **Item 4:** `evidence_only` (chave do frontmatter, §3) lista os IDs de `covers` provados só por evidência. Obrigatórios com `@Tag`: todos os RF e os RNF-001 a RNF-008 e RNF-012 a RNF-014. Por evidência, sem `@Tag`: RNF-009, RNF-010, RNF-011 e o que a tarefa declarar em `evidence_only`. `docs/specs/traceability.md` é gerado por `scripts/check-traceability.sh --write` e regenerado no PR da tarefa que muda testes com `@Tag`.
+- **Item 5:** só nas linhas adicionadas de `*.java`; `Thread.sleep` só em `src/test/**`.
+- **Item 6:** os caminhos entre crases na seção "Saídas" que tenham `/` e extensão, e que não sejam *globs*, precisam existir.
+- **Testes dos scripts:** `scripts/test/run-tests.sh`, em bash puro, com um repositório Git temporário por cenário.
 
 ## 5. Revisão independente
 Executada por um revisor **sem o contexto de raciocínio do implementador** (outra sessão/subagente). Entradas: arquivo da tarefa, seções de spec referenciadas, `git diff`, log do `verify-task.sh`. Saída: `docs/specs/reviews/T-xxx.md`. Registros de execução do implementador (evidências) usam `T-xxx.evidence.md`; `T-xxx.md` é exclusivo do revisor independente.

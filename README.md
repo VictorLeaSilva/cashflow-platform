@@ -595,6 +595,50 @@ git config core.hooksPath .githooks
 
 O `pre-commit` roda o gitleaks (se instalado) e a checagem de formatação. O `pre-push` roda `./mvnw -q verify -DskipITs`. Os *hooks* podem ser contornados, por isso o CI repete tudo.
 
+### Verificar uma tarefa (gate do método)
+
+Quem implementa uma tarefa do projeto usa três scripts (precisam de Git, Java 25 e, para o gate completo, do Docker). No PowerShell, chame o `bash` do Git (o `bash` solto pode ser o do WSL).
+
+**1. Testar os próprios scripts** (leva de um a alguns minutos, conforme a máquina; não usa Docker nem altera a sua pasta de trabalho):
+
+```bash
+scripts/test/run-tests.sh
+```
+
+```powershell
+& "C:\Program Files\Git\bin\bash.exe" scripts/test/run-tests.sh
+```
+
+**O que você deve ver:** uma linha por cenário e, no fim, `OK: 84 conferências, 0 falhas` (o número de conferências cresce quando entram cenários novos).
+
+**2. Listar os requisitos sem teste** (sai com erro enquanto houver requisito obrigatório sem prova) e regenerar a matriz [`docs/specs/traceability.md`](docs/specs/traceability.md):
+
+```bash
+scripts/check-traceability.sh
+scripts/check-traceability.sh --write
+```
+
+```powershell
+& "C:\Program Files\Git\bin\bash.exe" scripts/check-traceability.sh
+& "C:\Program Files\Git\bin\bash.exe" scripts/check-traceability.sh --write
+```
+
+**O que você deve ver:** a primeira lista `FALTA RNF-xxx (tarefas: ...)` para cada requisito obrigatório que ainda não tem teste, e os que são provados por evidência, com o arquivo; ela termina com erro enquanto houver `FALTA`. A segunda imprime `gerado: docs/specs/traceability.md`.
+
+**3. Rodar o gate de uma tarefa**, a partir do branch da tarefa. `BASE` é o branch contra o qual o *diff* é calculado (o padrão é `main`; se o seu `main` local estiver defasado, use o branch base da tarefa):
+
+```bash
+BASE=main scripts/verify-task.sh T-003
+```
+
+```powershell
+$env:BASE = "main"
+& "C:\Program Files\Git\bin\bash.exe" scripts/verify-task.sh T-003
+Remove-Item Env:BASE
+```
+
+**O que você deve ver:** uma linha `OK item N (...)` ou `FALHA item N (...)` para cada um dos seis itens (build, escopo, dependências, rastreabilidade, padrões proibidos e artefatos), seguida de `RESULTADO: OK` ou `RESULTADO: FALHA`. O resultado também fica em `docs/specs/reviews/T-xxx.verify.log` (arquivo local, ignorado pelo Git). O gate lê os *commits*: faça o commit antes de rodar.
+
 ## Contêineres do ambiente local
 
 | Serviço | Imagem | Papel | Porta no host | Profile | Ciclo de vida |
@@ -632,7 +676,7 @@ O projeto usa **Spec Driven Development (SDD)**, com implementação e revisão 
 3. [`docs/specs/tasks/`](docs/specs/tasks): o arquivo da tarefa, por exemplo `T-023.md`.
 4. [`docs/specs/05-harness.md`](docs/specs/05-harness.md): verificação, testes e revisão.
 
-O gate automatizado por tarefa (`scripts/verify-task.sh`) chega com a T-003. Até lá, a verificação de cada tarefa é o `./mvnw verify`, as checagens manuais e a revisão independente.
+Cada tarefa é verificada pelo mesmo comando, `scripts/verify-task.sh T-xxx` (veja [Verificar uma tarefa](#verificar-uma-tarefa-gate-do-método)), e depois revisada por um subagente independente ([`.claude/agents/reviewer.md`](.claude/agents/reviewer.md)), que escreve o relatório em `docs/specs/reviews/T-xxx.md`. Os modelos da tarefa e da revisão estão em [`docs/specs/templates/`](docs/specs/templates/), o inventário de dependências em [`dependency-allowlist.md`](docs/specs/dependency-allowlist.md) e a matriz requisito → teste em [`traceability.md`](docs/specs/traceability.md).
 
 ### Manter este README vivo
 
@@ -646,9 +690,8 @@ Os comandos afetados são **executados de novo, em bash e em PowerShell**, e o "
 ## Status
 
 - **Concluído:**
-  - **Fundação:** build reproduzível e gates de qualidade (T-001, T-002); infraestrutura local (T-004, T-006); documentação de arquitetura (T-005); este README executável (T-007).
+  - **Fundação:** build reproduzível e gates de qualidade (T-001, T-002); infraestrutura local (T-004, T-006); documentação de arquitetura (T-005); este README executável (T-007); gate por tarefa, matriz de rastreabilidade e subagente revisor (T-003).
   - **Lançamentos (M1):** domínio, persistência, registro idempotente, API, estorno, consultas e publicador da outbox (T-010 a T-016).
   - **Consolidado (M2):** domínio da projeção, persistência, consumidor Kafka com DLT e API de consulta (T-020 a T-023).
 - **Parcial:** o caminho do README ainda tem mais que os 5 comandos da RNF-009; a demo em um comando chega com a T-035, e a prova final, com a T-043.
-- **Pendente da fundação:** o harness automatizado (T-003).
 - **Próximo:** contrato do evento validado nos dois lados (T-030), seguido dos testes de resiliência, da observabilidade, da carga e da demo guiada (Fase 3). A ordem está em [`docs/specs/06-tasks.md`](docs/specs/06-tasks.md).
