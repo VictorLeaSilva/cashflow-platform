@@ -3,9 +3,11 @@ package br.com.fluxocaixa.lancamentos.adapter.out.persistence;
 import static org.assertj.core.api.Assertions.assertThat;
 
 import br.com.fluxocaixa.lancamentos.adapter.out.observabilidade.MetricasMicrometer;
+import br.com.fluxocaixa.lancamentos.application.Ambiente;
 import br.com.fluxocaixa.lancamentos.application.EstornarLancamento;
 import br.com.fluxocaixa.lancamentos.application.EstornarLancamentoCommand;
 import br.com.fluxocaixa.lancamentos.application.ExecucaoIdempotente;
+import br.com.fluxocaixa.lancamentos.application.Observabilidade;
 import br.com.fluxocaixa.lancamentos.application.RegistrarLancamento;
 import br.com.fluxocaixa.lancamentos.application.RegistrarLancamentoCommand;
 import br.com.fluxocaixa.lancamentos.application.port.out.ContextoDeTrace;
@@ -85,11 +87,11 @@ class ContratoDoEventoIT extends IntegracaoPostgres {
             execucaoIdempotente,
             lancamentos,
             outbox,
-            ids(golden.get("lancamentoId").asString(), golden.get("eventId").asString()),
-            politica,
-            relogio,
-            new MetricasMicrometer(new SimpleMeterRegistry()),
-            () -> null);
+            new Ambiente(
+                ids(golden.get("lancamentoId").asString(), golden.get("eventId").asString()),
+                politica,
+                relogio),
+            new Observabilidade(new MetricasMicrometer(new SimpleMeterRegistry()), () -> null));
     casoDeUso.registrar(
         new RegistrarLancamentoCommand(
             UUID.fromString(golden.get("comercianteId").asString()),
@@ -110,11 +112,13 @@ class ContratoDoEventoIT extends IntegracaoPostgres {
             execucaoIdempotente,
             lancamentos,
             outbox,
-            ids(golden.get("lancamentoId").asString(), golden.get("eventId").asString()),
-            politica,
-            relogio,
-            new MetricasMicrometer(new SimpleMeterRegistry()),
-            () -> golden.get("traceId").asString());
+            new Ambiente(
+                ids(golden.get("lancamentoId").asString(), golden.get("eventId").asString()),
+                politica,
+                relogio),
+            new Observabilidade(
+                new MetricasMicrometer(new SimpleMeterRegistry()),
+                () -> golden.get("traceId").asString()));
     casoDeUso.estornar(
         new EstornarLancamentoCommand(
             UUID.fromString(golden.get("comercianteId").asString()),

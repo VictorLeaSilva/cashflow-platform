@@ -78,6 +78,18 @@ final class ArchitectureRules {
           .resideInAPackage("..adapter..")
           .allowEmptyShould(true);
 
+  /**
+   * Métricas e tracing entram pelas portas de saída (Q-063, Q-061), nunca direto nos casos de uso.
+   */
+  static final ArchRule APPLICATION_AND_DOMAIN_WITHOUT_OBSERVABILITY_LIBS =
+      noClasses()
+          .that()
+          .resideInAnyPackage("..application..", "..domain..")
+          .should()
+          .dependOnClassesThat()
+          .resideInAnyPackage("io.micrometer..", "io.opentelemetry..")
+          .allowEmptyShould(true);
+
   static final ArchRule NO_PEER_SERVICE_DEPENDENCY =
       noClasses()
           .that()

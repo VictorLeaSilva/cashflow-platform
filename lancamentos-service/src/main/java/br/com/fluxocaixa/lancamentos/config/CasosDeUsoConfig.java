@@ -1,8 +1,10 @@
 package br.com.fluxocaixa.lancamentos.config;
 
+import br.com.fluxocaixa.lancamentos.application.Ambiente;
 import br.com.fluxocaixa.lancamentos.application.ConsultarLancamentos;
 import br.com.fluxocaixa.lancamentos.application.EstornarLancamento;
 import br.com.fluxocaixa.lancamentos.application.ExecucaoIdempotente;
+import br.com.fluxocaixa.lancamentos.application.Observabilidade;
 import br.com.fluxocaixa.lancamentos.application.RegistrarLancamento;
 import br.com.fluxocaixa.lancamentos.application.port.out.ContextoDeTrace;
 import br.com.fluxocaixa.lancamentos.application.port.out.IdGenerator;
@@ -27,17 +29,25 @@ public class CasosDeUsoConfig {
   }
 
   @Bean
+  Ambiente ambienteDosCasosDeUso(IdGenerator ids, PoliticaLancamento politica, Clock clock) {
+    return new Ambiente(ids, politica, clock);
+  }
+
+  @Bean
+  Observabilidade observabilidadeDosCasosDeUso(
+      MetricasDeLancamentos metricas, ContextoDeTrace trace) {
+    return new Observabilidade(metricas, trace);
+  }
+
+  @Bean
   RegistrarLancamento registrarLancamento(
       ExecucaoIdempotente execucaoIdempotente,
       LancamentoRepository lancamentos,
       OutboxRepository outbox,
-      IdGenerator ids,
-      PoliticaLancamento politica,
-      Clock clock,
-      MetricasDeLancamentos metricas,
-      ContextoDeTrace trace) {
+      Ambiente ambiente,
+      Observabilidade observabilidade) {
     return new RegistrarLancamento(
-        execucaoIdempotente, lancamentos, outbox, ids, politica, clock, metricas, trace);
+        execucaoIdempotente, lancamentos, outbox, ambiente, observabilidade);
   }
 
   @Bean
@@ -50,12 +60,9 @@ public class CasosDeUsoConfig {
       ExecucaoIdempotente execucaoIdempotente,
       LancamentoRepository lancamentos,
       OutboxRepository outbox,
-      IdGenerator ids,
-      PoliticaLancamento politica,
-      Clock clock,
-      MetricasDeLancamentos metricas,
-      ContextoDeTrace trace) {
+      Ambiente ambiente,
+      Observabilidade observabilidade) {
     return new EstornarLancamento(
-        execucaoIdempotente, lancamentos, outbox, ids, politica, clock, metricas, trace);
+        execucaoIdempotente, lancamentos, outbox, ambiente, observabilidade);
   }
 }

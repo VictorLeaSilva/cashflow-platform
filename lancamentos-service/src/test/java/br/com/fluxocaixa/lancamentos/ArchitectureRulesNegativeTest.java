@@ -35,6 +35,11 @@ class ArchitectureRulesNegativeTest {
   }
 
   @Test
+  void applicationUsingMicrometerViolatesRule() {
+    assertViolated(ArchitectureRules.APPLICATION_AND_DOMAIN_WITHOUT_OBSERVABILITY_LIBS);
+  }
+
+  @Test
   void floatingPointInDomainViolatesRules() {
     assertViolated(ArchitectureRules.NO_FLOATING_POINT_FIELDS);
     assertViolated(ArchitectureRules.NO_FLOATING_POINT_RETURNS);

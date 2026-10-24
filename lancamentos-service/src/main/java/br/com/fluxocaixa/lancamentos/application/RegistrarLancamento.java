@@ -39,19 +39,16 @@ public class RegistrarLancamento {
       ExecucaoIdempotente execucaoIdempotente,
       LancamentoRepository lancamentos,
       OutboxRepository outbox,
-      IdGenerator ids,
-      PoliticaLancamento politica,
-      Clock clock,
-      MetricasDeLancamentos metricas,
-      ContextoDeTrace trace) {
+      Ambiente ambiente,
+      Observabilidade observabilidade) {
     this.execucaoIdempotente = execucaoIdempotente;
     this.lancamentos = lancamentos;
     this.outbox = outbox;
-    this.ids = ids;
-    this.politica = politica;
-    this.clock = clock;
-    this.metricas = metricas;
-    this.trace = trace;
+    this.ids = ambiente.ids();
+    this.politica = ambiente.politica();
+    this.clock = ambiente.clock();
+    this.metricas = observabilidade.metricas();
+    this.trace = observabilidade.trace();
   }
 
   /**
