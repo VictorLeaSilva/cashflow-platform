@@ -4,6 +4,7 @@ import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
 
 import br.com.fluxocaixa.consolidado.application.port.out.ProjecaoRepository;
+import br.com.fluxocaixa.consolidado.config.ConsumidorConfig;
 import br.com.fluxocaixa.consolidado.domain.ChaveDiaria;
 import br.com.fluxocaixa.consolidado.domain.Efeito;
 import br.com.fluxocaixa.consolidado.domain.MovimentoDiario;
@@ -16,10 +17,13 @@ import java.time.LocalDate;
 import java.time.ZoneOffset;
 import java.util.Map;
 import java.util.UUID;
+import javax.sql.DataSource;
 import org.junit.jupiter.api.Tag;
 import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.beans.factory.annotation.Qualifier;
 import org.springframework.dao.DataAccessException;
+import org.springframework.jdbc.datasource.DataSourceTransactionManager;
 import org.springframework.transaction.support.TransactionTemplate;
 
 /**
@@ -37,7 +41,11 @@ class ProjecaoJdbcRepositoryIT extends IntegracaoPostgres {
   private static final Instant T2 = T1.plusSeconds(5);
 
   @Autowired private ProjecaoRepository projecao;
-  @Autowired private TransactionTemplate transacao;
+
+  /** Transação no pool do consumidor, o mesmo que o adaptador usa (ConsumidorConfig, T-022). */
+  @Autowired
+  @Qualifier(ConsumidorConfig.CONSUMIDOR)
+  private DataSource dataSourceDoConsumidor;
 
   @Test
   void eventoNovoRegistraOEventIdESomaOEfeito() {
@@ -54,11 +62,12 @@ class ProjecaoJdbcRepositoryIT extends IntegracaoPostgres {
 
   @Test
   void rollbackDaTransacaoDeQuemChamaDesfazAsDuasTabelas() {
-    transacao.executeWithoutResult(
-        status -> {
-          assertThat(projecao.aplicarSeNovo(id(1), credito(CHAVE, "10.00"), T1)).isTrue();
-          status.setRollbackOnly();
-        });
+    new TransactionTemplate(new DataSourceTransactionManager(dataSourceDoConsumidor))
+        .executeWithoutResult(
+            status -> {
+              assertThat(projecao.aplicarSeNovo(id(1), credito(CHAVE, "10.00"), T1)).isTrue();
+              status.setRollbackOnly();
+            });
 
     assertThat(TabelasDoConsolidado.dias()).isEmpty();
     assertThat(TabelasDoConsolidado.eventosProcessados()).isZero();

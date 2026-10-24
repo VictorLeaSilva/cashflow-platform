@@ -5,7 +5,7 @@ spring:
     url: jdbc:postgresql://localhost:${POSTGRES_PORT:5432}/consolidado
     username: consolidado_app
     password: ${CONSOLIDADO_APP_PASSWORD:}
-    # Pool da API (03 §7.1); o consumidor terá pool próprio, máx. 4 (T-022).
+    # Pool da API (03 §7.1); o consumidor tem pool próprio, máx. 4 (ConsumidorConfig, T-022).
     hikari:
       pool-name: api
       maximum-pool-size: 10
@@ -13,3 +13,37 @@ spring:
     # O Flyway migra como consolidado_owner, dono do banco e das tabelas.
     user: consolidado_owner
     password: ${CONSOLIDADO_OWNER_PASSWORD:}
+  kafka:
+    # Broker local do compose (T-004); outro ambiente informa KAFKA_BOOTSTRAP_SERVERS.
+    bootstrap-servers: ${KAFKA_BOOTSTRAP_SERVERS:localhost:${KAFKA_PORT:9092}}
+    consumer:
+      # 03 §7.1 e Q-047: lote do poll, grupo novo lê desde o começo da retenção, offset manual.
+      max-poll-records: 100
+      auto-offset-reset: earliest
+      enable-auto-commit: false
+      key-deserializer: org.apache.kafka.common.serialization.StringDeserializer
+      value-deserializer: org.apache.kafka.common.serialization.StringDeserializer
+    producer:
+      # Só para a DLT: idempotente e acks=all, como o produtor do Lançamentos.
+      acks: all
+      key-serializer: org.apache.kafka.common.serialization.StringSerializer
+      value-serializer: org.apache.kafka.common.serialization.StringSerializer
+      properties:
+        "[enable.idempotence]": true
+    listener:
+      # Q-044: o offset de cada registro só é confirmado depois que o listener retorna (o commit).
+      ack-mode: record
+
+# Logs JSON com o MDC (requestId, eventId), como no Lançamentos (ADR-008, Q-049).
+logging:
+  structured:
+    format:
+      console: logstash
+
+# Consumidor (D-10, 03 §7.1, Q-047): valores iniciais, revistos na T-033.
+consolidado:
+  consumer:
+    enabled: true
+    group-id: consolidado-projecao
+    concurrency: 1
+    pool-size: 4

@@ -4,3 +4,8 @@
 spring:
   flyway:
     enabled: false
+# Consumidor (T-022) desligado: testes sem Kafka não sobem o listener; os ITs do consumidor o
+# ligam (support/IntegracaoKafka).
+consolidado:
+  consumer:
+    enabled: false
