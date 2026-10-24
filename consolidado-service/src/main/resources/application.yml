@@ -1,0 +1,15 @@
+# Credenciais só por variável de ambiente (valores de dev em .env.example, T-004); nenhum segredo aqui.
+spring:
+  datasource:
+    # A aplicação opera como consolidado_app (D-15): sem DDL e sem DELETE.
+    url: jdbc:postgresql://localhost:${POSTGRES_PORT:5432}/consolidado
+    username: consolidado_app
+    password: ${CONSOLIDADO_APP_PASSWORD:}
+    # Pool da API (03 §7.1); o consumidor terá pool próprio, máx. 4 (T-022).
+    hikari:
+      pool-name: api
+      maximum-pool-size: 10
+  flyway:
+    # O Flyway migra como consolidado_owner, dono do banco e das tabelas.
+    user: consolidado_owner
+    password: ${CONSOLIDADO_OWNER_PASSWORD:}

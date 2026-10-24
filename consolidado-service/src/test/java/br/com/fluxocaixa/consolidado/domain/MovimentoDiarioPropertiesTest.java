@@ -56,7 +56,7 @@ class MovimentoDiarioPropertiesTest {
   void saldoDiaEASomaComSinalDosEventosDistintosDoDia() {
     Propriedades.paraTodo(
         "saldoDia e qtdLancamentos de cada dia batem com os eventos distintos daquele dia",
-        ProjecaoPropertiesTest.fronteiras(),
+        GeradorDeEventos.fronteiras(),
         GeradorDeEventos::cenario,
         caso -> {
           ProjecaoDeReferencia projecao = ProjecaoDeReferencia.aplicandoTodos(caso.entrega1());

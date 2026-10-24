@@ -15,11 +15,11 @@ import java.util.stream.Collectors;
  * Geradores de casos para as propriedades da projeção (T-020). Tudo deriva do {@link
  * SplittableRandom} da semente, inclusive os IDs, para que a falha seja reproduzível.
  */
-final class GeradorDeEventos {
+public final class GeradorDeEventos {
 
-  static final BigDecimal VALOR_MINIMO = new BigDecimal("0.01");
-  static final BigDecimal VALOR_MAXIMO = new BigDecimal("10000000.00");
-  static final LocalDate DIA_BASE = LocalDate.parse("2026-10-15");
+  public static final BigDecimal VALOR_MINIMO = new BigDecimal("0.01");
+  public static final BigDecimal VALOR_MAXIMO = new BigDecimal("10000000.00");
+  public static final LocalDate DIA_BASE = LocalDate.parse("2026-10-15");
 
   private static final long CENTAVOS_MAXIMOS = 1_000_000_000L;
   private static final int MAX_EVENTOS = 60;
@@ -30,17 +30,17 @@ final class GeradorDeEventos {
    * Eventos distintos e duas sequências de entrega independentes dos mesmos eventos. O {@code
    * toString} mostra os valores de propósito: é dado de teste.
    */
-  record Cenario(
+  public record Cenario(
       List<LancamentoRegistrado> distintos,
       List<LancamentoRegistrado> entrega1,
       List<LancamentoRegistrado> entrega2) {
 
-    static Cenario de(List<LancamentoRegistrado> distintos, SplittableRandom aleatorio) {
+    public static Cenario de(List<LancamentoRegistrado> distintos, SplittableRandom aleatorio) {
       return new Cenario(distintos, entrega(distintos, aleatorio), entrega(distintos, aleatorio));
     }
 
     /** Fronteira: as entregas são os distintos repetidos e invertidos, sem sorteio. */
-    static Cenario fixo(List<LancamentoRegistrado> distintos) {
+    public static Cenario fixo(List<LancamentoRegistrado> distintos) {
       List<LancamentoRegistrado> invertidos = new ArrayList<>(distintos);
       Collections.reverse(invertidos);
       List<LancamentoRegistrado> repetidos = new ArrayList<>(distintos);
@@ -61,7 +61,31 @@ final class GeradorDeEventos {
     }
   }
 
-  static Cenario cenario(SplittableRandom aleatorio) {
+  /**
+   * Casos de fronteira dos cenários (T-020, "Gerador de propriedades"), usados pelas propriedades
+   * em memória e pelo IT contra o banco (Q-042).
+   */
+  public static List<Cenario> fronteiras() {
+    UUID comerciante = uuid(0xaa);
+    LancamentoRegistrado credito =
+        evento(uuid(1), comerciante, TipoLancamento.CREDITO, new BigDecimal("100.00"), DIA_BASE);
+    LancamentoRegistrado debito =
+        evento(uuid(2), comerciante, TipoLancamento.DEBITO, new BigDecimal("40.00"), DIA_BASE);
+    LancamentoRegistrado minimo =
+        evento(uuid(3), comerciante, TipoLancamento.CREDITO, VALOR_MINIMO, DIA_BASE);
+    LancamentoRegistrado maximo =
+        evento(uuid(4), comerciante, TipoLancamento.DEBITO, VALOR_MAXIMO, DIA_BASE);
+    return List.of(
+        Cenario.fixo(List.of()),
+        Cenario.fixo(List.of(credito)),
+        new Cenario(List.of(credito), List.of(credito, credito, credito), List.of(credito)),
+        Cenario.fixo(List.of(credito, estorno(uuid(11), credito, DIA_BASE.plusDays(7)))),
+        Cenario.fixo(List.of(debito, estorno(uuid(12), debito, DIA_BASE.plusDays(1)))),
+        Cenario.fixo(List.of(credito, debito, estorno(uuid(13), credito, DIA_BASE))),
+        Cenario.fixo(List.of(minimo, maximo)));
+  }
+
+  public static Cenario cenario(SplittableRandom aleatorio) {
     return Cenario.de(distintos(aleatorio), aleatorio);
   }
 
@@ -70,7 +94,7 @@ final class GeradorDeEventos {
    * lançamento gerado antes, ainda não estornado, do mesmo comerciante, com data igual ou posterior
    * (D-07).
    */
-  static List<LancamentoRegistrado> distintos(SplittableRandom aleatorio) {
+  public static List<LancamentoRegistrado> distintos(SplittableRandom aleatorio) {
     List<UUID> comerciantes = uuids(aleatorio, aleatorio.nextInt(1, 4));
     int quantidadeDeDatas = aleatorio.nextInt(1, 6);
     int quantidade = aleatorio.nextInt(0, MAX_EVENTOS + 1);
@@ -98,7 +122,7 @@ final class GeradorDeEventos {
   }
 
   /** Cada evento repetido de 1 a 3 vezes, em ordem embaralhada (Fisher–Yates). */
-  static List<LancamentoRegistrado> entrega(
+  public static List<LancamentoRegistrado> entrega(
       List<LancamentoRegistrado> distintos, SplittableRandom aleatorio) {
     List<LancamentoRegistrado> entrega = new ArrayList<>();
     for (LancamentoRegistrado evento : distintos) {
@@ -114,7 +138,7 @@ final class GeradorDeEventos {
   }
 
   /** Valor em [0,01; 10.000.000,00] com escala 2; as fronteiras aparecem com mais frequência. */
-  static BigDecimal valor(SplittableRandom aleatorio) {
+  public static BigDecimal valor(SplittableRandom aleatorio) {
     return switch (aleatorio.nextInt(20)) {
       case 0 -> VALOR_MINIMO;
       case 1 -> VALOR_MAXIMO;
@@ -122,7 +146,7 @@ final class GeradorDeEventos {
     };
   }
 
-  static MovimentoDiario movimento(SplittableRandom aleatorio) {
+  public static MovimentoDiario movimento(SplittableRandom aleatorio) {
     return new MovimentoDiario(
         total(aleatorio),
         total(aleatorio),
@@ -131,13 +155,14 @@ final class GeradorDeEventos {
         aleatorio.nextInt(0, 100_000));
   }
 
-  static LancamentoRegistrado evento(
+  public static LancamentoRegistrado evento(
       UUID eventId, UUID comerciante, TipoLancamento tipo, BigDecimal valor, LocalDate data) {
     return new LancamentoRegistrado(
         eventId, comerciante, uuidDerivado(eventId), tipo, valor, data, null, null);
   }
 
-  static LancamentoRegistrado estorno(UUID eventId, LancamentoRegistrado original, LocalDate data) {
+  public static LancamentoRegistrado estorno(
+      UUID eventId, LancamentoRegistrado original, LocalDate data) {
     return new LancamentoRegistrado(
         eventId,
         original.comercianteId(),
@@ -152,7 +177,7 @@ final class GeradorDeEventos {
   /**
    * Efeito com sinal no saldo do dia: + crédito e estorno de débito; − débito e estorno de crédito.
    */
-  static BigDecimal efeitoNoSaldo(LancamentoRegistrado evento) {
+  public static BigDecimal efeitoNoSaldo(LancamentoRegistrado evento) {
     TipoLancamento natureza =
         evento.tipo() == TipoLancamento.ESTORNO ? evento.tipoOriginal() : evento.tipo();
     boolean somaNoSaldo =
@@ -160,11 +185,11 @@ final class GeradorDeEventos {
     return somaNoSaldo ? evento.valor() : evento.valor().negate();
   }
 
-  static UUID uuid(SplittableRandom aleatorio) {
+  public static UUID uuid(SplittableRandom aleatorio) {
     return new UUID(aleatorio.nextLong(), aleatorio.nextLong());
   }
 
-  static UUID uuid(int n) {
+  public static UUID uuid(int n) {
     return new UUID(0L, n);
   }
 

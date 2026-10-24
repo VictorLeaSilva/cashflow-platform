@@ -12,19 +12,19 @@ import java.util.UUID;
  * (registra o {@code eventId}; se novo, soma o efeito do domínio). A deduplicação atômica no banco
  * é da T-021; aqui só a semântica de deduplicar por {@code eventId}, e só por ele (ADR-005).
  */
-final class ProjecaoDeReferencia {
+public final class ProjecaoDeReferencia {
 
   private final Set<UUID> aplicados = new HashSet<>();
   private final Map<ChaveDiaria, MovimentoDiario> dias = new HashMap<>();
 
-  static ProjecaoDeReferencia aplicandoTodos(List<LancamentoRegistrado> entrega) {
+  public static ProjecaoDeReferencia aplicandoTodos(List<LancamentoRegistrado> entrega) {
     ProjecaoDeReferencia projecao = new ProjecaoDeReferencia();
     entrega.forEach(projecao::aplicar);
     return projecao;
   }
 
   /** Devolve {@code true} se o evento foi aplicado e {@code false} se era duplicata. */
-  boolean aplicar(LancamentoRegistrado evento) {
+  public boolean aplicar(LancamentoRegistrado evento) {
     if (!aplicados.add(evento.eventId())) {
       return false;
     }
@@ -33,11 +33,11 @@ final class ProjecaoDeReferencia {
     return true;
   }
 
-  Map<ChaveDiaria, MovimentoDiario> dias() {
+  public Map<ChaveDiaria, MovimentoDiario> dias() {
     return Map.copyOf(dias);
   }
 
-  MovimentoDiario dia(ChaveDiaria chave) {
+  public MovimentoDiario dia(ChaveDiaria chave) {
     return dias.getOrDefault(chave, MovimentoDiario.ZERO);
   }
 }

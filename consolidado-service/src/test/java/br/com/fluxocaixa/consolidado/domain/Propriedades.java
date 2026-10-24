@@ -13,14 +13,14 @@ import java.util.function.Function;
  *
  * <p>Reproduzir uma falha: {@code ./mvnw test -Dtest=<Classe> -Dpropriedades.semente=<semente>}.
  */
-final class Propriedades {
+public final class Propriedades {
 
-  static final long SEMENTE_PADRAO = 20_261_023L;
-  static final int TENTATIVAS_PADRAO = 1_000;
+  public static final long SEMENTE_PADRAO = 20_261_023L;
+  public static final int TENTATIVAS_PADRAO = 1_000;
 
   private Propriedades() {}
 
-  static long semente() {
+  public static long semente() {
     return Long.getLong("propriedades.semente", SEMENTE_PADRAO);
   }
 
@@ -28,8 +28,21 @@ final class Propriedades {
    * Verifica {@code propriedade} para cada caso de fronteira e para {@link #TENTATIVAS_PADRAO}
    * casos gerados.
    */
-  static <T> void paraTodo(
+  public static <T> void paraTodo(
       String nome,
+      List<T> fronteiras,
+      Function<SplittableRandom, T> gerador,
+      Consumer<T> propriedade) {
+    paraTodo(nome, TENTATIVAS_PADRAO, fronteiras, gerador, propriedade);
+  }
+
+  /**
+   * Como {@link #paraTodo(String, List, Function, Consumer)}, com {@code tentativas} casos gerados
+   * (ITs contra o banco usam menos tentativas, T-021).
+   */
+  public static <T> void paraTodo(
+      String nome,
+      int tentativas,
       List<T> fronteiras,
       Function<SplittableRandom, T> gerador,
       Consumer<T> propriedade) {
@@ -38,7 +51,7 @@ final class Propriedades {
       verificar(nome, semente, "fronteira " + i, fronteiras.get(i), propriedade);
     }
     SplittableRandom aleatorio = new SplittableRandom(semente);
-    for (int i = 0; i < TENTATIVAS_PADRAO; i++) {
+    for (int i = 0; i < tentativas; i++) {
       verificar(nome, semente, "tentativa " + i, gerador.apply(aleatorio), propriedade);
     }
   }

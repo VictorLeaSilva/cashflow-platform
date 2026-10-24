@@ -1,7 +1,6 @@
 package br.com.fluxocaixa.consolidado.domain;
 
 import static br.com.fluxocaixa.consolidado.domain.GeradorDeEventos.DIA_BASE;
-import static br.com.fluxocaixa.consolidado.domain.GeradorDeEventos.VALOR_MAXIMO;
 import static br.com.fluxocaixa.consolidado.domain.GeradorDeEventos.VALOR_MINIMO;
 import static br.com.fluxocaixa.consolidado.domain.GeradorDeEventos.estorno;
 import static br.com.fluxocaixa.consolidado.domain.GeradorDeEventos.evento;
@@ -11,7 +10,6 @@ import static org.assertj.core.api.Assertions.assertThat;
 import br.com.fluxocaixa.consolidado.domain.GeradorDeEventos.Cenario;
 import java.math.BigDecimal;
 import java.util.HashMap;
-import java.util.List;
 import java.util.Map;
 import java.util.SplittableRandom;
 import java.util.UUID;
@@ -48,7 +46,7 @@ class ProjecaoPropertiesTest {
   void ordemEDuplicatasNaoMudamAProjecao() {
     Propriedades.paraTodo(
         "qualquer ordem e quaisquer duplicatas dão a projeção dos distintos",
-        fronteiras(),
+        GeradorDeEventos.fronteiras(),
         GeradorDeEventos::cenario,
         caso -> {
           Map<ChaveDiaria, MovimentoDiario> distintos =
@@ -65,7 +63,7 @@ class ProjecaoPropertiesTest {
   void reentregaComMesmoEventIdEIgnoradaMesmoComConteudoDiferente() {
     Propriedades.paraTodo(
         "evento com eventId já aplicado não muda a projeção (Q-036)",
-        fronteiras(),
+        GeradorDeEventos.fronteiras(),
         GeradorDeEventos::cenario,
         caso -> {
           ProjecaoDeReferencia projecao = ProjecaoDeReferencia.aplicandoTodos(caso.entrega1());
@@ -84,7 +82,7 @@ class ProjecaoPropertiesTest {
   void estornoDeLancamentoJaAplicadoEAplicado() {
     Propriedades.paraTodo(
         "estorno com eventId novo é aplicado mesmo com o original já aplicado (ADR-005)",
-        fronteiras(),
+        GeradorDeEventos.fronteiras(),
         GeradorDeEventos::cenario,
         caso -> {
           ProjecaoDeReferencia projecao = ProjecaoDeReferencia.aplicandoTodos(caso.entrega1());
@@ -109,7 +107,7 @@ class ProjecaoPropertiesTest {
   void efeitoAfetaUmaUnicaChave() {
     Propriedades.paraTodo(
         "acrescentar um evento muda só a chave dele, e o saldo dela pelo efeito do evento",
-        fronteiras().stream()
+        GeradorDeEventos.fronteiras().stream()
             .map(
                 c ->
                     new ComExtra(
@@ -143,26 +141,6 @@ class ProjecaoPropertiesTest {
           assertThat(projecao.dia(chave).saldoDia().subtract(anterior.saldoDia()))
               .isEqualTo(GeradorDeEventos.efeitoNoSaldo(extra));
         });
-  }
-
-  /** Casos de fronteira dos cenários (T-020, "Gerador de propriedades"). */
-  static List<Cenario> fronteiras() {
-    LancamentoRegistrado credito =
-        evento(uuid(1), COMERCIANTE, TipoLancamento.CREDITO, new BigDecimal("100.00"), DIA_BASE);
-    LancamentoRegistrado debito =
-        evento(uuid(2), COMERCIANTE, TipoLancamento.DEBITO, new BigDecimal("40.00"), DIA_BASE);
-    LancamentoRegistrado minimo =
-        evento(uuid(3), COMERCIANTE, TipoLancamento.CREDITO, VALOR_MINIMO, DIA_BASE);
-    LancamentoRegistrado maximo =
-        evento(uuid(4), COMERCIANTE, TipoLancamento.DEBITO, VALOR_MAXIMO, DIA_BASE);
-    return List.of(
-        Cenario.fixo(List.of()),
-        Cenario.fixo(List.of(credito)),
-        new Cenario(List.of(credito), List.of(credito, credito, credito), List.of(credito)),
-        Cenario.fixo(List.of(credito, estorno(uuid(11), credito, DIA_BASE.plusDays(7)))),
-        Cenario.fixo(List.of(debito, estorno(uuid(12), debito, DIA_BASE.plusDays(1)))),
-        Cenario.fixo(List.of(credito, debito, estorno(uuid(13), credito, DIA_BASE))),
-        Cenario.fixo(List.of(minimo, maximo)));
   }
 
   private static ComExtra comExtra(SplittableRandom aleatorio) {
