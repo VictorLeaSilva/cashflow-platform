@@ -8,16 +8,14 @@ import java.time.ZoneOffset;
 import java.util.Objects;
 import java.util.UUID;
 import org.springframework.jdbc.core.simple.JdbcClient;
-import org.springframework.stereotype.Repository;
 
 /**
  * {@link ProjecaoRepository} com {@code JdbcClient} e SQL explícito (D-05). Deduplicação e
  * <i>upsert</i> aditivo são um único comando (Q-037): o CTE só devolve linha se o {@code eventId}
  * for novo, e o {@code INSERT ... ON CONFLICT DO UPDATE} soma os deltas sem ler antes. Estouro de
  * {@code NUMERIC(18,2)} ou {@code INTEGER} falha o comando inteiro, e a {@code DataAccessException}
- * sobe sem tradução (Q-040).
+ * sobe sem tradução (Q-040). Criado em {@code ConsumidorConfig}, com o pool do consumidor (T-022).
  */
-@Repository
 public class ProjecaoJdbcRepository implements ProjecaoRepository {
 
   private static final String APLICAR_SE_NOVO =

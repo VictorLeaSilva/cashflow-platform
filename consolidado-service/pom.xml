@@ -36,13 +36,37 @@
       <artifactId>postgresql</artifactId>
       <scope>runtime</scope>
     </dependency>
+    <!-- Consumidor Kafka (T-022): JSON com Jackson 3, métricas Micrometer sem Actuator (Q-027). -->
+    <dependency>
+      <groupId>org.springframework.boot</groupId>
+      <artifactId>spring-boot-starter-kafka</artifactId>
+    </dependency>
+    <dependency>
+      <groupId>org.springframework.boot</groupId>
+      <artifactId>spring-boot-starter-jackson</artifactId>
+    </dependency>
+    <dependency>
+      <groupId>org.springframework.boot</groupId>
+      <artifactId>spring-boot-starter-micrometer-metrics</artifactId>
+    </dependency>
+    <!-- Validação do evento contra o JSON Schema de contracts/ (Q-006, Q-043). -->
+    <dependency>
+      <groupId>com.networknt</groupId>
+      <artifactId>json-schema-validator</artifactId>
+      <scope>compile</scope>
+    </dependency>
+    <dependency>
+      <groupId>br.com.fluxocaixa</groupId>
+      <artifactId>contracts</artifactId>
+      <version>${project.version}</version>
+    </dependency>
 
     <dependency>
       <groupId>org.springframework.boot</groupId>
       <artifactId>spring-boot-starter-test</artifactId>
       <scope>test</scope>
     </dependency>
-    <!-- Prova de compatibilidade (AC-T001.4); removível na T-011/T-016 quando houver ITs reais. -->
+    <!-- ITs com PostgreSQL (T-021) e Kafka (T-022) reais. -->
     <dependency>
       <groupId>org.testcontainers</groupId>
       <artifactId>testcontainers-postgresql</artifactId>
