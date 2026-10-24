@@ -17,7 +17,8 @@ import org.springframework.web.servlet.mvc.method.annotation.RequestMappingHandl
 
 /**
  * Filtros HTTP antes da cadeia do Spring Security, nesta ordem: request ID (para que 401 e 403 já o
- * tenham), log de acesso (mede a requisição inteira) e limite de corpo (03 §5.2).
+ * tenham), observação HTTP do Spring (abre o trace; fica em HIGHEST_PRECEDENCE + 1), log de acesso
+ * (mede a requisição inteira e já enxerga o traceId no MDC) e limite de corpo (03 §5.2).
  */
 @Configuration(proxyBeanMethods = false)
 public class WebConfig {
@@ -33,12 +34,12 @@ public class WebConfig {
       @Qualifier("requestMappingHandlerMapping")
           ObjectProvider<RequestMappingHandlerMapping> mapeamento) {
     return registrar(
-        new LogDeAcessoFilter(clock, mapeamento::getObject), Ordered.HIGHEST_PRECEDENCE + 1);
+        new LogDeAcessoFilter(clock, mapeamento::getObject), Ordered.HIGHEST_PRECEDENCE + 2);
   }
 
   @Bean
   FilterRegistrationBean<LimiteDeCorpoFilter> filtroLimiteDeCorpo(Problemas problemas) {
-    return registrar(new LimiteDeCorpoFilter(problemas), Ordered.HIGHEST_PRECEDENCE + 2);
+    return registrar(new LimiteDeCorpoFilter(problemas), Ordered.HIGHEST_PRECEDENCE + 3);
   }
 
   private static <F extends Filter> FilterRegistrationBean<F> registrar(F filtro, int ordem) {

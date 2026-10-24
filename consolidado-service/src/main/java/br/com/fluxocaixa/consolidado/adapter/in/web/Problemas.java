@@ -1,5 +1,7 @@
 package br.com.fluxocaixa.consolidado.adapter.in.web;
 
+import io.micrometer.tracing.Span;
+import io.micrometer.tracing.Tracer;
 import jakarta.servlet.http.HttpServletRequest;
 import jakarta.servlet.http.HttpServletResponse;
 import java.io.IOException;
@@ -15,8 +17,9 @@ import tools.jackson.databind.json.JsonMapper;
 
 /**
  * Monta e escreve erros RFC 9457 (03 §5, §5.2): {@code type} do catálogo, {@code title}, {@code
- * status}, {@code detail}, {@code instance}, {@code errors[]} quando houver, {@code requestId} e
- * {@code timestamp} pelo {@code Clock}. Nunca leva <i>stack trace</i> nem mensagem interna.
+ * status}, {@code detail}, {@code instance}, {@code errors[]} quando houver, {@code requestId},
+ * {@code traceId} (com tracing ativo) e {@code timestamp} pelo {@code Clock}. Nunca leva <i>stack
+ * trace</i> nem mensagem interna.
  */
 @Component
 public class Problemas {
@@ -30,9 +33,17 @@ public class Problemas {
   private static final JsonMapper JSON = JsonMapper.builder().build();
 
   private final Clock clock;
+  private final Tracer tracer;
 
-  public Problemas(Clock clock) {
+  public Problemas(Clock clock, Tracer tracer) {
     this.clock = clock;
+    this.tracer = tracer;
+  }
+
+  /** {@code traceId} da requisição corrente, ou {@code null} sem trace ativo (03 §5.2). */
+  private String traceIdAtual() {
+    Span atual = tracer.currentSpan();
+    return atual == null ? null : atual.context().traceId();
   }
 
   /** Corpo do problema, na ordem dos membros do RFC 9457 seguida das extensões. */
@@ -64,6 +75,10 @@ public class Problemas {
               .toList());
     }
     corpo.put("requestId", RequestIdFilter.requestIdDe(requisicao));
+    String traceId = traceIdAtual();
+    if (traceId != null) {
+      corpo.put("traceId", traceId);
+    }
     corpo.put("timestamp", clock.instant().toString());
     return corpo;
   }
