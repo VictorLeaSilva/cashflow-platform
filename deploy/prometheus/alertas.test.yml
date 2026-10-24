@@ -1,7 +1,7 @@
 # Testes das regras de alertas.yml (promtool test rules). Para cada alerta, um caso que dispara e
-# um que não dispara. Comando (da raiz do repositório), em bash e em PowerShell:
-#   docker run --rm --entrypoint promtool -v "${PWD}/deploy/prometheus:/work:ro" \
-#     prom/prometheus:v3.15.1 test rules /work/alertas.test.yml
+# um que não dispara. Comandos (da raiz do repositório):
+#   bash:        MSYS_NO_PATHCONV=1 docker run --rm --entrypoint promtool -v "$PWD/deploy/prometheus:/work:ro" prom/prometheus:v3.15.1 test rules /work/alertas.test.yml
+#   PowerShell:  docker run --rm --entrypoint promtool -v "${PWD}/deploy/prometheus:/work:ro" prom/prometheus:v3.15.1 test rules /work/alertas.test.yml
 rule_files:
   - alertas.yml
 

@@ -547,7 +547,7 @@ curl.exe -s http://localhost:9081/actuator/prometheus | Select-String '^(lancame
 curl.exe -s http://localhost:9082/actuator/prometheus | Select-String '^(consolidado_events_processed_total|consolidado_event_lag_seconds_count)'
 ```
 
-**O que você deve ver:** `{"status":"UP"}` (ou `DOWN`, se o banco ou o Kafka estiverem fora) e linhas de métricas como `lancamentos_registrados_total{tipo="CREDITO",...} 3.0`, `outbox_pending_events 0.0` e `consolidado_events_processed_total 3.0`. Se os números estiverem em zero, registre um lançamento (passo 9) e consulte de novo.
+**O que você deve ver:** `{"groups":["liveness","readiness"],"status":"UP"}` (ou `"status":"DOWN"`, se o banco estiver fora) e linhas de métricas como `lancamentos_registrados_total{tipo="CREDITO",...} 3.0`, `outbox_pending_events 0.0` e `consolidado_events_processed_total 3.0`. Se os números estiverem em zero, registre um lançamento (passo 9) e consulte de novo.
 
 **2. Subir o Prometheus e o Grafana.** Eles só sobem com o *profile* `observability` e leem as portas de gestão dos serviços que estão rodando na sua máquina:
 
@@ -563,7 +563,7 @@ docker compose --env-file .env -f deploy/docker-compose.yml --profile observabil
 
 **3. Olhar os resultados.**
 - <http://localhost:9090/targets> (Prometheus): os alvos `lancamentos` e `consolidado` devem estar `UP`. Um alvo `DOWN` quer dizer que o serviço não está rodando ou que a porta de gestão foi trocada.
-- <http://localhost:9090/alerts>: as sete regras de alerta (`deploy/prometheus/alertas.yml`). Todas devem estar `inactive` em operação normal; `OutboxComIdadeAlta` e `ConsolidadoForaDoAr` são as que acendem se você derrubar o Kafka ou o Consolidado.
+- <http://localhost:9090/alerts>: as sete regras de alerta (`deploy/prometheus/alertas.yml`). Todas devem estar `inactive` em operação normal; `OutboxComIdadeAlta` e `ConsolidadoForaDoAr` são as que acendem se você derrubar o Kafka ou o Consolidado. Se o Prometheus ficou de pé por mais de 2 minutos antes de os serviços subirem, `ConsolidadoForaDoAr` aparece `firing` até a próxima raspagem com o serviço no ar; isso é o alerta funcionando.
 - <http://localhost:3000> (Grafana, só leitura e sem login): o painel **Fluxo de Caixa - operação** mostra lançamentos por tipo, a fila da outbox, os eventos do Consolidado, o atraso da projeção (p95), o atraso do consumidor, os erros 5xx e a ocupação dos bancos de conexões.
 
 As portas do Prometheus e do Grafana podem ser trocadas no `.env` (`PROMETHEUS_PORT` e `GRAFANA_PORT`). Se você trocar as portas de gestão dos serviços (`LANCAMENTOS_MANAGEMENT_PORT` e `CONSOLIDADO_MANAGEMENT_PORT`), troque também os alvos em `deploy/prometheus/prometheus.yml`.
@@ -573,8 +573,10 @@ As portas do Prometheus e do Grafana podem ser trocadas no `.env` (`PROMETHEUS_P
 **5. Testar as regras de alerta** (sem os serviços, só com o Docker; roda a partir da raiz do projeto):
 
 ```bash
-docker run --rm --entrypoint promtool -v "$PWD/deploy/prometheus:/work:ro" prom/prometheus:v3.15.1 test rules /work/alertas.test.yml
+MSYS_NO_PATHCONV=1 docker run --rm --entrypoint promtool -v "$PWD/deploy/prometheus:/work:ro" prom/prometheus:v3.15.1 test rules /work/alertas.test.yml
 ```
+
+(O `MSYS_NO_PATHCONV=1` evita que o Git Bash do Windows converta `/work` num caminho do Windows; no Linux e no macOS ele não faz diferença.)
 
 ```powershell
 docker run --rm --entrypoint promtool -v "${PWD}/deploy/prometheus:/work:ro" prom/prometheus:v3.15.1 test rules /work/alertas.test.yml
