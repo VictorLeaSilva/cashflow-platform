@@ -22,6 +22,8 @@ Método: **Spec Driven Development (SDD)** com harness de verificação e revis�
 ## Definição de pronto de uma tarefa
 `scripts/verify-task.sh T-xxx` verde **e** relatório de revisão independente `docs/specs/reviews/T-xxx.md` com veredito PASS **e** aprovação humana.
 
+**README vivo (Q-054):** se a tarefa muda como subir ou usar a aplicação (comandos, portas, variáveis, *profiles*, rotas, *scopes*, serviços do compose, scripts), o mesmo PR atualiza o `README.md`: `README.md` entra nos `allowed_paths`, os comandos afetados são executados de novo em **bash e em PowerShell** (numa stack isolada, nunca na do autor) e o "o que você deve ver" é conferido com a saída real, registrada na evidência. Se a tarefa não muda nada disso, o checklist diz "N/A" e o porquê.
+
 ## Comandos
 - `./mvnw -q verify` — gate completo local (formato, lint, testes, arquitetura, cobertura)
 - `scripts/verify-task.sh T-xxx` — gate da tarefa (inclui escopo e rastreabilidade)

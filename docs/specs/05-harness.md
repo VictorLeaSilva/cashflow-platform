@@ -40,7 +40,10 @@ allowed_new_dependencies: []     # coordenadas Maven permitidas; vazio = nenhuma
 ## Testes exigidos (por AC)
 ## Não-objetivos
 ## Checklist de pronto
+- [ ] verify verde  - [ ] evidências registradas  - [ ] README atualizado e comandos executados em bash e PowerShell (ou N/A justificado, Q-054)  - [ ] revisão independente PASS  - [ ] aprovação humana
 ```
+
+Se a tarefa muda como subir ou usar a aplicação, `README.md` entra nos `allowed_paths` (Q-054).
 
 ## 4. Gate automático `scripts/verify-task.sh T-xxx` (especificação do script — implementado na T-003)
 Falha (exit ≠ 0) se qualquer item falhar; grava `docs/specs/reviews/T-xxx.verify.log`.
@@ -66,7 +69,7 @@ Executada por um revisor **sem o contexto de raciocínio do implementador** (out
 | R7 | Qualidade dos testes | Teste que passaria com o código quebrado; `sleep`; sem asserção significativa |
 | R8 | Arquitetura | Regra ArchUnit contornada; dependência de camada invertida |
 | R9 | Observabilidade | Métrica/log previsto em `03 §8` ausente |
-| R10 | Documentação | README/OpenAPI/ADR/spec desatualizados pela mudança |
+| R10 | Documentação | README/OpenAPI/ADR/spec desatualizados pela mudança; comando do README que deixou de funcionar, ou que falta para usar o que a tarefa entregou, sem a execução em bash e PowerShell registrada na evidência (Q-054) |
 
 ### Modelo do relatório
 ```markdown
