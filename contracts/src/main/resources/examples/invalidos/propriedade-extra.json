@@ -1,0 +1,12 @@
+{
+  "eventId": "a1b2c3d4-e5f6-4789-8abc-1234567890ab",
+  "eventType": "LancamentoRegistrado",
+  "schemaVersion": 1,
+  "occurredAt": "2026-10-22T13:30:00Z",
+  "comercianteId": "0f8fad5b-d9cb-469f-a165-70867728950e",
+  "lancamentoId": "b2c3d4e5-f6a7-4890-9bcd-2345678901bc",
+  "tipo": "CREDITO",
+  "valor": "150.75",
+  "dataReferencia": "2026-10-22",
+  "descricao": "campo fora do contrato"
+}

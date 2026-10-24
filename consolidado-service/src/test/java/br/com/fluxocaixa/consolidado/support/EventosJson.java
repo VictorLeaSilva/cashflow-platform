@@ -4,9 +4,14 @@ import java.io.IOException;
 import java.io.InputStream;
 import java.io.UncheckedIOException;
 import java.nio.charset.StandardCharsets;
+import java.util.Arrays;
+import java.util.Comparator;
 import java.util.LinkedHashMap;
+import java.util.List;
 import java.util.Map;
 import java.util.UUID;
+import org.springframework.core.io.Resource;
+import org.springframework.core.io.support.PathMatchingResourcePatternResolver;
 import tools.jackson.databind.json.JsonMapper;
 
 /**
@@ -63,6 +68,25 @@ public final class EventosJson {
         throw new IllegalStateException("exemplo golden ausente no classpath: " + arquivo);
       }
       return new String(exemplo.readAllBytes(), StandardCharsets.UTF_8);
+    } catch (IOException e) {
+      throw new UncheckedIOException(e);
+    }
+  }
+
+  /** Exemplo inválido de {@code examples/invalidos/}: nome do arquivo e conteúdo, como está. */
+  public record Invalido(String nome, String json) {}
+
+  /** Todos os arquivos de {@code examples/invalidos/} de {@code contracts/}, em ordem de nome. */
+  public static List<Invalido> invalidos() {
+    try {
+      Resource[] recursos =
+          new PathMatchingResourcePatternResolver()
+              .getResources("classpath*:examples/invalidos/*.json");
+      return Arrays.stream(recursos)
+          .map(Resource::getFilename)
+          .sorted(Comparator.naturalOrder())
+          .map(nome -> new Invalido(nome, golden("invalidos/" + nome)))
+          .toList();
     } catch (IOException e) {
       throw new UncheckedIOException(e);
     }
