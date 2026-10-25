@@ -8,12 +8,12 @@ Decisões cobertas: D-16
 Com integração assíncrona, uma falha não aparece como erro para o usuário: o lançamento é aceito e o consolidado simplesmente fica atrasado. É preciso **ver** o atraso e **distinguir** as duas falhas principais (Kafka fora × Consolidado parado) para agir certo (RNF-006). Monitoramento e observabilidade também são diferencial do enunciado.
 
 ## Decisão
-- **Instrumentação:** Spring Boot Actuator + Micrometer + OpenTelemetry nos dois serviços; logs JSON com `traceId`/`correlationId`; *trace* propagado por cabeçalhos Kafka do produtor ao consumidor.
+- **Instrumentação:** Spring Boot Actuator + Micrometer + OpenTelemetry nos dois serviços; logs JSON com `requestId`, `traceId` e `spanId` (*atualizado na T-040*, Q-086: não existe `correlationId`); *trace* propagado por cabeçalhos Kafka do produtor ao consumidor.
 - **Request ID (`03 §5.2`, RNF-012):** filtro HTTP aceita `X-Request-Id` válido ou gera um; o valor volta em toda resposta, vai para o MDC, para a outbox e para o cabeçalho Kafka `x-request-id`. É o identificador que o cliente informa ao suporte; o `traceId` é o técnico, para seguir a chamada entre serviços. Um log de acesso JSON por requisição (rota padrão, status, duração, sem corpo nem token).
 - **Metadados nos cabeçalhos, não num envelope:** em sucesso, `X-Request-Id` e `Date`; em erro, `requestId`, `traceId`, `timestamp` e `instance` como extensões do `problem+json`.
 - **Case local:** Prometheus + Grafana em profile do compose, com regras de alerta em arquivo (T-032).
 - **Alvo:** CloudWatch (métricas, logs e alarmes) — ADR-010.
-- **Métricas de negócio e de fluxo** (`03 §8`): `lancamentos_registrados_total{tipo}`, `idempotency_replays_total`, `idempotency_conflicts_total`, `outbox_pending_events`, `outbox_oldest_pending_age_seconds`, `outbox_publish_failures_total`, `outbox_publish_duration_seconds`, `consolidado_events_processed_total`, `consolidado_events_duplicates_total`, `consolidado_events_dlt_total`, `consolidado_event_lag_seconds`, ocupação de cada pool JDBC, além das métricas HTTP/JVM/Kafka padrão.
+- **Métricas de negócio e de fluxo** (`03 §8`): `lancamentos_registrados_total{tipo}`, `idempotency_replays_total`, `idempotency_conflicts_total` (conta só a reutilização da chave com outro payload, 422; o 409 de disputa concorrente não é contado; *atualizado na T-040*), `outbox_pending_events`, `outbox_oldest_pending_age_seconds`, `outbox_publish_failures_total`, `outbox_publish_duration_seconds`, `consolidado_events_processed_total`, `consolidado_events_duplicates_total`, `consolidado_events_dlt_total`, `consolidado_event_lag_seconds`, ocupação de cada pool JDBC, além das métricas HTTP/JVM/Kafka padrão.
 - **Como distinguir as falhas:**
   - **Kafka fora** → `outbox_oldest_pending_age_seconds` sobe (a outbox não drena).
   - **Consolidado parado** → `up{job="consolidado"} == 0` e o lag do consumidor sobe, com a outbox drenando normalmente.

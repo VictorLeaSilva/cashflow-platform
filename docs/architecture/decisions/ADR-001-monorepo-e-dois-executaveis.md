@@ -27,7 +27,7 @@ O enunciado pede um serviço de controle de lançamentos e um serviço de consol
 
 ## Revisitar quando
 - O time ou o volume exigirem separar mais capacidades.
-- O cenário de drenagem sob leitura (T-033) mostrar interferência do consumidor na API do Consolidado → separar o consumidor em executável próprio.
+- O cenário de drenagem sob leitura mostrar interferência do consumidor na API do Consolidado → separar o consumidor em executável próprio. *Atualizado na T-040:* a T-033 mediu a leitura (50, 100 e 200 req/s) com a escrita simultânea em regime, sem interferência; **não** mediu o acúmulo e a drenagem de um backlog sob leitura, então o gatilho segue sem ser exercitado (follow-up).
 
 ## Referências
 RNF-001, RNF-010; `03 §1` (D-01, D-10), `03 §7.1`; `00 §3.1`; T-001, T-002.

@@ -21,7 +21,7 @@ Cada linha vira (ou alimenta) um ADR em `docs/architecture/decisions/`.
 | D-10 | Deploy do Consolidado | 1 executável com consumidor + API (toggle `consolidado.consumer.enabled`) | Dois serviços | Menos peças; separável sem mudar código | Carga de consumo afetar a API de leitura |
 | D-11 | Autenticação | JWT (Resource Server); dev com chave local, prod com IdP | Login próprio; API keys | Padrão aberto, sem guardar senha | — |
 | D-12 | Cache | Nenhum | Redis/Caffeine | 50 req/s em leitura por PK é trivial; decidir com dado do k6 | k6 mostrar saturação |
-| D-13 | Contrato de evento | JSON + JSON Schema versionado | Avro + Schema Registry | Menos infraestrutura; validado nos dois lados. Custo: sem registro central | Muitos produtores/consumidores |
+| D-13 | Contrato de evento | JSON + JSON Schema versionado | Avro + Schema Registry | Menos infraestrutura; validado em runtime no consumidor e por testes de contrato no produtor (Q-086). Custo: sem registro central | Muitos produtores/consumidores |
 | D-14 | Rebuild da projeção | Fora do MVP; estratégia em ADR-006 | Endpoints `/admin/rebuilds` | Kafka tem retenção finita; rebuild real depende da fonte de verdade (tabela `lancamento`). Escopo e risco altos para o ganho | Divergência real ou novo consumidor |
 | D-15 | Banco físico | 1 instância, 2 bancos, 2 *roles* (cada serviço só acessa o seu) | Instâncias separadas | Isolamento lógico verificável com custo baixo. Alvo AWS (desenho): mesma topologia em RDS PostgreSQL Multi-AZ, ADR-010 | Requisito de isolamento físico |
 | D-16 | Observabilidade | Micrometer/OTel/Prometheus/Grafana local; CloudWatch no alvo | Só logs | Mostra operação real sem exagero | — |
@@ -119,7 +119,7 @@ CREATE INDEX ix_outbox_pendentes ON outbox_event (created_at) WHERE published_at
 CREATE TABLE idempotency_key (
   comerciante_id UUID NOT NULL,
   chave VARCHAR(64) NOT NULL,
-  request_hash CHAR(64) NOT NULL,          -- SHA-256 de método + caminho + corpo canônico
+  request_hash CHAR(64) NOT NULL,          -- SHA-256 da operação + campos do comando já validado (Q-086; ver RequestFingerprint)
   lancamento_id UUID NOT NULL,             -- gerado antes do INSERT; a resposta é reconstruída a partir dele
   criado_em TIMESTAMPTZ NOT NULL DEFAULT now(),
   PRIMARY KEY (comerciante_id, chave),
@@ -225,7 +225,7 @@ Arquivos: `lancamentos-service/src/main/resources/openapi/lancamentos-v1.yaml` e
 
 Corpo do POST: `{ "tipo": "CREDITO|DEBITO", "valor": "100.00", "descricao"?: "...", "dataOcorrencia"?: "ISO-8601", "identificadorExterno"?: "..." }`.
 Corpo do estorno (Q-017): nenhum campo; sem corpo ou `{}` (com `application/json`); qualquer propriedade → 400. `{id}` só na forma canônica de UUID (Q-018).
-**Swagger UI (decisão do dono do produto):** servida a partir do YAML *contract-first* versionado, via webjar `swagger-ui` e `/v3/api-docs` apontando para o arquivo (sem springdoc: evita acoplamento à versão do Boot e elimina divergência entre código e contrato, que já é validado nos testes). Habilitada **somente nos profiles `dev`/`local`**; desabilitada e sem rota liberada no Security em `prod`. O YAML declara o esquema `bearerAuth` (JWT) para o botão *Authorize*; o token vem de `scripts/DevToken.java`.
+**Swagger UI (decisão do dono do produto):** servida a partir do YAML *contract-first* versionado, via webjar `swagger-ui` e `/v3/api-docs` apontando para o arquivo (sem springdoc: evita acoplamento à versão do Boot e elimina divergência entre código e contrato, que já é validado nos testes). Habilitada **somente no profile `local`** (não existe profile `dev`; Q-086); desabilitada e sem rota liberada no Security em `prod`. O YAML declara o esquema `bearerAuth` (JWT) para o botão *Authorize*; o token vem de `scripts/DevToken.java`.
 
 Erros: RFC 9457 com `type`, `title`, `status`, `detail`, `instance`, `errors[]` e os membros de extensão `requestId`, `traceId` e `timestamp` (§5.2). Jackson com `FAIL_ON_UNKNOWN_PROPERTIES`. Actuator em porta de gestão separada, apenas `health` e `prometheus` expostos.
 
@@ -271,7 +271,7 @@ Dias sem movimento: zeros e `atualizadoEm: null`. `GET /consolidado/{data}` devo
 `scripts/DevToken.java` (somente dev): `java scripts/DevToken.java --merchant <uuid> --scopes a,b,c --ttl <segundos>` imprime um JWT RS256 assinado com a chave de desenvolvimento, com `aud: ["lancamentos-api", "consolidado-api"]` (Q-050): o mesmo token serve aos dois serviços, e os *scopes* separam as permissões.
 
 ## 6. Segurança
-- **Autenticação:** JWT com validação de assinatura, `iss`, `aud` e `exp`. `dev`: chave pública local e token gerado por `scripts/DevToken.java`. `prod`: `issuer-uri` do IdP (Cognito/Keycloak).
+- **Autenticação:** JWT com validação de assinatura, `iss`, `aud` e `exp`. `local`: chave pública local e token gerado por `scripts/DevToken.java`. `prod`: `issuer-uri` do IdP (Cognito/Keycloak).
 - **Autorização:** scopes `lancamentos:write|read`, `consolidado:read`; `comercianteId` só do claim `merchant_id`; toda query filtra por comerciante.
 - **Segurança de integração (consumo por outros sistemas):** OAuth2 *client credentials* com scopes mínimos; mTLS opcional no *gateway*; *rate limit* por cliente no borda (acima do pico de 50 req/s do enunciado); payload máximo; timeouts; eventos tratados como entrada não confiável (validação de schema + DLT).
 - **Dados:** TLS na borda; criptografia em repouso (KMS no alvo); segredos fora do Git; logs sem token/segredo; auditoria de estornos em log estruturado (logger `br.com.fluxocaixa.lancamentos.auditoria`, campos na T-014, Q-021).
