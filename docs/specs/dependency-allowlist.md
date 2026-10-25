@@ -2,7 +2,7 @@
 
 Lista todas as dependências diretas do projeto (`<dependency>` de cada `pom.xml`) e a tarefa ou decisão que as aprovou. O gate (`scripts/verify-task.sh`, item 3) barra coordenadas novas fora de `allowed_new_dependencies`; este inventário é atualizado **depois do *merge*** da tarefa que as adiciona (`05-harness.md §4.1`). Versões vêm do BOM do Spring Boot ou das propriedades do `pom.xml` raiz.
 
-Estado em 2026-10-24 (após a T-023).
+Estado em 2026-10-25 (após a T-037).
 
 ## Raiz (`pom.xml`: `dependencyManagement` e dependência de plugin)
 | Coordenada | Escopo | Aprovada por |
@@ -11,6 +11,7 @@ Estado em 2026-10-24 (após a T-023).
 | `org.webjars:swagger-ui` | compile | T-013 |
 | `com.networknt:json-schema-validator` | test | T-013 (Q-006 para o Consolidado, T-022) |
 | `com.puppycrawl.tools:checkstyle` | dependência do plugin Checkstyle | T-002 |
+| `at.yawk.lz4:lz4-java` | runtime (só a versão é gerenciada; vem do `kafka-clients`) | T-037 (Q-081) |
 
 ## `lancamentos-service`
 | Coordenada | Aprovada por |
