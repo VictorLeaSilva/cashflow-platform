@@ -2,6 +2,7 @@ package br.com.fluxocaixa.consolidado.support;
 
 import br.com.fluxocaixa.consolidado.application.port.out.ProjecaoRepository;
 import br.com.fluxocaixa.consolidado.domain.Efeito;
+import java.time.Duration;
 import java.time.Instant;
 import java.util.ArrayList;
 import java.util.List;
@@ -10,6 +11,7 @@ import java.util.UUID;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.CopyOnWriteArrayList;
 import java.util.concurrent.CountDownLatch;
+import java.util.concurrent.locks.LockSupport;
 import org.springframework.dao.TransientDataAccessResourceException;
 
 /**
@@ -28,6 +30,7 @@ public final class ProjecaoComFalhas implements ProjecaoRepository {
   private final Map<UUID, Integer> falhasDepois = new ConcurrentHashMap<>();
   private final Map<UUID, List<Long>> chamadas = new ConcurrentHashMap<>();
   private final Map<UUID, CountDownLatch> primeiraFalha = new ConcurrentHashMap<>();
+  private volatile Duration atraso = Duration.ZERO;
 
   public ProjecaoComFalhas(ProjecaoRepository real) {
     this.real = real;
@@ -42,6 +45,11 @@ public final class ProjecaoComFalhas implements ProjecaoRepository {
   /** O {@code eventId} falha {@code vezes} depois de delegar (depois do {@code commit}). */
   public void falharDepois(UUID eventId, int vezes) {
     falhasDepois.put(eventId, vezes);
+  }
+
+  /** Cada chamada demora {@code atraso} antes de delegar (cadência controlada do consumidor). */
+  public void atrasar(Duration novoAtraso) {
+    atraso = novoAtraso;
   }
 
   public void limpar() {
@@ -61,6 +69,9 @@ public final class ProjecaoComFalhas implements ProjecaoRepository {
   @Override
   public boolean aplicarSeNovo(UUID eventId, Efeito efeito, Instant instante) {
     chamadas.computeIfAbsent(eventId, id -> new CopyOnWriteArrayList<>()).add(milissegundos());
+    if (!atraso.isZero()) {
+      LockSupport.parkNanos(atraso.toNanos());
+    }
     if (consumir(falhasAntes, eventId)) {
       primeiraFalha.computeIfAbsent(eventId, id -> new CountDownLatch(1)).countDown();
       throw new TransientDataAccessResourceException("falha injetada antes do commit");

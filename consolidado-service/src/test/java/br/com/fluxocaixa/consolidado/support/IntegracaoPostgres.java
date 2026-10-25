@@ -19,7 +19,7 @@ public abstract class IntegracaoPostgres {
   }
 
   @BeforeEach
-  void tabelasVazias() {
+  protected void tabelasVazias() {
     PostgresConsolidado.esvaziar();
   }
 }
