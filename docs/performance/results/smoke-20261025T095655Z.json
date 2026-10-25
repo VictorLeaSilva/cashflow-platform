@@ -1,0 +1,298 @@
+{
+    "metrics": {
+        "http_req_connecting": {
+            "avg": 0.04551321126760562,
+            "min": 0,
+            "med": 0,
+            "max": 0.65821,
+            "p(90)": 0.207318,
+            "p(95)": 0.28401750000000003
+        },
+        "data_received": {
+            "rate": 14679.333676697504,
+            "count": 66160
+        },
+        "http_req_receiving": {
+            "avg": 1.548719619718309,
+            "min": 0.095732,
+            "med": 1.371872,
+            "max": 7.442537,
+            "p(90)": 2.434994,
+            "p(95)": 3.6167949999999998
+        },
+        "http_req_duration": {
+            "min": 3.299014,
+            "med": 10.005106,
+            "max": 342.612082,
+            "p(90)": 24.728158,
+            "p(95)": 52.295875499999994,
+            "avg": 20.77312219718309
+        },
+        "data_sent": {
+            "count": 68805,
+            "rate": 15266.196396994737
+        },
+        "http_reqs": {
+            "count": 71,
+            "rate": 15.753214798148774
+        },
+        "http_req_blocked": {
+            "med": 0.004987,
+            "max": 2.233733,
+            "p(90)": 0.333056,
+            "p(95)": 0.4016235,
+            "avg": 0.09825198591549293,
+            "min": 0.002809
+        },
+        "http_req_sending": {
+            "max": 0.367523,
+            "p(90)": 0.099821,
+            "p(95)": 0.1196625,
+            "avg": 0.04883818309859155,
+            "min": 0.01096,
+            "med": 0.029603
+        },
+        "http_req_waiting": {
+            "min": 3.163911,
+            "med": 8.382357,
+            "max": 337.318112,
+            "p(90)": 22.711448,
+            "p(95)": 49.775102000000004,
+            "avg": 19.175564394366198
+        },
+        "vus_max": {
+            "value": 1,
+            "min": 1,
+            "max": 1
+        },
+        "group_duration": {
+            "p(95)": 540.8370442,
+            "avg": 169.62267984,
+            "min": 14.970816,
+            "med": 36.962836,
+            "max": 1072.588137,
+            "p(90)": 535.384147
+        },
+        "vus": {
+            "value": 1,
+            "min": 1,
+            "max": 1
+        },
+        "checks": {
+            "passes": 90,
+            "fails": 0,
+            "thresholds": {
+                "rate==1": false
+            },
+            "value": 1
+        },
+        "iterations": {
+            "count": 5,
+            "rate": 1.109381323813294
+        },
+        "iteration_duration": {
+            "avg": 901.2981092,
+            "min": 640.12608,
+            "med": 671.492831,
+            "max": 1859.694514,
+            "p(90)": 1385.7959548000001,
+            "p(95)": 1622.7452343999998
+        },
+        "http_req_duration{expected_response:true}": {
+            "p(95)": 52.295875499999994,
+            "avg": 20.77312219718309,
+            "min": 3.299014,
+            "med": 10.005106,
+            "max": 342.612082,
+            "p(90)": 24.728158
+        },
+        "http_req_tls_handshaking": {
+            "p(95)": 0,
+            "avg": 0,
+            "min": 0,
+            "med": 0,
+            "max": 0,
+            "p(90)": 0
+        },
+        "http_req_failed": {
+            "passes": 0,
+            "fails": 71,
+            "value": 0
+        }
+    },
+    "root_group": {
+        "name": "",
+        "path": "",
+        "id": "d41d8cd98f00b204e9800998ecf8427e",
+        "groups": {
+            "registrar": {
+                "path": "::registrar",
+                "id": "fe6bd40bf5dc326401236ed8439cfa0f",
+                "groups": {},
+                "checks": {
+                        "crédito 201": {
+                            "name": "crédito 201",
+                            "path": "::registrar::crédito 201",
+                            "id": "1b8de114921bf7f0bb04b4352d40b192",
+                            "passes": 5,
+                            "fails": 0
+                        },
+                        "crédito com id e dataReferencia": {
+                            "name": "crédito com id e dataReferencia",
+                            "path": "::registrar::crédito com id e dataReferencia",
+                            "id": "5bb70a521c86f989d03c49172b2f05bf",
+                            "passes": 5,
+                            "fails": 0
+                        },
+                        "valor preservado": {
+                            "passes": 5,
+                            "fails": 0,
+                            "name": "valor preservado",
+                            "path": "::registrar::valor preservado",
+                            "id": "4a10ebee253c891096300239b4661606"
+                        },
+                        "débito 201": {
+                            "path": "::registrar::débito 201",
+                            "id": "add4bb639e4ae3ea7b4312a78f3fb60c",
+                            "passes": 5,
+                            "fails": 0,
+                            "name": "débito 201"
+                        }
+                    },
+                "name": "registrar"
+            },
+            "idempotência": {
+                "name": "idempotência",
+                "path": "::idempotência",
+                "id": "0dbc0b5feead09ef9e527047e2fdf7bf",
+                "groups": {},
+                "checks": {
+                        "replay devolve 201": {
+                            "name": "replay devolve 201",
+                            "path": "::idempotência::replay devolve 201",
+                            "id": "4113cd917b67775f975e95fdf03ea6bc",
+                            "passes": 5,
+                            "fails": 0
+                        },
+                        "replay mesmo id": {
+                            "path": "::idempotência::replay mesmo id",
+                            "id": "b2b2e8c0b917c3c08a1612dcfca8aea7",
+                            "passes": 5,
+                            "fails": 0,
+                            "name": "replay mesmo id"
+                        },
+                        "replay sinalizado": {
+                            "fails": 0,
+                            "name": "replay sinalizado",
+                            "path": "::idempotência::replay sinalizado",
+                            "id": "505e4f910a83070ab4e2207484bedfa4",
+                            "passes": 5
+                        },
+                        "mesma chave, payload diferente → 422": {
+                            "name": "mesma chave, payload diferente → 422",
+                            "path": "::idempotência::mesma chave, payload diferente → 422",
+                            "id": "24019deb74b80b954a585adb280652f8",
+                            "passes": 5,
+                            "fails": 0
+                        }
+                    }
+            },
+            "validação e segurança": {
+                "name": "validação e segurança",
+                "path": "::validação e segurança",
+                "id": "57d27dcb28d40efb1db5c1f10e20e2fd",
+                "groups": {},
+                "checks": {
+                        "valor negativo → 400": {
+                            "name": "valor negativo → 400",
+                            "path": "::validação e segurança::valor negativo → 400",
+                            "id": "89b4bdbd776af6e427d8f97d77c273fb",
+                            "passes": 5,
+                            "fails": 0
+                        },
+                        "mais de 2 casas → 400": {
+                            "id": "f263884acc4d1253f9582db4a4cf573d",
+                            "passes": 5,
+                            "fails": 0,
+                            "name": "mais de 2 casas → 400",
+                            "path": "::validação e segurança::mais de 2 casas → 400"
+                        },
+                        "sem token → 401": {
+                            "id": "3365c8a17b40ed701400ef851d0fca93",
+                            "passes": 5,
+                            "fails": 0,
+                            "name": "sem token → 401",
+                            "path": "::validação e segurança::sem token → 401"
+                        },
+                        "sem scope de escrita → 403": {
+                            "name": "sem scope de escrita → 403",
+                            "path": "::validação e segurança::sem scope de escrita → 403",
+                            "id": "4519cfd54ac3e79331a8ff11a12e651c",
+                            "passes": 5,
+                            "fails": 0
+                        }
+                    }
+            },
+            "consulta de lançamentos": {
+                "path": "::consulta de lançamentos",
+                "id": "28d0b23124e42880647eb85459278c91",
+                "groups": {},
+                "checks": {
+                        "detalhe 200": {
+                            "name": "detalhe 200",
+                            "path": "::consulta de lançamentos::detalhe 200",
+                            "id": "c997abaf68850d4ac1a819b0df42a56f",
+                            "passes": 5,
+                            "fails": 0
+                        },
+                        "histórico 200": {
+                            "fails": 0,
+                            "name": "histórico 200",
+                            "path": "::consulta de lançamentos::histórico 200",
+                            "id": "cbb51f40be5dc6a03d2ed302c5198154",
+                            "passes": 5
+                        }
+                    },
+                "name": "consulta de lançamentos"
+            },
+            "consolidado (consistência eventual)": {
+                "name": "consolidado (consistência eventual)",
+                "path": "::consolidado (consistência eventual)",
+                "id": "8e4e14be4090dd92daf80cd7b8c601bb",
+                "groups": {},
+                "checks": {
+                        "projeção convergiu em ≤ 20 s": {
+                            "fails": 0,
+                            "name": "projeção convergiu em ≤ 20 s",
+                            "path": "::consolidado (consistência eventual)::projeção convergiu em ≤ 20 s",
+                            "id": "11b40387640c5dbe4d14a64abaca250c",
+                            "passes": 5
+                        },
+                        "consolidado 200": {
+                            "path": "::consolidado (consistência eventual)::consolidado 200",
+                            "id": "e77e87981349d2fa9f28d9dca64933ce",
+                            "passes": 5,
+                            "fails": 0,
+                            "name": "consolidado 200"
+                        },
+                        "um item por dia (2 dias)": {
+                            "passes": 5,
+                            "fails": 0,
+                            "name": "um item por dia (2 dias)",
+                            "path": "::consolidado (consistência eventual)::um item por dia (2 dias)",
+                            "id": "58de858cf0b7498e6f2bfc5c246e2161"
+                        }
+                    }
+            }
+        },
+        "checks": {
+            "consolidado inicial legível": {
+                "fails": 0,
+                "name": "consolidado inicial legível",
+                "path": "::consolidado inicial legível",
+                "id": "7affd27efa727f4e591e00c2759464e0",
+                "passes": 5
+            }
+        }
+    }
+}

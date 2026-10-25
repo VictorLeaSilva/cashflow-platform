@@ -1,0 +1,50 @@
+{
+  "janela_segundos": 321,
+  "inicio_utc": "2026-10-25T10:03:21Z",
+  "fim_utc": "2026-10-25T10:08:42Z",
+  "eventos_aplicados": "3061",
+  "lag_segundos": {
+    "p50": "0.3780888069575472",
+    "p95": "0.6851873866299342",
+    "max": "2.224211",
+    "soma": "1201.4219750000002"
+  },
+  "outbox_pendente_no_fim": "0",
+  "operacao": {
+    "pool_conexoes_ativas_pico": {
+      "lancamentos/api": "1",
+      "lancamentos/publicador": "1",
+      "consolidado/api": "0",
+      "consolidado/consumidor": "1"
+    },
+    "pool_conexoes_pendentes_pico": {
+      "lancamentos/api": "0",
+      "lancamentos/publicador": "0",
+      "consolidado/api": "0",
+      "consolidado/consumidor": "0"
+    },
+    "pool_conexoes_max": {
+      "lancamentos/api": "10",
+      "lancamentos/publicador": "2",
+      "consolidado/api": "10",
+      "consolidado/consumidor": "4"
+    },
+    "outbox_pendentes_pico": "7",
+    "outbox_idade_maxima_segundos": "0.736",
+    "lag_consumidor_kafka_pico_registros": "0",
+    "falhas_de_publicacao": "0",
+    "eventos_na_dlt": "0"
+  },
+  "meta_rnf003": {
+    "p95_max_segundos": 5,
+    "max_segundos": 30,
+    "p95_dentro": true,
+    "max_dentro": true
+  },
+  "consultas": {
+    "p50": "histogram_quantile(0.5, sum by (le) (consolidado_event_lag_seconds_bucket @ 1792922922) - sum by (le) (consolidado_event_lag_seconds_bucket @ 1792922601))",
+    "p95": "histogram_quantile(0.95, sum by (le) (consolidado_event_lag_seconds_bucket @ 1792922922) - sum by (le) (consolidado_event_lag_seconds_bucket @ 1792922601))",
+    "max": "max_over_time(consolidado_event_lag_seconds_max[321s])"
+  },
+  "observacao": "p50 e p95 interpolados pelos buckets do histograma (diferença fim menos início); max é o gauge consolidado_event_lag_seconds_max na janela"
+}

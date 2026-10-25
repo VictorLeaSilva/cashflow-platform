@@ -13,6 +13,7 @@ Controle de **lançamentos** (créditos e débitos) e **consolidado diário** (o
 - [Como funcionam os bancos de dados](#como-funcionam-os-bancos-de-dados)
 - [Se algo der errado](#se-algo-der-errado)
 - [Observabilidade: métricas, alertas e painel](#observabilidade-métricas-alertas-e-painel-opcional)
+- [Carga e desempenho (k6)](#carga-e-desempenho-k6)
 - [Rodar os testes e as verificações de qualidade](#rodar-os-testes-e-as-verificações-de-qualidade)
 - [Contêineres do ambiente local](#contêineres-do-ambiente-local)
 - [Documentação, método e status](#documentação)
@@ -681,6 +682,67 @@ docker compose --env-file .env -f deploy/docker-compose.yml --profile observabil
 docker compose --env-file .env -f deploy/docker-compose.yml --profile observability down
 ```
 
+## Carga e desempenho (k6)
+
+**Para que serve:** medir quanto o Consolidado aguenta (o enunciado pede 50 requisições por segundo, com perda de até 5 %) e quão fresco fica o consolidado enquanto o Lançamentos recebe escrita ao mesmo tempo. Os números e a leitura deles estão no [relatório de desempenho](docs/performance/relatorio.md); aqui está como repetir a medição.
+
+**Antes de começar:** a stack dos serviços no ar, como no [Veja funcionando em 5 minutos](#veja-funcionando-em-5-minutos) (passos 1 a 4, *profile* `apps`), e o `jq` instalado. Não precisa instalar o k6: o script usa a imagem `grafana/k6` do Docker (a primeira vez baixa a imagem). Para a medição valer, deixe a máquina quieta: feche o que consome CPU, pois o gerador de carga e os serviços dividem a mesma máquina.
+
+**1. Conferir os scripts** (só a sintaxe, não precisa da stack):
+
+```bash
+loadtest/run.sh inspect
+```
+
+```powershell
+& "C:\Program Files\Git\bin\bash.exe" loadtest/run.sh inspect
+```
+
+**O que você deve ver:** `✔ k6 inspect: smoke.js` e `✔ k6 inspect: load.js`.
+
+**2. Teste normal** (contrato ponta a ponta, uns 10 segundos):
+
+```bash
+loadtest/run.sh smoke
+```
+
+```powershell
+& "C:\Program Files\Git\bin\bash.exe" loadtest/run.sh smoke
+```
+
+**O que você deve ver:** uma lista de `✓` (um por verificação, todas em 100 %), `k6 terminou com exit 0` e `Resultados em docs/performance/results/smoke-...`.
+
+**3. Teste de carga** (50 req/s de leitura do consolidado e 10 req/s de escrita, por 5 minutos, mais o *seed* e a espera da drenagem; leva uns 7 minutos):
+
+```bash
+loadtest/run.sh load
+```
+
+```powershell
+& "C:\Program Files\Git\bin\bash.exe" loadtest/run.sh load
+```
+
+**O que você deve ver:** o k6 mostrando as duas cenas (`consolidado_read` a 50 iters/s e `lancamentos_write` a 10 iters/s), quatro limiares com `✓` (`dropped_iterations`, p95 da leitura, falha da leitura e falha da escrita), `k6 terminou com exit 0` e uma linha `lag: p95=...s max=...s eventos=...` com o atraso da projeção (a meta é p95 ≤ 5 s e máximo ≤ 30 s). Se algum limiar falhar, o script termina com erro e o resultado fica gravado mesmo assim.
+
+Cada execução deixa três arquivos em `docs/performance/results/`: o resumo do k6 (`.json`), o ambiente (`.env.txt`) e, no teste de carga, o atraso da projeção (`.lag.json`).
+
+**4. Rodadas informativas** (100 e 200 req/s, para ver até onde vai; não são a meta e o script não falha por limiar):
+
+```bash
+READ_RPS=100 loadtest/run.sh load
+READ_RPS=200 loadtest/run.sh load
+```
+
+```powershell
+$env:READ_RPS = "100"; & "C:\Program Files\Git\bin\bash.exe" loadtest/run.sh load
+$env:READ_RPS = "200"; & "C:\Program Files\Git\bin\bash.exe" loadtest/run.sh load
+Remove-Item Env:READ_RPS
+```
+
+**Se a stack usa outro arquivo de configuração ou outro nome de projeto** (por exemplo, uma stack isolada de teste), aponte o script para ela com `ENV_FILE=.env.outro` (no PowerShell, `$env:ENV_FILE = ".env.outro"`). O script descobre a rede do compose pelo contêiner do Lançamentos.
+
+**Cuidados:** `dropped_iterations` maior que zero invalida a rodada (a máquina não sustentou a taxa pedida). O teste usa um comerciante novo a cada execução, então pode ser repetido. Mais detalhes em [`loadtest/README.md`](loadtest/README.md).
+
 ## Como funcionam os bancos de dados
 
 - **Uma instância de PostgreSQL com dois bancos:** `lancamentos` e `consolidado`. Cada serviço tem dois usuários:
@@ -852,6 +914,6 @@ Os comandos afetados são **executados de novo, em bash e em PowerShell**, e o "
   - **Fundação:** build reproduzível e gates de qualidade (T-001, T-002); infraestrutura local (T-004, T-006); documentação de arquitetura (T-005); este README executável (T-007); gate por tarefa, matriz de rastreabilidade e subagente revisor (T-003).
   - **Lançamentos (M1):** domínio, persistência, registro idempotente, API, estorno, consultas e publicador da outbox (T-010 a T-016).
   - **Consolidado (M2):** domínio da projeção, persistência, consumidor Kafka com DLT e API de consulta (T-020 a T-023).
-  - **Fase 3 (parcial):** contrato do evento verificado nos dois lados (T-030), provas de resiliência (T-031), observabilidade com métricas, alertas e painel (T-032) e a demo guiada com os serviços em contêiner (T-035).
+  - **Fase 3 (parcial):** contrato do evento verificado nos dois lados (T-030), provas de resiliência (T-031), observabilidade com métricas, alertas e painel (T-032), a demo guiada com os serviços em contêiner (T-035) e a carga com k6 e o [relatório de desempenho](docs/performance/relatorio.md) (T-033).
 - **Parcial:** o caminho de 5 comandos está em [Veja funcionando em 5 minutos](#veja-funcionando-em-5-minutos); a prova final do README, a de clone limpo, é da T-043.
-- **Próximo:** a carga (k6) e o *hardening* (Fase 3). A ordem está em [`docs/specs/06-tasks.md`](docs/specs/06-tasks.md).
+- **Próximo:** o *hardening* (Fase 3). A ordem está em [`docs/specs/06-tasks.md`](docs/specs/06-tasks.md).

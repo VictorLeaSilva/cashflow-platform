@@ -15,9 +15,7 @@ export const options = {
   vus: 1,
   iterations: 5,
   thresholds: {
-    checks: ['rate==1'],
-    http_req_failed: ['rate<0.01'],
-    http_req_duration: ['p(95)<500'], // meta local; ajustar após primeira medição (P8)
+    checks: ['rate==1'], // AC-T033.1: todos os checks em 100 % (sem limiar de latência, Q-073)
   },
 };
 
