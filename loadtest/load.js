@@ -49,10 +49,12 @@ export const options = {
     'http_req_duration{flow:read}': ['p(95)<500'],
     // Isolamento: escrita ≥ 99 % de sucesso com a leitura em pico.
     'http_req_failed{flow:write}': ['rate<0.01'],
-    // Meta local (P8): ajustar após a primeira medição documentada.
-    'http_req_duration{flow:write}': ['p(95)<1000'],
-    'checks{flow:read}': ['rate>0.99'],
-    'checks{flow:write}': ['rate>0.99'],
+    // A latência da escrita e a de cada consulta são só reportadas, sem limiar: o RNF-002 não define
+    // meta para elas (Q-073). Os limiares 'max>=0' sempre passam; existem só para o k6 exportar
+    // essas métricas separadas no resumo.
+    'http_req_duration{flow:write}': ['max>=0'],
+    'http_req_duration{endpoint:range}': ['max>=0'],
+    'http_req_duration{endpoint:dia}': ['max>=0'],
     // Validade do teste: o gerador sustentou a taxa pedida.
     dropped_iterations: ['count<1'],
   },

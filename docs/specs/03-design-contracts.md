@@ -283,7 +283,7 @@ Dias sem movimento: zeros e `atualizadoEm: null`. `GET /consolidado/{data}` devo
 | Evento inválido ou não processável | Fora do contrato ou do domínio: direto para a DLT. Demais falhas: 1 tentativa + 3 novas tentativas com *backoff* (1 s, 2 s, 4 s) → DLT (Q-045). Em ambos: alerta + política de recuperação (§7.2) |
 | Outbox crescendo | Alerta; limite de capacidade documentado |
 
-### 7.1 Limites operacionais (valores iniciais; revisados com a medição da T-033; mudar exige atualizar esta tabela)
+### 7.1 Limites operacionais (valores iniciais, revisados com a medição da T-033 em 2026-10-25: nenhum mudou; mudar exige atualizar esta tabela)
 | Componente | Limite |
 |---|---|
 | Publicador (Lançamentos) | 1 *thread* por instância; lote 100; intervalo 500 ms com *backoff* exponencial até 30 s enquanto houver falha |
@@ -294,6 +294,17 @@ Dias sem movimento: zeros e `atualizadoEm: null`. `GET /consolidado/{data}` devo
 | Consumidor (Consolidado) | concorrência 1 (até o nº de partições); `max.poll.records=100`; **pool dedicado, máx. 4**, separado do pool da API (máx. 10) |
 | Outbox | linhas publicadas removidas após `lancamentos.outbox.retention-days` (padrão 7); sem rejeição de escrita por tamanho (alerta por idade) |
 | Isolamento de capacidade do Consolidado | CPU/memória são compartilhadas entre API e consumidor (D-10); se o cenário de drenagem sob leitura (T-033) mostrar interferência, separar o consumidor em executável próprio |
+
+**Revisão com a medição da T-033 (2026-10-25).** Fonte: `docs/performance/results/` e `docs/performance/relatorio.md` (stack `apps` em contêineres, uma máquina Windows 11 com Docker Desktop de 12 CPUs e 8 GB, gerador de carga e serviços na mesma máquina). Carga: leitura de 50, 100 e 200 req/s no Consolidado com escrita simultânea de 10 req/s em Lançamentos. Os picos de pool e de fila vêm de raspagens a cada 5 s e podem não captar picos mais curtos. Nenhum limite mudou.
+| Componente | Decisão | Medição que sustenta |
+|---|---|---|
+| Publicador (Lançamentos) | **Mantido** | Lag de projeção p95 de 0,61 a 0,69 s e máximo de 0,88 a 2,2 s nas três taxas; fila da outbox com no máximo 7 eventos pendentes e o mais antigo com menos de 1 s; nenhuma falha de publicação. O intervalo de 500 ms explica o p50 de cerca de 0,4 s |
+| Produtor Kafka e produtor da DLT | **Mantidos** | Zero falhas de publicação e zero eventos na DLT. O comportamento com o Kafka fora é provado na T-031 e na demo (T-035), não por esta carga |
+| Transação do lote | **Mantido** | Lotes pequenos (a fila nunca passou de 7 eventos); o *timeout* de 15 s nunca foi o limite |
+| Pools JDBC (Lançamentos e Consolidado) | **Mantidos** (API 10, publicador 2, consumidor 4) | Pico de 1 conexão ativa em cada pool, nenhuma conexão pendente |
+| Consumidor (Consolidado) | **Mantido** (concorrência 1, 100 registros por *poll*) | Lag máximo do consumidor Kafka de 0 registros nas três taxas |
+| Outbox (retenção de 7 dias) | **Mantido** | Não exercitado por esta carga (a retenção só age em dias); sem rejeição de escrita por tamanho |
+| Isolamento de capacidade do Consolidado | **Mantido** (API e consumidor no mesmo executável) | A leitura de 50, 100 e 200 req/s não aumentou o lag de projeção (p95 estável em cerca de 0,7 s) e o uso de CPU do contêiner do Consolidado teve pico de 0,67 núcleo (200 req/s). Separar o consumidor só se entrar no escopo uma carga acima de 200 req/s ou o isolamento entre leitura e projeção em produção |
 
 ### 7.2 Política de recuperação da DLT
 Evento na DLT significa **consolidado incompleto** até o reprocessamento (a fonte de verdade é o Lançamentos).

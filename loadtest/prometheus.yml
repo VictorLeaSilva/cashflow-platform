@@ -1,0 +1,16 @@
+# Prometheus da rodada de carga (T-033, Q-070). Sobe por `loadtest/run.sh load` na rede do compose e
+# raspa os serviços pelo nome do contêiner, sem depender das portas do host nem da stack de
+# observabilidade (deploy/). Só serve para ler o lag de projeção (RNF-003) no fim da rodada.
+global:
+  scrape_interval: 5s
+
+scrape_configs:
+  - job_name: lancamentos
+    metrics_path: /actuator/prometheus
+    static_configs:
+      - targets: ["lancamentos:9081"]
+
+  - job_name: consolidado
+    metrics_path: /actuator/prometheus
+    static_configs:
+      - targets: ["consolidado:9082"]

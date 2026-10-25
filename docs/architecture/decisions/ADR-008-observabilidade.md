@@ -17,7 +17,7 @@ Com integração assíncrona, uma falha não aparece como erro para o usuário: 
 - **Como distinguir as falhas:**
   - **Kafka fora** → `outbox_oldest_pending_age_seconds` sobe (a outbox não drena).
   - **Consolidado parado** → `up{job="consolidado"} == 0` e o lag do consumidor sobe, com a outbox drenando normalmente.
-- **Alertas** (valores iniciais, revisados após a T-033): idade da outbox > 60 s por 5 min; Consolidado fora por 2 min; lag do consumidor crescente; qualquer evento na DLT; lag de projeção p95 > 5 s por 5 min; taxa de 5xx > 5 %; saturação de qualquer pool JDBC.
+- **Alertas** (valores iniciais, revisados com a medição da T-033 em 2026-10-25, sem mudança): idade da outbox > 60 s por 5 min; Consolidado fora por 2 min; lag do consumidor crescente; qualquer evento na DLT; lag de projeção p95 > 5 s por 5 min; taxa de 5xx > 5 %; saturação de qualquer pool JDBC.
 
 ## Alternativas rejeitadas
 | Alternativa | Por que não |
@@ -30,7 +30,7 @@ Com integração assíncrona, uma falha não aparece como erro para o usuário: 
 ## Consequências
 - **Ganho:** operação visível; cada alerta aponta a ação (ver runbook da DLT, `03 §7.2`).
 - **Custo assumido:** dependências de observabilidade nos serviços e um profile a mais no compose.
-- Os limiares são **iniciais**: não são medições (P8) e serão ajustados com a carga da T-033.
+- Os limiares **não são medições** (P8): são os limites da meta (RNF-003: p95 de 5 s) e das falhas. A carga da T-033 (2026-10-25, 50 a 200 req/s) manteve o sistema bem abaixo de todos: lag de projeção p95 de 0,7 s, idade máxima da outbox de menos de 1 s, nenhuma falha HTTP no k6 e pools com no máximo 1 conexão ativa (picos de raspagens a cada 5 s). Por isso nenhum limiar mudou; ver `docs/performance/relatorio.md`.
 
 ## Revisitar quando
 - Volume de logs/métricas no alvo tornar o CloudWatch caro → amostragem ou AMP/AMG.
