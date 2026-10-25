@@ -2,6 +2,8 @@ name: Security
 
 # Gates de segurança do pipeline (T-034, Q-067, 04 §2.5 e §4): CodeQL (SAST), OWASP Dependency-Check
 # (CVEs em dependências) e Trivy (imagens dos serviços). O gitleaks continua no ci.yml.
+# O Dependency-Check roda sem o analisador OSS Index (T-038, Q-082): ele exige conta, limita
+# requisições anônimas e fazia o job sair com código 14; a cobertura de CVE é a do NVD.
 # Em PR e diário. Supressões só com motivo, tarefa e validade, em docs/security/ (04 §5, Q-076).
 on:
   pull_request:
@@ -83,6 +85,7 @@ jobs:
             --scan /src/consolidado-service/target/consolidado-service-0.1.0-SNAPSHOT.jar \
             --nvdApiKey "$NVD_API_KEY" \
             --failOnCVSS 7 \
+            --disableOssIndex \
             --suppression /src/docs/security/dependency-check-suppressions.xml \
             --format HTML --format JSON --out /report
       - name: Publicar o relatório
