@@ -1,0 +1,5 @@
+# Supressões do Trivy (T-034, Q-076, 04 §5).
+# Cada entrada exige: id da vulnerabilidade, statement com o motivo e a tarefa que a criou, e
+# expired_at (AAAA-MM-DD): depois da validade o achado volta a falhar o gate.
+# Hoje não há nenhuma: o primeiro run do security.yml no GitHub decide se alguma é necessária.
+vulnerabilities: []

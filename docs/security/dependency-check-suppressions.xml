@@ -1,0 +1,9 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!--
+  Supressões do OWASP Dependency-Check (T-034, Q-076, 04 §5).
+  Cada <suppress> exige: <notes> com o motivo, a tarefa que a criou e a validade (until="AAAA-MM-DD");
+  depois da validade a supressão deixa de valer e o achado volta a falhar o gate.
+  Hoje não há nenhuma: o primeiro run do security.yml no GitHub decide se alguma é necessária.
+-->
+<suppressions xmlns="https://jeremylong.github.io/DependencyCheck/dependency-suppression.1.3.xsd">
+</suppressions>
