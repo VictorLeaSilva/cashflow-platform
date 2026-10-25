@@ -76,6 +76,11 @@ public final class TratamentoDeErroComCorrelacao extends DefaultErrorHandler {
       CONSUMO.warn("evento enviado para a DLT: {}", causa(falha));
     }
 
+    @Override
+    public void recoveryFailed(ConsumerRecord<?, ?> registro, Exception original, Exception falha) {
+      CONSUMO.warn("envio do evento para a DLT falhou: {}", causa(falha));
+    }
+
     private static String causa(Exception falha) {
       if (falha == null) {
         return "desconhecida";

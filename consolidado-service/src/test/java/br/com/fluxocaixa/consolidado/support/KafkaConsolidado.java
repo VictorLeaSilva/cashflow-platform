@@ -145,6 +145,19 @@ public final class KafkaConsolidado {
     }
   }
 
+  /** Congela o broker (simula o Kafka fora sem perder o estado). */
+  public static void pausar() {
+    docker().pauseContainerCmd(CONTAINER.getContainerId()).exec();
+  }
+
+  public static void retomar() {
+    docker().unpauseContainerCmd(CONTAINER.getContainerId()).exec();
+  }
+
+  private static com.github.dockerjava.api.DockerClient docker() {
+    return org.testcontainers.DockerClientFactory.instance().client();
+  }
+
   /** Offset confirmado pelo grupo na partição, se houver. */
   public static OptionalLong offsetConfirmado(String grupo, int particao) {
     TopicPartition alvo = new TopicPartition(TOPICO, particao);

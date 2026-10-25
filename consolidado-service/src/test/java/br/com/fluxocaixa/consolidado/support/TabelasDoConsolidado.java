@@ -10,6 +10,7 @@ import java.sql.SQLException;
 import java.time.Instant;
 import java.time.LocalDate;
 import java.time.OffsetDateTime;
+import java.util.Collection;
 import java.util.HashMap;
 import java.util.Map;
 import java.util.Optional;
@@ -22,6 +23,34 @@ import java.util.UUID;
 public final class TabelasDoConsolidado {
 
   private TabelasDoConsolidado() {}
+
+  /** Linhas de {@code consolidado_diario} de um comerciante. */
+  public static Map<ChaveDiaria, MovimentoDiario> diasDe(UUID comerciante) {
+    Map<ChaveDiaria, MovimentoDiario> doComerciante = new HashMap<>();
+    dias()
+        .forEach(
+            (chave, movimento) -> {
+              if (chave.comercianteId().equals(comerciante)) {
+                doComerciante.put(chave, movimento);
+              }
+            });
+    return Map.copyOf(doComerciante);
+  }
+
+  /** Quantos dos eventos estão em {@code evento_processado}. */
+  public static long processadosEntre(Collection<UUID> eventIds) {
+    if (eventIds.isEmpty()) {
+      return 0;
+    }
+    String marcas = String.join(", ", java.util.Collections.nCopies(eventIds.size(), "?"));
+    return consultar(
+        "SELECT count(*) FROM evento_processado WHERE event_id IN (" + marcas + ")",
+        linhas -> {
+          linhas.next();
+          return linhas.getLong(1);
+        },
+        eventIds.toArray());
+  }
 
   /** Todas as linhas de {@code consolidado_diario}. */
   public static Map<ChaveDiaria, MovimentoDiario> dias() {

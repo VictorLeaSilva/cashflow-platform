@@ -42,6 +42,12 @@ spring:
       value-serializer: org.apache.kafka.common.serialization.StringSerializer
       properties:
         "[enable.idempotence]": true
+        # Mesmos limites do produtor do Lançamentos (03 §7.1, Q-060): com o broker fora, o envio à DLT
+        # falha em segundos e o registro volta a ser entregue, em vez de segurar o consumidor por
+        # cerca de 2 min por tentativa. O Kafka exige delivery.timeout.ms >= request.timeout.ms.
+        "[max.block.ms]": 3000
+        "[request.timeout.ms]": 5000
+        "[delivery.timeout.ms]": 10000
     listener:
       # Q-044: o offset de cada registro só é confirmado depois que o listener retorna (o commit).
       ack-mode: record

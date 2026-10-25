@@ -288,6 +288,7 @@ Dias sem movimento: zeros e `atualizadoEm: null`. `GET /consolidado/{data}` devo
 |---|---|
 | Publicador (Lançamentos) | 1 *thread* por instância; lote 100; intervalo 500 ms com *backoff* exponencial até 30 s enquanto houver falha |
 | Produtor Kafka | `acks=all`, idempotente, `max.block.ms=3000`, `request.timeout.ms=5000`, `delivery.timeout.ms=10000` |
+| Produtor da DLT (Consolidado) | Os mesmos limites do produtor do Lançamentos: `acks=all`, idempotente, `max.block.ms=3000`, `request.timeout.ms=5000`, `delivery.timeout.ms=10000` (Q-060). Com o broker fora, o envio à DLT falha em segundos, o registro não é confirmado e volta a ser entregue |
 | Transação do lote | *timeout* de 15 s; falha libera o lote para a próxima tentativa |
 | Pools JDBC (Lançamentos) | API: máx. 10; **publicador: pool dedicado, máx. 2** (nunca compartilha conexões com a API) |
 | Consumidor (Consolidado) | concorrência 1 (até o nº de partições); `max.poll.records=100`; **pool dedicado, máx. 4**, separado do pool da API (máx. 10) |
