@@ -2,10 +2,11 @@
 
 Controle de **lançamentos** (créditos e débitos) e **consolidado diário** (o resumo de cada dia), com dois serviços independentes que conversam por eventos. Case do desafio de Arquiteto de Soluções.
 
-> **Estado:** os dois serviços funcionam de ponta a ponta. O de **Lançamentos** registra, estorna e consulta lançamentos e publica um evento para cada um. O de **Consolidado** recebe esses eventos e responde o resumo diário com saldos. Faltam as provas de resiliência e carga e a demo guiada (Fase 3). O README final é da T-043; até lá, este documento é atualizado a cada tarefa (veja [Manter este README vivo](#manter-este-readme-vivo)).
+> **Estado:** os dois serviços funcionam de ponta a ponta. O de **Lançamentos** registra, estorna e consulta lançamentos e publica um evento para cada um. O de **Consolidado** recebe esses eventos e responde o resumo diário com saldos. Há uma demo guiada em um comando (`scripts/demo.sh`); faltam as provas de carga e o *hardening* (Fase 3). O README final é da T-043; até lá, este documento é atualizado a cada tarefa (veja [Manter este README vivo](#manter-este-readme-vivo)).
 
 ## Sumário
 
+- [Veja funcionando em 5 minutos](#veja-funcionando-em-5-minutos)
 - [Para que serve cada peça](#para-que-serve-cada-peça)
 - [O que você precisa instalar](#o-que-você-precisa-instalar)
 - [Passo a passo: subir e usar a aplicação do zero](#passo-a-passo-subir-e-usar-a-aplicação-do-zero)
@@ -15,6 +16,92 @@ Controle de **lançamentos** (créditos e débitos) e **consolidado diário** (o
 - [Rodar os testes e as verificações de qualidade](#rodar-os-testes-e-as-verificações-de-qualidade)
 - [Contêineres do ambiente local](#contêineres-do-ambiente-local)
 - [Documentação, método e status](#documentação)
+
+## Veja funcionando em 5 minutos
+
+**Para que serve:** subir os dois serviços e a infraestrutura em contêineres e ver, com um script, as garantias centrais do projeto: **idempotência**, **estorno**, **lançamento retroativo**, **isolamento entre comerciantes** e o **Consolidado parado** (o Lançamentos continua gravando e o Consolidado converge quando volta). Com a opção `--kafka-down`, também o **Kafka parado**. O passo a passo detalhado, pelo Maven, continua [mais abaixo](#passo-a-passo-subir-e-usar-a-aplicação-do-zero).
+
+**Antes de começar** (uma vez): Git, Docker (ligado), Java 25 e o `jq`. O `jq` é o leitor de JSON que o script usa:
+- Windows: `winget install jqlang.jq` e depois **feche e abra o terminal** (o `PATH` só vale em terminais novos);
+- macOS: `brew install jq`; Linux: `sudo apt install jq` (ou o gerenciador da sua distribuição).
+
+No Windows, o script roda pelo **Git Bash** (instalado junto com o Git). As portas `8081`, `8082`, `9081` e `9082` precisam estar livres, assim como as do banco e do Kafka (veja o aviso do [passo 3](#3-subir-a-infraestrutura-banco-de-dados-e-kafka) para usar outras).
+
+**1. Baixar o projeto:**
+
+```bash
+git clone https://github.com/VictorLeaSilva/cashflow-platform.git
+cd cashflow-platform
+```
+
+```powershell
+git -c core.longpaths=true clone https://github.com/VictorLeaSilva/cashflow-platform.git
+cd cashflow-platform
+```
+
+**2. Criar o arquivo de configuração `.env`:**
+
+```bash
+cp .env.example .env
+```
+
+```powershell
+Copy-Item .env.example .env
+```
+
+**3. Compilar e gerar as imagens dos serviços** (a primeira vez baixa o *builder* do Paketo, centenas de MB, e leva vários minutos):
+
+```bash
+./mvnw -q install -DskipTests -Pimagens
+```
+
+```powershell
+.\mvnw.cmd -q install "-DskipTests" "-Pimagens"
+```
+
+**O que você deve ver:** o terminal volta sem erro, e `docker images fluxo-caixa/*` lista `fluxo-caixa/lancamentos` e `fluxo-caixa/consolidado` na versão `0.1.0-SNAPSHOT`. Se aparecer `Builder lifecycle 'creator' failed` ou `unexpected EOF`, foi uma falha de rede ao baixar camadas: rode o comando de novo.
+
+**4. Subir tudo** (banco, Kafka, a chave de desenvolvimento e os dois serviços):
+
+```bash
+docker compose --env-file .env -f deploy/docker-compose.yml --profile apps up -d --wait --remove-orphans
+```
+
+```powershell
+docker compose --env-file .env -f deploy/docker-compose.yml --profile apps up -d --wait --remove-orphans
+```
+
+**O que você deve ver:** linhas `Healthy` para `postgres`, `kafka`, `lancamentos` e `consolidado`, e `Started` para `dev-keys` e `kafka-topicos` (que terminam sozinhos). Os serviços levam cerca de meio minuto para ficar prontos; o script espera por eles.
+
+**5. Rodar a demonstração:**
+
+```bash
+scripts/demo.sh
+```
+
+```powershell
+& "C:\Program Files\Git\bin\bash.exe" scripts/demo.sh
+```
+
+**O que você deve ver:** sete blocos, cada um com linhas `✔` (verde) e o valor conferido, e no fim:
+
+```text
+Demonstração concluída: RF-007, RF-003, RF-009, RF-010 e RNF-001
+```
+
+Para incluir a prova do Kafka parado (leva mais um ou dois minutos), use `scripts/demo.sh --kafka-down`; o final passa a citar também o `RNF-007`. A demo usa **comerciantes novos a cada execução**, então pode ser repetida. Se ela falhar no meio, o script religa o Consolidado e o Kafka antes de sair.
+
+**Para desligar:**
+
+```bash
+docker compose --env-file .env -f deploy/docker-compose.yml --profile apps down
+```
+
+```powershell
+docker compose --env-file .env -f deploy/docker-compose.yml --profile apps down
+```
+
+(Acrescente `-v` para apagar também os dados, como no [passo 14](#14-parar-e-limpar).) Os contêineres dos serviços rodam como usuário comum (não-root) e as portas de gestão (`9081` e `9082`) são as mesmas da [Observabilidade](#observabilidade-métricas-alertas-e-painel-opcional), então o Prometheus e o Grafana funcionam sem mudança: acrescente `--profile observability` ao comando do passo 4.
 
 ## Para que serve cada peça
 
@@ -715,10 +802,13 @@ Remove-Item Env:BASE
 | `kafka-ui` | `kafbat/kafka-ui:v1.3.0` | Página para ver tópicos e mensagens | `KAFKA_UI_PORT` (8090) | `tools` | Contínuo, opcional |
 | `prometheus` | `prom/prometheus:v3.15.1` | Métricas e alertas dos dois serviços (`deploy/prometheus/`) | `PROMETHEUS_PORT` (9090) | `observability` | Contínuo, opcional, com *healthcheck* |
 | `grafana` | `grafana/grafana:13.2.4` | Painel de operação, só leitura e sem login (`deploy/grafana/`) | `GRAFANA_PORT` (3000) | `observability` | Contínuo, opcional, com *healthcheck* |
+| `dev-keys` | `eclipse-temurin:25.0.1_8-jdk-noble` | Cria a chave JWT de desenvolvimento em `deploy/dev-keys/` (`scripts/DevToken.java`), se ainda não existir | — | `apps` | Execução única: termina com exit 0 |
+| `lancamentos` | `fluxo-caixa/lancamentos:0.1.0-SNAPSHOT` | Serviço de Lançamentos, imagem do `spring-boot:build-image` (usuário não-root) | `LANCAMENTOS_PORT` (8081) e `LANCAMENTOS_MANAGEMENT_PORT` (9081) | `apps` | Contínuo; a saúde é `:9081/actuator/health` |
+| `consolidado` | `fluxo-caixa/consolidado:0.1.0-SNAPSHOT` | Serviço de Consolidado, mesma receita | `CONSOLIDADO_PORT` (8082) e `CONSOLIDADO_MANAGEMENT_PORT` (9082) | `apps` | Contínuo; a saúde é `:9082/actuator/health` |
 
 - **Kafka UI:** para ver as mensagens no navegador, acrescente `--profile tools` ao comando do passo 3 e abra <http://localhost:8090>.
 - **Observabilidade:** para ver as métricas e o painel, acrescente `--profile observability` ao comando do passo 3 (veja [Observabilidade](#observabilidade-métricas-alertas-e-painel-opcional)).
-- **Serviços em contêiner:** os contêineres dos dois serviços (profile `apps`) entram na T-035. Até lá, os serviços sobem pelo Maven, como nos passos 7 e 8.
+- **Serviços em contêiner:** com `--profile apps`, os dois serviços sobem em contêineres (veja [Veja funcionando em 5 minutos](#veja-funcionando-em-5-minutos)); sem ele, sobem pelo Maven, como nos passos 7 e 8. Os dois modos usam as mesmas portas, então não rode os dois ao mesmo tempo.
 - **`--remove-orphans`:** remove contêineres de serviços que saíram do compose ou foram renomeados, como o de criação de tópicos na T-006.
 - **Volumes soltos:** a imagem do Kafka declara volumes próprios. Ao remover um contêiner órfão, ficam volumes anônimos soltos, que o `down -v` não alcança. Liste-os com `docker volume ls -f dangling=true` antes de apagar.
 
@@ -762,6 +852,6 @@ Os comandos afetados são **executados de novo, em bash e em PowerShell**, e o "
   - **Fundação:** build reproduzível e gates de qualidade (T-001, T-002); infraestrutura local (T-004, T-006); documentação de arquitetura (T-005); este README executável (T-007); gate por tarefa, matriz de rastreabilidade e subagente revisor (T-003).
   - **Lançamentos (M1):** domínio, persistência, registro idempotente, API, estorno, consultas e publicador da outbox (T-010 a T-016).
   - **Consolidado (M2):** domínio da projeção, persistência, consumidor Kafka com DLT e API de consulta (T-020 a T-023).
-  - **Fase 3 (parcial):** contrato do evento verificado nos dois lados (T-030) e observabilidade com métricas, alertas e painel (T-032).
-- **Parcial:** o caminho do README ainda tem mais que os 5 comandos da RNF-009; a demo em um comando chega com a T-035, e a prova final, com a T-043.
-- **Próximo:** testes de resiliência, a demo guiada, a carga e o *hardening* (Fase 3). A ordem está em [`docs/specs/06-tasks.md`](docs/specs/06-tasks.md).
+  - **Fase 3 (parcial):** contrato do evento verificado nos dois lados (T-030), provas de resiliência (T-031), observabilidade com métricas, alertas e painel (T-032) e a demo guiada com os serviços em contêiner (T-035).
+- **Parcial:** o caminho de 5 comandos está em [Veja funcionando em 5 minutos](#veja-funcionando-em-5-minutos); a prova final do README, a de clone limpo, é da T-043.
+- **Próximo:** a carga (k6) e o *hardening* (Fase 3). A ordem está em [`docs/specs/06-tasks.md`](docs/specs/06-tasks.md).
