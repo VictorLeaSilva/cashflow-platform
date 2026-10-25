@@ -1,6 +1,8 @@
 # Arquitetura — Fluxo de Caixa
 
-> Documento de arquitetura do case. Esta versão (T-005) cobre os direcionadores, os diagramas C4, a arquitetura-alvo e as decisões (ADRs). A T-040 acrescenta as visões de runtime e deploy com números medidos.
+> Documento de arquitetura do case. A T-005 criou os direcionadores, os diagramas C4, a arquitetura-alvo e as decisões (ADRs). A T-040 atualizou os estados para o que foi construído e provado (M1 a M3), acrescentou as visões de **runtime** (§5.2) e de **deploy local** (§4.1) com números medidos e fez a revisão cruzada ADRs × código (§11).
+>
+> **Leitura rápida dos rótulos:** *provado* = há teste ou script reproduzível e evidência revisada; *medido* = número do [relatório de desempenho](../performance/relatorio.md) (2026-10-25, notebook local, gerador de carga e serviços na mesma máquina) e **vale só para o case local, não para o alvo**; *meta* = objetivo do alvo AWS, não medido; *só desenho* = existe apenas no alvo.
 
 ## 1. Visão geral
 
@@ -15,28 +17,29 @@ Um comerciante registra **lançamentos** (créditos e débitos) e consulta o **s
 |---|---|---|
 | Serviço de lançamentos e serviço de consolidado | Dois executáveis independentes, um banco lógico cada (ADR-001, ADR-002) | P2 |
 | Lançamentos não pode cair se o Consolidado cair | Nenhuma chamada síncrona entre serviços; outbox transacional + Kafka (ADR-003). Limites da garantia em §1.3 | P6 |
-| 50 req/s no Consolidado em pico, "no máximo 5 % de perda de requisições" | Leitura por chave em projeção pré-agregada; serviços *stateless* escaláveis; a provar com k6 (RNF-002, T-033). "Perda" aqui é **taxa de requisições HTTP com falha** (erro ≥ 500, erro de conexão ou resposta > 2 s, RNF-002) — não perda de lançamentos ou eventos. Lançamento confirmado com 201 não é descartado pelo fluxo: fica no banco, e o evento fica na outbox até ser publicado (ADR-003). Os casos de perda de dados restantes são de infraestrutura (restauração por PITR, perda da região) e estão no ADR-010 | P8 |
+| 50 req/s no Consolidado em pico, "no máximo 5 % de perda de requisições" | Leitura em projeção pré-agregada (os dias por chave; o saldo anterior soma o histórico, §5.2); serviços *stateless* escaláveis; **medido** com k6 (RNF-002, T-033): 0 falhas em 15 001 leituras a 50 req/s, p95 de 6,3 ms (§5.2). "Perda" aqui é **taxa de requisições HTTP com falha** (erro ≥ 500, erro de conexão ou resposta > 2 s, RNF-002) — não perda de lançamentos ou eventos. Lançamento confirmado com 201 não é descartado pelo fluxo: fica no banco, e o evento fica na outbox até ser publicado (ADR-003). Os casos de perda de dados restantes são de infraestrutura (restauração por PITR, perda da região) e estão no ADR-010 | P8 |
 | Dinheiro e saldo corretos | `BigDecimal`/`NUMERIC`; fatos imutáveis; idempotência fim a fim (ADR-003, ADR-005) | P3, P4, P5 |
 | Segurança | JWT, *scopes*, isolamento por comerciante, critérios de integração (ADR-007) | — |
 | Documentação e decisões | ADR-001..010, specs em `docs/specs/` | P7, P9 |
 
 ### 1.2 Case local × arquitetura-alvo
 
-| | **Case local** (implementado e provado aos poucos, tarefa a tarefa) | **Arquitetura-alvo AWS** (apenas desenho) |
+| | **Case local** (implementado e provado, tarefa a tarefa) | **Arquitetura-alvo AWS** (apenas desenho) |
 |---|---|---|
-| O que é | Código, testes, `docker compose` com PostgreSQL e Kafka, k6, `scripts/demo.sh` | Diagrama e decisões para produção (§6, ADR-010) |
-| Evidência | Hoje: `./mvnw verify` (gates da T-002) e `deploy/verify-local.sh` (T-004). Depois: testes de integração e E2E, resultados do k6 em `docs/performance/` (T-033), `demo.sh` (T-035) | Justificativa e trade-offs; números rotulados como **meta** |
+| O que é | Código, testes, `docker compose` com PostgreSQL e Kafka (e, em profiles, os dois serviços, Prometheus e Grafana), k6, `scripts/demo.sh` | Diagrama e decisões para produção (§6, ADR-010) |
+| Evidência | `./mvnw verify` (gates, ITs com Testcontainers, ArchUnit), `deploy/verify-local.sh` (T-004), testes de resiliência (T-031), `scripts/demo.sh` (T-035), resultados do k6 em `docs/performance/results/` (T-033), matriz `docs/specs/traceability.md` | Justificativa e trade-offs; números rotulados como **meta** |
 | Nuvem | Nenhuma: não há conta AWS, IaC nem deploy | ECS, RDS, MSK, Cognito, CloudWatch — só no desenho |
 
-Este documento usa três estados, e nada é afirmado além do estado indicado:
+Este documento usa quatro estados, e nada é afirmado além do estado indicado:
 
 | Estado | Significado | Exemplos hoje |
 |---|---|---|
-| **Provado** | Existe no repositório e há verificação executada | Gates de qualidade e regras ArchUnit (T-002); bancos, roles por `CONNECT`, tópico e DLT (T-004) |
-| **A provar (T-xxx)** | Faz parte do case local; será implementado e provado na tarefa indicada | APIs, publicador, consumidor, JWT, métricas, carga de 50 req/s |
+| **Provado** | Existe no repositório e há teste ou script reproduzível, com evidência em `docs/specs/reviews/T-xxx.evidence.md` e revisão PASS | APIs, publicador, consumidor, JWT, métricas, retry e DLT, idempotência concorrente, resiliência com o Consolidado parado e com o Kafka fora (§8) |
+| **Medido** | Número do relatório de desempenho, com data e ambiente | 50, 100 e 200 req/s de leitura; frescor da projeção (§5.2) |
+| **Pendente do GitHub** | Implementado e verificado localmente, mas a prova final é um *run* no GitHub que só o autor confirma | `security.yml` verde no PR (CodeQL, Dependency-Check, Trivy), `loadtest.yml` e `demo.yml` (RNF-005, RNF-002) |
 | **Só desenho** | Existe apenas na arquitetura-alvo; não será provado no case | Multi-AZ, *failover*, RPO/RTO, WAF, Cognito, CloudWatch |
 
-**Regra para mudar um item para "provado":** só com evidência reproduzível registrada — o comando ou teste que prova (`classe#método`, script, cenário k6) e o arquivo de evidência da tarefa (`docs/specs/reviews/T-xxx.evidence.md`) com a revisão independente. Testes de risco contam como prova só na forma exigida (por exemplo, idempotência **concorrente**, não apenas sequencial — `04 §2.7`); carga conta só com resultado medido e versionado (`docs/performance/results/`). Ao concluir cada tarefa, esta tabela e as de §7 e §8 são atualizadas.
+**Regra para mudar um item para "provado":** só com evidência reproduzível registrada — o comando ou teste que prova (`classe#método`, script, cenário k6) e o arquivo de evidência da tarefa (`docs/specs/reviews/T-xxx.evidence.md`) com a revisão independente. Testes de risco contam como prova só na forma exigida (por exemplo, idempotência **concorrente**, não apenas sequencial — `04 §2.7`); carga conta só com resultado medido e versionado (`docs/performance/results/`). Ao concluir cada tarefa, esta tabela e as de §7 e §8 são atualizadas (a T-040 fez a atualização geral até a T-038).
 
 As metas da arquitetura-alvo (§6) **nunca** viram "provado" por causa do case local: k6 local mede o código no ambiente local, não o comportamento de ECS, RDS e MSK.
 
@@ -92,27 +95,27 @@ flowchart LR
 flowchart TB
     cli["Cliente HTTP<br/>(Swagger UI, demo.sh, k6)"]
 
-    subgraph L["lancamentos-service :8081"]
-      lapi["API REST<br/>POST/GET /api/v1/lancamentos<br/>(a provar: T-013..T-015)"]
-      lpub["Publicador outbox<br/>(polling 500 ms, pool JDBC dedicado)<br/>(a provar: T-016)"]
+    subgraph L["lancamentos-service — API :8081, gestão :9081"]
+      lapi["API REST (pool JDBC máx. 10)<br/>POST /api/v1/lancamentos<br/>POST /api/v1/lancamentos/{id}/estornos<br/>GET /api/v1/lancamentos e /{id}<br/>(provado: T-012..T-015)"]
+      lpub["Publicador outbox<br/>(polling 500 ms, lote 100, pool JDBC dedicado máx. 2)<br/>(provado: T-016, T-031)"]
     end
 
-    subgraph C["consolidado-service :8082 — 1 processo: API + consumidor dividem CPU e memória (ADR-001)"]
-      capi["API REST<br/>GET /api/v1/consolidado<br/>(a provar: T-023)"]
-      ccons["Consumidor Kafka<br/>(dedup por eventId, DLT)<br/>(a provar: T-022)"]
+    subgraph C["consolidado-service — API :8082, gestão :9082 — 1 processo: API + consumidor dividem CPU e memória (ADR-001)"]
+      capi["API REST (pool JDBC máx. 10)<br/>GET /api/v1/consolidado e /{data}<br/>(provado: T-023)"]
+      ccons["Consumidor Kafka (pool JDBC dedicado máx. 4)<br/>dedup por eventId, DLT<br/>(provado: T-022, T-031)"]
     end
 
     subgraph PG["PostgreSQL 17, 1 instância (provado: T-004)"]
-      dbl[("banco lancamentos, roles owner/app<br/>tabelas lancamento, outbox_event,<br/>idempotency_key (a provar: T-011)")]
-      dbc[("banco consolidado, roles owner/app<br/>tabelas consolidado_diario,<br/>evento_processado (a provar: T-021)")]
+      dbl[("banco lancamentos, roles owner/app<br/>tabelas lancamento, outbox_event,<br/>idempotency_key (provado: T-011)")]
+      dbc[("banco consolidado, roles owner/app<br/>tabelas consolidado_diario,<br/>evento_processado (provado: T-021)")]
     end
 
     subgraph K["Kafka KRaft, 1 broker"]
-      t["cashflow.lancamentos.v1<br/>3 partições (provado: T-004)<br/>chave = comercianteId (a provar: T-016)"]
+      t["cashflow.lancamentos.v1<br/>3 partições (provado: T-004)<br/>chave = comercianteId (provado: T-016)"]
       dlt["cashflow.lancamentos.v1.DLT<br/>3 partições (provado: T-004)<br/>retenção 30 dias (configurada no create-topics.sh)"]
     end
 
-    prom["Prometheus + Grafana<br/>(a provar: T-032)"]
+    prom["Prometheus + Grafana<br/>(profile observability, raspam a gestão 9081 e 9082)<br/>(provado: T-032)"]
 
     cli --> lapi
     cli --> capi
@@ -121,13 +124,58 @@ flowchart TB
     lpub -->|"acks=all"| t
     t --> ccons
     ccons -->|"upsert aditivo + evento_processado"| dbc
-    ccons -.->|"após 3 tentativas"| dlt
+    ccons -.->|"após 1 + 3 tentativas (1, 2 e 4 s); fora do contrato vai direto"| dlt
     capi --> dbc
     L -.-> prom
     C -.-> prom
 ```
 
-**Estado atual do case:** o diagrama mostra o case local completo, mas hoje só a infraestrutura está **provada**: PostgreSQL com bancos e roles isolados por `CONNECT`, Kafka com tópico e DLT, verificados por `deploy/verify-local.sh` (T-004). Os serviços ainda têm apenas a classe de inicialização; cada elemento marcado "a provar" entra na tarefa indicada, na ordem do backlog (`docs/specs/06-tasks.md`).
+**Estado do case:** o diagrama mostra o case local completo e cada elemento está **provado** na tarefa indicada (testes na matriz `docs/specs/traceability.md`, evidência em `docs/specs/reviews/T-xxx.evidence.md`). A infraestrutura (PostgreSQL com bancos e roles isolados por `CONNECT`, Kafka com tópico e DLT) é verificada por `deploy/verify-local.sh` (T-004). As portas de gestão (9081 e 9082) expõem só `health` e `prometheus`, sem autenticação, e servem ao Prometheus; o compose as publica no host apenas para uso local (ver §4.1).
+
+### 4.1 Visão de deploy local
+
+O `deploy/docker-compose.yml` organiza os contêineres em *profiles*; sem profile sobem só a infraestrutura. Tags de imagem fixas; senhas vêm do `.env` (fora do Git), e o compose falha sem elas.
+
+```mermaid
+flowchart LR
+    subgraph base["sem profile (infraestrutura)"]
+      pg["postgres<br/>postgres:17.11-alpine<br/>host :5432"]
+      kf["kafka<br/>apache/kafka:3.9.1 (KRaft, 1 broker)<br/>host :9092"]
+      kt["kafka-topicos<br/>cria o tópico e a DLT<br/>(sai ao terminar)"]
+    end
+    subgraph apps["profile apps"]
+      dk["dev-keys<br/>gera a chave de desenvolvimento<br/>(sai ao terminar)"]
+      lan["lancamentos<br/>fluxo-caixa/lancamentos:0.1.0-SNAPSHOT<br/>API :8081, gestão :9081"]
+      con["consolidado<br/>fluxo-caixa/consolidado:0.1.0-SNAPSHOT<br/>API :8082, gestão :9082"]
+    end
+    subgraph obs["profile observability"]
+      pr["prometheus v3.15.1<br/>host :9090"]
+      gr["grafana 13.2.4<br/>host :3000"]
+    end
+    subgraph tools["profile tools"]
+      ui["kafka-ui v1.3.0<br/>host :8090"]
+    end
+    kt --> kf
+    dk --> lan
+    dk --> con
+    lan -->|"aguarda postgres, kafka-topicos e dev-keys"| pg
+    lan --> kf
+    con --> pg
+    con --> kf
+    pr -.->|"raspa host.docker.internal:9081 e :9082 (portas publicadas no host)"| lan
+    pr -.-> con
+    gr --> pr
+    ui -.-> kf
+```
+
+| Profile | Contêineres | Para que serve | Representa no alvo |
+|---|---|---|---|
+| (nenhum) | `postgres`, `kafka`, `kafka-topicos` | Infraestrutura para rodar os serviços pelo Maven (`spring-boot:run`) ou pelos testes | RDS Multi-AZ e MSK (ADR-010) |
+| `apps` | `dev-keys`, `lancamentos`, `consolidado` | Os dois serviços em imagens Paketo (usuário não-root `1002:1001`), com o profile Spring `local`; usado pela demo e pelo k6 | ECS Fargate com ≥ 2 *tasks* por serviço |
+| `observability` | `prometheus`, `grafana` | Métricas, alertas (`deploy/prometheus/alertas.yml`, com regras checadas e testadas por `promtool` no CI) e painéis. O Prometheus raspa `host.docker.internal:9081` e `:9082`, ou seja, as portas publicadas no host | CloudWatch |
+| `tools` | `kafka-ui` | Inspecionar tópicos e a DLT | — |
+
+**O que o deploy local não prova:** multi-AZ, *failover*, WAF, TLS e IdP gerenciado (§7). Os mapeamentos de porta do compose (Postgres, Kafka, gestão dos serviços) valem para uso local e não são exposição de produção; no alvo, só o ALB é público e a gestão fica na rede privada (ADR-010). Os limites de CPU e memória por contêiner **não** estão definidos no compose (o relatório de desempenho rodou sem limites, com 12 CPUs e 8,2 GB para o Docker inteiro).
 
 ## 5. Fluxos principais
 
@@ -153,7 +201,7 @@ sequenceDiagram
 
 A projeção converge sem duplicar os efeitos dos eventos, **desde que** os eventos persistidos (na outbox ou no tópico, dentro da retenção) sejam recuperáveis e o processamento seja retomado com sucesso. Falhas que quebram essas condições — perda da instância de banco, evento na DLT aguardando reprocessamento, retenção excedida — estão em §1.3, no ADR-005 e no ADR-010.
 
-Com o **Kafka** fora, o comportamento é o mesmo do ponto de vista do cliente: o `POST` segue 201 e quem acumula é a **outbox**, que drena quando o broker volta (`03 §7`). Os dois cenários são o comportamento **projetado**; a prova é o teste E2E da T-031 e a demo da T-035. Os limites dessa garantia estão em §1.3.
+Com o **Kafka** fora, o comportamento é o mesmo do ponto de vista do cliente: o `POST` segue 201 e quem acumula é a **outbox**, que drena quando o broker volta (`03 §7`). Os dois cenários estão **provados** no case local: `ConsolidadoParadoIT#postsSeguem201SemConsumidorEOsEventosFicamNoTopico` e `KafkaForaIT` (lancamentos-service), `BacklogDoConsumidorIT` e `ConsumidorReiniciadoIT` (consolidado-service), e os passos da demo `scripts/demo.sh` e `scripts/demo.sh --kafka-down` (T-031 e T-035, evidências em `docs/specs/reviews/`). Os limites dessa garantia estão em §1.3.
 
 ### 5.1 Estorno no fluxo de eventos
 
@@ -167,6 +215,61 @@ Exemplo: crédito de R$ 100,00 em 15/10, estornado em 22/10.
 | `ESTORNO` de crédito 100.00 (22/10) | E2 | 22/10: `total_estornos_credito += 100.00` | 22/10: −100.00 |
 
 O crédito continua no histórico de 15/10; o saldo acumulado a partir de 22/10 volta ao valor anterior ao crédito. A deduplicação é por `eventId`: reentregas de E2 são ignoradas, mas E2 **não** é descartado por referenciar um lançamento que já foi processado (E1). O estorno único por lançamento é garantido em Lançamentos, por índice único (AC-003.5), não no consumidor.
+
+### 5.2 Visão de runtime (comportamento medido no case local)
+
+> Todos os números desta seção vêm do [relatório de desempenho](../performance/relatorio.md) (T-033, 2026-10-25, notebook Intel Core i5-1334U com Docker Desktop de 12 CPUs e 8,2 GB, profile `apps` sem limite por contêiner, `grafana/k6:1.7.0` na mesma máquina, **uma rodada por taxa**, um comerciante, 30 dias de histórico). Medem o código e o desenho no ambiente local; **não** medem ECS, RDS nem MSK e **não** são previsão para o alvo.
+
+#### Caminho de escrita e de consumo
+
+```mermaid
+sequenceDiagram
+    participant C as Cliente
+    participant L as Lançamentos
+    participant DB as DB lancamentos
+    participant P as Publicador (500 ms)
+    participant K as Kafka
+    participant S as Consolidado (consumidor)
+    participant DC as DB consolidado
+    C->>L: POST /api/v1/lancamentos (JWT, Idempotency-Key)
+    L->>DB: 1 transação: lançamento + idempotency_key + outbox_event
+    L-->>C: 201 (escrita: p50 34 ms, p95 118 ms a 10 req/s)
+    P->>DB: SELECT ... FOR UPDATE SKIP LOCKED (lote até 100)
+    P->>K: publica (acks=all, chave = comercianteId)
+    P->>DB: marca published_at
+    K->>S: entrega (at-least-once)
+    S->>DC: 1 transação: evento_processado + upsert aditivo
+    S-->>K: ack depois do commit
+    Note over L,DC: occurredAt até o commit da projeção: p50 0,40 s, p95 0,69 s, máximo 0,98 s (50 req/s)
+    C->>S: GET /api/v1/consolidado (JWT)
+    S-->>C: 200 (leitura: p50 3,4 ms, p95 6,3 ms a 50 req/s)
+```
+
+#### Números medidos
+
+| Item | Resultado | Fonte |
+|---|---|---|
+| Leitura a 50 req/s por 5 min (oficial) | 15 001 requisições, 0 falhas; p50 3,4 ms, p95 6,3 ms, p99 9,4 ms, máximo 22,3 ms | `load-50rps-20261025T095711Z.json` |
+| Escrita simultânea a 10 req/s | 3 001 requisições, 0 falhas; p50 34,0 ms, p95 117,6 ms, p99 171,1 ms, máximo 333,0 ms | idem |
+| Leitura a 100 e a 200 req/s (informativas, RNF-010) | 0 falhas em 30 001 e em 60 001 requisições; p95 de 4,7 ms e de 4,9 ms; `dropped_iterations` = 0 | `load-100rps-…json`, `load-200rps-…json` |
+| Frescor da projeção (RNF-003) | p95 de 0,69 s, 0,69 s e 0,61 s e máximo de 0,98 s, 2,22 s e 0,88 s (50, 100 e 200 req/s); p95 é aproximado pelos buckets do histograma | `*.lag.json` |
+| Outbox em operação | no máximo 7 eventos pendentes e o mais antigo com menos de 0,75 s; 0 falhas de publicação; 0 eventos na DLT | `*.lag.json` |
+| Pools JDBC (picos de raspagens de 5 s) | no máximo 1 conexão ativa por pool (API do Lançamentos, máx. 10; publicador, 2; consumidor, 4) e 0 na API do Consolidado (máx. 10); 0 conexões pendentes | `*.lag.json` |
+| Lag do consumidor Kafka (pico) | 0 registros nas três taxas | `*.lag.json` |
+| CPU do contêiner do Consolidado (média e pico) | 0,21 e 0,52 núcleo (50 req/s); 0,39 e 0,67 (200 req/s) | `*.stats.txt` |
+| Memória (pico) | Lançamentos 327 a 365 MiB, Consolidado 368 a 371 MiB | `*.stats.txt` |
+
+**Como ler:** o teto do sistema **não** foi encontrado (não houve teste de estresse), e o histórico longo e vários comerciantes não foram medidos. Em particular, o saldo anterior soma o histórico do comerciante (`ConsultaConsolidadoJdbcRepository`), então a latência de leitura cresce com o histórico; a medição usou 60 lançamentos de *seed*. Os limiares de alerta (ADR-008) e os limites de resiliência (`03 §7.1`) foram revistos com estes números e **mantidos**.
+
+#### Falhas (provadas, sem número de desempenho)
+
+```mermaid
+flowchart LR
+    f1["Consolidado parado"] --> e1["POST segue 201; eventos acumulam no tópico;<br/>lag do consumidor sobe; ao voltar, converge sem duplicar<br/>(ConsolidadoParadoIT, BacklogDoConsumidorIT, ConsumidorReiniciadoIT, demo passo 6)"]
+    f2["Kafka fora"] --> e2["POST segue 201; outbox_pending_events e a idade do mais antigo sobem;<br/>drena quando o broker volta<br/>(KafkaForaIT, demo --kafka-down)"]
+    f3["Evento inválido ou falha repetida"] --> e3["1 + 3 tentativas (1, 2 e 4 s) e DLT; fora do contrato vai direto;<br/>alerta imediato e runbook<br/>(DltIT, DltForaIT, docs/runbooks/dlt-reprocessamento.md)"]
+    f4["Banco de Lançamentos fora"] --> e4["Lançamentos para (dependência compartilhada assumida, §1.3);<br/>no alvo, RDS Multi-AZ mitiga, não elimina"]
+```
 
 ## 6. Arquitetura-alvo AWS (apenas desenho)
 
@@ -225,39 +328,51 @@ flowchart TB
 | Secrets Manager + KMS | Credenciais e criptografia em repouso | RNF-005 | — |
 | CloudWatch | Métricas, logs e alarmes (ADR-008) | RNF-006 | — |
 
+**Ponto de partida medido, não prova.** O case local mediu o código, não o alvo (§5.2). Os números abaixo servem para dimensionar a primeira configuração do alvo, e cada um continua uma **meta a validar** no ambiente real:
+
+| Meta ou premissa do alvo | Número medido no case local | Limite da leitura |
+|---|---|---|
+| Consolidado atende 50 req/s com < 5 % de falha (RNF-002) | 0 falhas a 50, 100 e 200 req/s; p95 de leitura entre 4,7 e 6,3 ms; Consolidado usou no máximo 0,67 núcleo a 200 req/s | Um comerciante, 60 lançamentos de *seed*, gerador na mesma máquina; sem teste até a quebra |
+| Frescor da projeção p95 ≤ 5 s (RNF-003) | p95 de 0,61 a 0,69 s e máximo de 2,22 s | O Kafka local tem 1 broker; a replicação do MSK (3 brokers, `acks=all`, `min.insync` 2) pode acrescentar latência de publicação que esta medição não vê |
+| Serviços *stateless* escalam horizontalmente (RNF-010) | A latência de leitura não cresceu de 50 a 200 req/s | Escala horizontal e *auto scaling* não foram exercitados; só desenho |
+| Pools e tamanho das *tasks* | Pico de 1 conexão por pool; contêineres de 330 a 370 MiB | Sem limite de CPU ou memória no compose; o dimensionamento das *tasks* do Fargate fica para a validação no ambiente real |
+
 ## 7. Do case local ao alvo
 
-Estados conforme §1.2: **provado**, **a provar (T-xxx)** e **só desenho**.
+Estados conforme §1.2: **provado**, **medido**, **pendente do GitHub** e **só desenho**. As provas são testes da matriz `docs/specs/traceability.md` (classe, módulo) e as evidências `docs/specs/reviews/T-xxx.evidence.md`.
 
 | Peça do case local | Representa no alvo | Estado no case local |
 |---|---|---|
-| Serviços (`lancamentos-service`, `consolidado-service`) | ECS Fargate com ≥ 2 *tasks* por serviço | Comportamento da aplicação: **a provar** (T-010..T-023, E2E na T-031). Multi-AZ e *auto scaling*: **só desenho** |
-| PostgreSQL 17 no compose, 2 bancos e 4 roles | RDS PostgreSQL Multi-AZ com a mesma topologia | Bancos e isolamento de `CONNECT` entre roles: **provado** (T-004). Imutabilidade por *grants* em `lancamento`: **a provar** (T-011). *Failover*, PITR, RPO/RTO: **só desenho** |
-| Kafka KRaft com 1 broker | MSK com 3 brokers em 3 AZs | Tópico e DLT com 3 partições: **provado** (T-004). Publicação, acúmulo, consumo e reprocessamento: **a provar** (T-016, T-022, T-031). Replicação entre AZs: **só desenho** |
-| Chave de dev + `scripts/DevToken.java` | Cognito | Validação de JWT, *scopes* e isolamento por comerciante: **a provar** (T-013, T-015, T-023). IdP gerenciado: **só desenho** |
-| Sem borda | Route 53 + ALB + WAF com *rate limit* | **Só desenho** |
+| Serviços (`lancamentos-service`, `consolidado-service`), imagens Paketo com usuário não-root | ECS Fargate com ≥ 2 *tasks* por serviço | Comportamento da aplicação: **provado** (T-010..T-023 e T-031; E2E na T-031, demo na T-035). Usuário não-root das imagens: **provado** (T-035, `docker inspect`). Multi-AZ e *auto scaling*: **só desenho** |
+| PostgreSQL 17 no compose, 2 bancos e 4 roles | RDS PostgreSQL Multi-AZ com a mesma topologia | Bancos e isolamento de `CONNECT`: **provado** (T-004). Imutabilidade por *grants* em `lancamento`: **provada** (T-011, `MigracaoEPermissoesIT`, `ConstraintsLancamentoIT`). *Failover*, PITR, RPO/RTO: **só desenho** |
+| Kafka KRaft com 1 broker | MSK com 3 brokers em 3 AZs | Tópico e DLT com 3 partições: **provado** (T-004). Publicação, acúmulo, consumo e reprocessamento: **provados** (T-016, T-022, T-031: `KafkaForaIT`, `ConsolidadoParadoIT`, `DltIT`, `DltForaIT`). Replicação entre AZs: **só desenho** |
+| Chave de dev + `scripts/DevToken.java` | Cognito | Validação de JWT, *scopes* e isolamento por comerciante: **provados** (`SegurancaJwtWebTest`, `DevTokenIT`, `IsolamentoPorComercianteIT`; T-013, T-015, T-023). IdP local (Keycloak, T-036): cortado; IdP gerenciado: **só desenho** |
+| Cabeçalhos seguros, CORS fechado, limites de cabeçalho e `OPTIONS` → 405 nos serviços | TLS, HSTS, WAF e *rate limit* no ALB | Cabeçalhos, CORS, limites e `OPTIONS`: **provados** (T-034: `CabecalhosDeSegurancaWebTest`, `CorsEOptionsWebTest`, `LimitesHttpWebTest`). TLS, HSTS, WAF, *rate limit*: **só desenho** |
 | `.env` local (fora do Git) | Secrets Manager + KMS | Senhas fora do repositório: **provado** (T-004, compose falha sem as variáveis). Gestão de segredos e KMS: **só desenho** |
-| Prometheus + Grafana | CloudWatch | Métricas e alertas: **a provar** (T-032). CloudWatch: **só desenho** |
-| k6 local | Carga contra o ambiente real | Carga de 50 req/s: **a provar** (T-033); mede o código, não a infraestrutura-alvo |
+| Prometheus + Grafana (profile `observability`) | CloudWatch | Métricas, logs com `requestId` e `traceId`, regras de alerta: **provados** (T-032: `GestaoActuatorWebTest`, `MetricasDosPoolsEDoKafkaIT`, `RastroDoConsumoIT`; regras checadas e testadas por `promtool` no CI). CloudWatch: **só desenho** |
+| k6 local (`loadtest/`) | Carga contra o ambiente real | Carga de 50 req/s e rodadas de 100 e 200 req/s: **medidas** (T-033, §5.2); medem o código, não a infraestrutura-alvo. `loadtest.yml` no GitHub: **pendente do GitHub** |
+| CodeQL, Dependency-Check, Trivy (`security.yml`), Dependabot | O mesmo pipeline de CI; nada específico do alvo foi desenhado para isto | Workflows e supressões com validade: existem (T-034, T-037, T-038). O resultado verde de cada job num PR é **pendente do GitHub** |
 
 ## 8. Requisitos não funcionais: mecanismo e verificação
 
-| RNF | Mecanismo | Como será verificado | Estado hoje |
+Cada estado cita a prova. Onde há `@Tag`, a lista completa de testes por requisito está em [`traceability.md`](../specs/traceability.md).
+
+| RNF | Mecanismo | Como é verificado | Estado hoje |
 |---|---|---|---|
-| RNF-001 Isolamento de falha | Nenhuma chamada síncrona; outbox + Kafka; eventos acumulam no Kafka com o Consolidado parado. Limites em §1.3 | Teste E2E com o Consolidado parado; demo | **A provar** (T-031, T-035) |
-| RNF-002 Capacidade do Consolidado (50 req/s, taxa de requisições com falha < 5 %) | Leitura por chave em projeção pré-agregada; pools dimensionados; serviço *stateless* | k6 `load.js` com *thresholds* | **A provar** (T-033) |
-| RNF-003 Frescor da projeção (meta p95 ≤ 5 s) | Publicador a cada 500 ms e consumidor contínuo são **configuração inicial**, não prova: o tempo total inclui espera do *polling*, publicação, entrega, lote do consumidor, gravação da projeção e filas acumuladas em pico | Tempo **de ponta a ponta**, da criação do evento (`occurredAt`) até a aplicação na projeção (`consolidado_event_lag_seconds`, não apenas o lag do Kafka), medido sob carga concorrente | **A provar** (T-022, T-033) |
-| RNF-004 Integridade e não duplicidade | `Idempotency-Key` + FK diferida; `eventId` + `evento_processado`; índices únicos | Testes de concorrência, idempotência e propriedade | **A provar** (T-011, T-012, T-021) |
-| RNF-005 Segurança | JWT validado, *scopes*, comerciante só do token, gates de segurança | Testes 401/403/404 cruzado; CodeQL, Dependency-Check, Trivy | **A provar** (T-013, T-015, T-023, T-034) |
-| RNF-006 Observabilidade | Métricas de fluxo, logs JSON com `traceId`, alertas (ADR-008) | Testes de actuator; regras carregando | **A provar** (T-032) |
-| RNF-007 Resiliência a falha do broker | Outbox cresce, pool dedicado do publicador, *backoff* | Teste E2E com Kafka fora | **A provar** (T-016, T-031) |
-| RNF-008 Qualidade | Gates G1–G3, ArchUnit, cobertura | `./mvnw verify` e CI | G2 (`verify` com formatação, Checkstyle, SpotBugs, ArchUnit, JaCoCo) **provado** (T-002); G1 com formatação provada e gitleaks local pendente; G3 (CodeQL, Dependency-Check, Trivy) **a provar** (T-034); harness **a provar** (T-003) |
-| RNF-009 Operabilidade local | Compose + README em ≤ 5 comandos | Seguir o README do zero | Infraestrutura **provada** (T-004); fluxo completo **a provar** (T-043) |
-| RNF-010 Escalabilidade | Serviços *stateless*; escala horizontal no alvo | k6 informativo a 100 e 200 req/s | **A provar** (T-033); escala no alvo é **só desenho** |
-| RNF-011 Disponibilidade e DR (**metas**) | Multi-AZ, PITR, MSK replicado (§6, ADR-010) | Restauração testada quando houver ambiente | **Só desenho** (T-005) |
-| RNF-012 Rastreabilidade de requisição | Filtro `X-Request-Id` (aceita válido ou gera), cabeçalho em toda resposta, MDC, outbox e cabeçalho Kafka (`03 §5.2`, ADR-008) | Testes de fatia web e de publicador/consumidor | **A provar** (T-013, T-016, T-022, T-023) |
-| RNF-013 Validação estrita de entrada | Rejeitar sem alterar: 415/406/413, controle e espaços nas pontas, NFC antes do hash (`03 §5.2`, ADR-007) | Testes de fatia web e de idempotência | **A provar** (T-012, T-013, T-023) |
-| RNF-014 Contrato documentado e verificado | OpenAPI com exemplos em todos os status, validados contra o schema | Teste de contrato | **A provar** (T-013, T-023) |
+| RNF-001 Isolamento de falha | Nenhuma chamada síncrona; outbox + Kafka; eventos acumulam no Kafka com o Consolidado parado. Limites em §1.3 | `ConsolidadoParadoIT`, `KafkaForaIT`, `BacklogDoConsumidorIT`, `ConsumidorReiniciadoIT`; `scripts/demo.sh` | **Provado** (T-031, T-035) |
+| RNF-002 Capacidade do Consolidado (50 req/s, taxa de requisições com falha < 5 %) | Leitura de uma projeção pré-agregada; pools dimensionados; serviço *stateless* | k6 `loadtest/load.js` com *thresholds*; `docs/performance/relatorio.md` | **Medido**: 0 falhas em 15 001 requisições, p95 de 6,3 ms (T-033). `loadtest.yml` no GitHub: pendente do GitHub |
+| RNF-003 Frescor da projeção (meta p95 ≤ 5 s) | Publicador a cada 500 ms e consumidor contínuo; tempo total inclui *polling*, publicação, entrega, lote, gravação e filas | Histograma `consolidado_event_lag_seconds` (`occurredAt` até o commit da projeção), testado por `HistogramaDoLagTest` e `MetricasDoConsumidorIT`; medido sob carga | **Medido**: p95 de 0,69 s e máximo de 2,22 s (T-033). p95 aproximado pelos buckets |
+| RNF-004 Integridade e não duplicidade | `Idempotency-Key` + FK diferida; `eventId` + `evento_processado`; índices únicos | `IdempotenciaConcorrenteIT`, `EstornoConcorrenteIT`, `DeduplicacaoConcorrenteIT`, `ProjecaoPostgresPropertiesIT`, `FalhaEntreEnvioEMarcacaoIT` | **Provado** (T-011, T-012, T-014, T-016, T-021, T-022) |
+| RNF-005 Segurança | JWT validado, *scopes*, comerciante só do token, cabeçalhos e limites, gates de segurança | `SegurancaJwtWebTest`, `CabecalhosDeSegurancaWebTest`, `LimitesHttpWebTest`, `DependenciasSemCveTest`, `IsolamentoPorComercianteIT` | Código e testes **provados** (T-013, T-015, T-023, T-034, T-037). Gates CodeQL, Dependency-Check e Trivy: **pendente do GitHub** (o repositório não guarda o link dos *runs*; o Dependency-Check aguarda o run da T-038) |
+| RNF-006 Observabilidade | Métricas de fluxo, logs JSON com `requestId` e `traceId`, alertas (ADR-008) | `GestaoActuatorWebTest`, `MetricasDeNegocioWebTest`, `PoolsMetricasIT`, `RastroDoEventoIT`; regras de alerta testadas por `promtool` | **Provado** (T-032) |
+| RNF-007 Resiliência a falha do broker | Outbox cresce, pool dedicado do publicador, *backoff* | `KafkaForaIT`, `FalhaEntreEnvioEMarcacaoIT`, `DltForaIT`, `MetricasOutboxIT`; `scripts/demo.sh --kafka-down` | **Provado** (T-016, T-031, T-035) |
+| RNF-008 Qualidade | Gates G1–G3, ArchUnit, cobertura | `./mvnw verify` (formato, Checkstyle, SpotBugs, ArchUnit, JaCoCo); `scripts/verify-task.sh` e `scripts/test/run-tests.sh` | G2 e o harness **provados** (T-002, T-003). G1 (gitleaks) e G3 existem em `ci.yml` e `security.yml`; o verde no GitHub é **pendente do GitHub** |
+| RNF-009 Operabilidade local | Compose + README em ≤ 5 comandos | README executado em bash e em PowerShell, em clone limpo e stack isolada (T-007, T-035) | **Provado** nas tarefas indicadas; a prova final em clone limpo é a T-043 |
+| RNF-010 Escalabilidade | Serviços *stateless*; escala horizontal no alvo | k6 informativo a 100 e 200 req/s | **Medido** (T-033): mesmos limiares, sem falhas; o teto não foi encontrado. Escala horizontal no alvo: **só desenho** |
+| RNF-011 Disponibilidade e DR (**metas**) | Multi-AZ, PITR, MSK replicado (§6, ADR-010) | Restauração testada quando houver ambiente | **Só desenho** |
+| RNF-012 Rastreabilidade de requisição | Filtro `X-Request-Id` (aceita válido ou gera), cabeçalho em toda resposta, MDC, outbox e cabeçalho Kafka (`03 §5.2`, ADR-008) | `RequestIdWebTest`, `RastroDoEventoIT`, `RastroDoConsumoIT`, `LogsDoConsumidorIT` | **Provado** (T-013 a T-016, T-022, T-023, T-032) |
+| RNF-013 Validação estrita de entrada | Rejeitar sem alterar: 415/406/413, controle e espaços nas pontas, NFC antes do hash, datas estritas (`03 §5.2`, ADR-007) | `ValidacaoEstritaWebTest`, `DatasEstritasWebTest`, `GetConsolidadoWebTest` | **Provado** (T-012, T-013, T-023, T-034) |
+| RNF-014 Contrato documentado e verificado | OpenAPI com exemplos em todos os status, validados contra o schema | `OpenApiExemplosTest`, `ContratoRespostasWebTest`, `InventarioDeRotasTest` | **Provado** (T-013, T-023) |
 
 ## 9. Decisões (ADRs)
 
@@ -288,3 +403,24 @@ Fora do escopo do case, com o caminho de evolução registrado (`00 §7`):
 | Saldo de abertura / migração de legado | O enunciado não descreve legado | Arquitetura de transição (T-041) |
 | Frontend próprio | Decisão do dono do produto | API exercitada por Swagger UI, `demo.sh` e k6 |
 | IaC e qualquer recurso de nuvem | O alvo é só desenho | Terraform/CDK quando houver ambiente |
+| Consumidor em executável próprio | A leitura de 50 a 200 req/s não aumentou o lag (ADR-001) | Se um cenário de **drenagem de backlog sob leitura**, ainda não medido, mostrar interferência; ou carga acima de 200 req/s |
+| Leitura do saldo anterior com histórico longo | `ANTERIOR` soma o histórico do comerciante (O(histórico)); medido só com 60 lançamentos | Se a medição com histórico grande mostrar degradação: saldo acumulado materializado ou *snapshots* (ADR-005, ADR-006) |
+
+## 11. Revisão cruzada ADRs × código (T-040)
+
+Feita em 2026-10-25 contra o código aprovado até a T-038, lendo `architecture.md`, ADR-001 a ADR-010 e `03-design-contracts.md` e conferindo portas, tabelas, tópicos, intervalos, pools, timeouts, limites, métricas, alertas e regras ArchUnit no código e na configuração. **Nenhum caso em que o código contrarie requisito ou contrato.** O detalhe, com `arquivo:linha`, está em `docs/specs/reviews/T-040.evidence.md`.
+
+| Achado | Tipo | Tratamento |
+|---|---|---|
+| Este documento e os ADR-002, 003, 005, 007 e 010 marcavam como "a provar" o que já está provado; o §4 dizia que os serviços tinham só a classe de inicialização | Texto desatualizado | Corrigidos (§1.2, §4, §7, §8; ADRs com a nota "Atualizado na T-040") |
+| Diagrama do §4: "após 3 tentativas" para a DLT | Redação imprecisa | O consumidor faz 1 tentativa + 3 novas (1, 2 e 4 s); evento fora do contrato vai direto à DLT. Corrigido no diagrama |
+| Swagger UI "só em `dev`/`local`" (ADR-007, `03 §5`); `correlationId` nos logs (ADR-008, `03 §8`); `request_hash` descrito como método + caminho + corpo (`03 §3.1`); schema "validado nos dois lados" (D-13, ADR-004) | Contrato descreve o que não existe | Alinhados ao código aprovado na própria T-040 (Q-086): só existe o profile `local`; os campos são `requestId`, `traceId` e `spanId`; o hash é da operação e dos campos do comando validado; o produtor valida o schema só em testes de contrato, o consumidor em runtime |
+| Intervalo do publicador "a cada 500 ms" (ADR-003) | Comportamento não documentado | Com o lote cheio o próximo ciclo é imediato; ADR-003 corrigido |
+| `idempotency_conflicts_total` (ADR-008) | Nome sugere mais do que conta | Conta só a reutilização da chave com outro payload (422); o 409 de disputa não é contado. ADR-008 corrigido; mudar a métrica seria código (follow-up) |
+| Timeouts "explícitos" (ADR-007) | Parcial | Explícitos no Tomcat, no pool do publicador, na transação do lote e no produtor; os pools da API e do consumidor usam o padrão do Hikari (30 s) e não há *statement timeout*. ADR-007 corrigido; **follow-up** se o autor quiser fechar |
+| Regras ArchUnit "duplicadas" (ADR-009) | Não são idênticas | O Lançamentos tem uma regra a mais; ambos têm regras de cliente HTTP e de *records* web que o ADR não listava. ADR-009 corrigido |
+| Retenção de 7 dias do tópico principal (ADR-004) | Não versionada | É o padrão do Kafka; só a DLT tem retenção no `create-topics.sh`. ADR-004 corrigido |
+| Gatilho do ADR-001 (drenagem sob leitura) | Não exercitado | A T-033 mediu leitura com escrita em regime, não o acúmulo de backlog. ADR-001 e §10 registram a lacuna; **follow-up** de medição |
+| "Leitura por chave" (§1.1, ADR-002) | Imprecisão | Os dias são por chave, mas o saldo anterior soma o histórico (ADR-005 já admite). §5.2 e §10 avisam; medido só com 60 lançamentos |
+| Mapeamentos de porta do compose (Postgres, Kafka, gestão) em todas as interfaces do host | Observação de *hardening* local | Documentado em §4.1; mapear em `127.0.0.1` seria mudança de `deploy/`, fora desta tarefa (**follow-up**) |
+| Números do ADR-010 e do §6 | — | Nenhum é medido; todos continuam rotulados como meta |
