@@ -722,7 +722,7 @@ loadtest/run.sh load
 & "C:\Program Files\Git\bin\bash.exe" loadtest/run.sh load
 ```
 
-**O que você deve ver:** o k6 mostrando as duas cenas (`consolidado_read` a 50 iters/s e `lancamentos_write` a 10 iters/s), quatro limiares com `✓` (`dropped_iterations`, p95 da leitura, falha da leitura e falha da escrita), `k6 terminou com exit 0` e uma linha `lag: p95=...s max=...s eventos=...` com o atraso da projeção (a meta é p95 ≤ 5 s e máximo ≤ 30 s). Se algum limiar falhar, o script termina com erro e o resultado fica gravado mesmo assim.
+**O que você deve ver:** o k6 mostrando as duas cenas (`consolidado_read` a 50 iters/s e `lancamentos_write` a 10 iters/s), limiares com `✓` (os quatro que valem: `dropped_iterations`, p95 da leitura, falha da leitura e falha da escrita; os três `max>=0` só existem para exportar latências e sempre passam), `k6 terminou com exit 0` e uma linha `lag: p95=...s max=...s eventos=...` com o atraso da projeção (a meta é p95 ≤ 5 s e máximo ≤ 30 s). Se algum limiar falhar, o script termina com erro e o resultado fica gravado mesmo assim.
 
 Cada execução deixa três arquivos em `docs/performance/results/`: o resumo do k6 (`.json`), o ambiente (`.env.txt`) e, no teste de carga, o atraso da projeção (`.lag.json`).
 
