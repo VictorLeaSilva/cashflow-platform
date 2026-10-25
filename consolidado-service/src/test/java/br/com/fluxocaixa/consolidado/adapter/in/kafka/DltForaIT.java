@@ -100,7 +100,11 @@ class DltForaIT extends IntegracaoKafka {
       // O envio à DLT falha com o broker fora e o tratamento de erro registra a falha.
       await()
           .atMost(LIMITE_DO_ENVIO)
-          .until(() -> saida.getAll().contains("envio do evento para a DLT falhou"));
+          .until(
+              () ->
+                  saida
+                      .getAll()
+                      .contains("Dead-letter publication to cashflow.lancamentos.v1.DLT failed"));
       assertThat(contador("consolidado.events.dlt") - dltAntes).as("nada na DLT").isZero();
     } finally {
       PausaAoEnviarParaADlt.ARMADO.set(false);

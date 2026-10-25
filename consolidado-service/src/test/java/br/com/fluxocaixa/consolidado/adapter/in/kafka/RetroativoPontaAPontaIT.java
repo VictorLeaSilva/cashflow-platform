@@ -31,6 +31,9 @@ import org.springframework.test.web.servlet.ResultActions;
  * projeção no banco e consulta pela API. Um evento retroativo (D-3) chega depois dos de D-2, D-1 e
  * D: o movimento de D-3 aparece e o {@code saldoAcumulado} muda de D-3 em diante, sem mexer no
  * movimento de D-2..D. O estorno de um lançamento de D-3, recebido "hoje", entra em D.
+ *
+ * <p>A consulta cobre D-5..D: os índices de {@code dias} são 0 (D-5), 1 (D-4), 2 (D-3), 3 (D-2), 4
+ * (D-1) e 5 (D).
  */
 @Tag("RF-009")
 @AutoConfigureMockMvc
@@ -58,18 +61,29 @@ class RetroativoPontaAPontaIT extends IntegracaoKafka {
     publicarCredito(chave, comerciante, D.minusDays(1), "50.00");
     publicarCredito(chave, comerciante, D, "10.00");
     esperarDias(comerciante, 3);
+    conferirAntesDoRetroativo(token);
 
-    // Antes do retroativo: D-3 sem movimento; acumulados 100, 150 e 160.
+    UUID lancamentoDeD3 = publicarCredito(chave, comerciante, D.minusDays(3), "200.00");
+    esperarDias(comerciante, 4);
+    conferirDepoisDoRetroativo(token);
+
+    publicarEstornoDe(chave, comerciante, lancamentoDeD3);
+    esperarLancamentosEmD(comerciante, 2);
+    conferirDepoisDoEstorno(token);
+  }
+
+  /** D-3 sem movimento; acumulados 100, 150 e 160 em D-2, D-1 e D. */
+  private void conferirAntesDoRetroativo(String token) throws Exception {
     consultar(token)
         .andExpect(jsonPath("$.dias", hasSize(6)))
         .andExpect(jsonPath("$.dias[2].saldoDia").value("0.00"))
         .andExpect(jsonPath("$.dias[3].saldoAcumulado").value("100.00"))
         .andExpect(jsonPath("$.dias[4].saldoAcumulado").value("150.00"))
         .andExpect(jsonPath("$.dias[5].saldoAcumulado").value("160.00"));
+  }
 
-    // AC-009.1: o lançamento de D-3 chega por último.
-    UUID lancamentoDeD3 = publicarCredito(chave, comerciante, D.minusDays(3), "200.00");
-    esperarDias(comerciante, 4);
+  /** AC-009.1: o movimento de D-3 aparece, o acumulado muda de D-3 em diante e o resto não. */
+  private void conferirDepoisDoRetroativo(String token) throws Exception {
     consultar(token)
         .andExpect(jsonPath("$.dias[2].totalCreditos").value("200.00"))
         .andExpect(jsonPath("$.dias[2].saldoDia").value("200.00"))
@@ -80,22 +94,10 @@ class RetroativoPontaAPontaIT extends IntegracaoKafka {
         .andExpect(jsonPath("$.dias[4].saldoAcumulado").value("350.00"))
         .andExpect(jsonPath("$.dias[5].saldoDia").value("10.00"))
         .andExpect(jsonPath("$.dias[5].saldoAcumulado").value("360.00"));
+  }
 
-    // AC-009.2: o estorno do lançamento de D-3, recebido hoje, entra em D.
-    KafkaConsolidado.publicar(
-        chave,
-        EventosJson.json(
-            EventosJson.estorno(
-                UUID.randomUUID(), comerciante, "200.00", D.toString(), "CREDITO", lancamentoDeD3)),
-        null);
-    await()
-        .atMost(LIMITE)
-        .until(
-            () ->
-                TabelasDoConsolidado.diasDe(comerciante)
-                        .get(new ChaveDiaria(comerciante, D))
-                        .qtdLancamentos()
-                    == 2);
+  /** AC-009.2: o estorno entra em D; o movimento de D-3 não muda. */
+  private void conferirDepoisDoEstorno(String token) throws Exception {
     consultar(token)
         .andExpect(jsonPath("$.dias[2].totalCreditos").value("200.00"))
         .andExpect(jsonPath("$.dias[2].totalEstornosCredito").value("0.00"))
@@ -112,10 +114,31 @@ class RetroativoPontaAPontaIT extends IntegracaoKafka {
     return UUID.fromString((String) campos.get("lancamentoId"));
   }
 
+  /** Estorno total do crédito de D-3, com a data de referência de hoje (D). */
+  private void publicarEstornoDe(String chave, UUID comerciante, UUID original) {
+    KafkaConsolidado.publicar(
+        chave,
+        EventosJson.json(
+            EventosJson.estorno(
+                UUID.randomUUID(), comerciante, "200.00", D.toString(), "CREDITO", original)),
+        null);
+  }
+
   private static void esperarDias(UUID comerciante, int quantidade) {
     await()
         .atMost(LIMITE)
         .until(() -> TabelasDoConsolidado.diasDe(comerciante).size() == quantidade);
+  }
+
+  private static void esperarLancamentosEmD(UUID comerciante, int quantidade) {
+    await()
+        .atMost(LIMITE)
+        .until(
+            () ->
+                TabelasDoConsolidado.diasDe(comerciante)
+                        .get(new ChaveDiaria(comerciante, D))
+                        .qtdLancamentos()
+                    == quantidade);
   }
 
   private ResultActions consultar(String token) throws Exception {
