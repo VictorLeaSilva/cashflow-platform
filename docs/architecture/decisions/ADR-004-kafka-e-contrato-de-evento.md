@@ -24,7 +24,7 @@ A replicação do **próprio** Kafka (3 brokers, RF 3) serve para o broker não 
 O volume **não** é o motivo da escolha: SQS/SNS ou RabbitMQ atenderiam 50 req/s com folga. O que pesou foi o **modelo de consumo**:
 - **Retenção e replay:** no Kafka a mensagem consumida continua no log; dá para reposicionar o *offset* e reprocessar dentro da retenção (DLT, reconciliação; um novo consumidor recebe só o que ainda está retido, e o histórico completo vem de `lancamento`, ADR-006). Em SQS/RabbitMQ a mensagem consumida é removida; replay exige guardar cópia em outro lugar.
 - **Ordem por chave, se for preciso:** a partição por `comercianteId` entrega ao consumidor os eventos de um comerciante na ordem em que foram **publicados**. A projeção atual não depende disso (é comutativa) e o publicador não garante a ordem de criação (ADR-003); o valor está em não ter de trocar de broker se surgir um consumidor que precise de ordem. SQS FIFO tem limites de vazão por grupo e custo maior; RabbitMQ só ordena por fila.
-- **Acúmulo durante a queda do Consolidado:** é o caso normal do Kafka (o lag cresce e é drenado). A retenção é finita, mas configurável por tópico e independente do consumo: a mensagem não some por ter sido lida, e o prazo deve cobrir com folga a maior indisponibilidade do Consolidado que se queira tolerar sem reemissão. A spec não fixa esse tempo (a definir com o negócio); hoje o tópico local usa o padrão do broker, 7 dias, e a DLT, 30. Uma fila SQS também retém por dias (até 14), porém apaga a mensagem ao ser consumida, o que impede o replay.
+- **Acúmulo durante a queda do Consolidado:** é o caso normal do Kafka (o lag cresce e é drenado). A retenção é finita, mas configurável por tópico e independente do consumo: a mensagem não some por ter sido lida, e o prazo deve cobrir com folga a maior indisponibilidade do Consolidado que se queira tolerar sem reemissão. A spec não fixa esse tempo (a definir com o negócio); hoje o tópico local usa o padrão do broker (7 dias; **não** é configuração versionada, pois o `create-topics.sh` só fixa a retenção da DLT, em 30 dias; *atualizado na T-040*). Uma fila SQS também retém por dias (até 14), porém apaga a mensagem ao ser consumida, o que impede o replay.
 
 **Quando a troca valeria:** se replay e ordenação deixarem de ser necessários e o custo pesar (MSK tende a dominar o custo em carga baixa), **SNS + SQS** é a troca natural na AWS; a outbox e o consumidor idempotente continuam iguais, só muda o adapter de mensageria.
 
@@ -33,7 +33,7 @@ O volume **não** é o motivo da escolha: SQS/SNS ou RabbitMQ atenderiam 50 req/
 |---|---|
 | RabbitMQ | Sem retenção/replay nativos no modelo de filas clássico; ordenação só por fila |
 | SQS/SNS | Sem replay; FIFO com limites e custo; viável se o requisito mudar (acima) |
-| Avro + Schema Registry | Mais infraestrutura para 1 produtor e 1 consumidor; JSON Schema validado nos dois lados resolve |
+| Avro + Schema Registry | Mais infraestrutura para 1 produtor e 1 consumidor; JSON Schema resolve (validado em runtime no consumidor e por testes de contrato no produtor; *atualizado na T-040*, Q-086) |
 | Chamada síncrona | Violaria RNF-001 (ADR-003) |
 
 ## Consequências

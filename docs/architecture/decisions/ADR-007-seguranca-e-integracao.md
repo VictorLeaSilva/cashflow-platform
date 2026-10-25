@@ -17,7 +17,7 @@ As APIs expõem dados financeiros de vários comerciantes e são consumidas por 
 | Permissão | *Scope* exigido pelo endpoint (abaixo) |
 | Vínculo com o comerciante | Claim `merchant_id` presente e no formato UUID; é a **única** fonte do comerciante na requisição |
 
-- Case local: chave de desenvolvimento e token gerado por `scripts/DevToken.java` (a provar: T-013).
+- Case local: chave de desenvolvimento e token gerado por `scripts/DevToken.java` (`scripts/DevToken.java` e `DevTokenIT`; T-013).
 - Alvo (desenho): `issuer-uri` do IdP gerenciado (Cognito, ADR-010), chaves públicas por JWKS em cache.
 
 **Tipos de cliente e fluxo de obtenção do token (alvo, desenho):**
@@ -46,13 +46,13 @@ No case local os dois tipos são simulados pelo `DevToken.java`; o case não tem
 | Identidade do sistema integrador | OAuth2 *client credentials*, uma credencial por cliente, *scopes* mínimos |
 | Canal | TLS na borda; **mTLS opcional** no *gateway* para integradores que o exijam |
 | Abuso e volume | *Rate limit* por cliente na borda, com cota acima do pico do enunciado (50 req/s), para que o limite não vire "perda" |
-| Recursos | Payload máximo, `size ≤ 100` na listagem, intervalo ≤ 366 dias no consolidado, timeouts explícitos (OWASP API4) |
+| Recursos | Payload máximo, `size ≤ 100` na listagem, intervalo ≤ 366 dias no consolidado, timeouts explícitos (OWASP API4; *atualizado na T-040*: explícitos no Tomcat, no pool do publicador, na transação do lote e no produtor Kafka; os pools da API e do consumidor usam o padrão do Hikari, e não há *statement timeout*) |
 | Repetição segura | `Idempotency-Key` obrigatória nos `POST` (ADR-003) |
 | Eventos como entrada não confiável | O consumidor valida o JSON Schema; inválido ou não processável vai para a DLT com alerta (OWASP API10) |
 
 **Validação estrita de entrada (`03 §5.2`, RNF-013):** rejeitar em vez de "sanitizar" (alterar em silêncio um dado financeiro muda o que foi gravado e quebra a comparação de idempotência). 415 para tipo de conteúdo errado, 406 para `Accept` incompatível, 413 acima de 16 KiB, 400 para caractere de controle ou espaço nas pontas em texto livre e para `Idempotency-Key` fora do formato (um `X-Request-Id` fora do formato não é rejeitado: é substituído por um gerado, RNF-012 e `03 §5.2`; Q-014); texto normalizado em NFC; sem escape de HTML na entrada.
 
-**Dados e operação:** segredos fora do Git (variáveis de ambiente localmente; Secrets Manager no alvo); criptografia em repouso com KMS no alvo; logs sem token, segredo nem payload financeiro completo; erros em RFC 9457 sem *stack trace*; Actuator em porta separada expondo só `health` e `prometheus`; Swagger UI só em `dev`/`local`. Mapeamento completo OWASP API Top 10 em `04 §2.6` e `docs/security/` (T-034).
+**Dados e operação:** segredos fora do Git (variáveis de ambiente localmente; Secrets Manager no alvo); criptografia em repouso com KMS no alvo; logs sem token, segredo nem payload financeiro completo; erros em RFC 9457 sem *stack trace*; Actuator em porta separada expondo só `health` e `prometheus`; Swagger UI só no profile `local` (não existe `dev`; *atualizado na T-040*, Q-086). Mapeamento completo OWASP API Top 10 em `04 §2.6` e `docs/security/` (T-034).
 
 ## Alternativas rejeitadas
 | Alternativa | Por que não |
