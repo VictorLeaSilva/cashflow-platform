@@ -28,7 +28,7 @@ jobs:
       security-events: write
       actions: read
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v7
       - uses: actions/setup-java@v4
         with:
           distribution: temurin
@@ -57,7 +57,7 @@ jobs:
             echo "::error title=NVD_API_KEY ausente::Crie o segredo NVD_API_KEY em Settings > Secrets and variables > Actions (chave gratuita em https://nvd.nist.gov/developers/request-an-api-key). Sem a chave o Dependency-Check leva horas ou é bloqueado, então este job falha de propósito. PRs de forks não recebem segredos."
             exit 1
           fi
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v7
       - uses: actions/setup-java@v4
         with:
           distribution: temurin
@@ -101,7 +101,7 @@ jobs:
     runs-on: ubuntu-latest
     timeout-minutes: 45
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v7
       - uses: actions/setup-java@v4
         with:
           distribution: temurin

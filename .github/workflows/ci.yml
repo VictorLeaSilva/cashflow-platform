@@ -18,7 +18,7 @@ jobs:
     name: Build e verificação (G2)
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v7
       - uses: actions/setup-java@v4
         with:
           distribution: temurin
@@ -31,7 +31,7 @@ jobs:
     name: Regras de alerta (promtool)
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v7
       - name: promtool check rules
         run: >
           docker run --rm --entrypoint promtool
@@ -47,7 +47,7 @@ jobs:
     name: Segredos (gitleaks)
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v7
         with:
           fetch-depth: 0
       - uses: gitleaks/gitleaks-action@v2
