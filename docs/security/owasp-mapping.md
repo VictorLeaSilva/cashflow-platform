@@ -20,3 +20,4 @@ Controle e teste de cada risco do `04 §2.6`. Cada teste está escrito como `cla
 - **HSTS e TLS:** terminam na borda (gateway/ALB, ADR-010); localmente o tráfego é HTTP e nenhum HSTS é enviado.
 - **Rate limit e WAF:** só desenho (ADR-010); a API não os implementa.
 - **Pipeline:** CodeQL, Dependency-Check, Trivy e gitleaks (`04 §2.5`) rodam em `security.yml` e `ci.yml`; o resultado de cada run vive no GitHub, não neste documento. Supressões, quando houver, ficam em `docs/security/` com motivo, tarefa e validade.
+- **Cobertura do Dependency-Check:** só o NVD. O analisador Sonatype OSS Index fica desligado (`--disableOssIndex`, T-038, Q-082), porque exige conta, limita requisições anônimas e fazia o job falhar sem achado de CVE. CVEs que só o OSS Index conhece não são vistos por esse job; o Trivy (imagens) e o Dependabot cobrem parte deles.
