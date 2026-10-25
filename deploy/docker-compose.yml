@@ -84,7 +84,7 @@ services:
   # UI do Kafka para inspecionar tópicos e mensagens. Opcional: só sobe com --profile tools.
   # Contínuo; http://localhost:${KAFKA_UI_PORT:-8090}.
   kafka-ui:
-    image: kafbat/kafka-ui:v1.3.0
+    image: kafbat/kafka-ui:v1.5.0
     profiles: ["tools"]
     depends_on:
       kafka:
