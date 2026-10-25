@@ -21,7 +21,7 @@ services:
   # Banco das aplicações (03 §3, D-15): bancos "lancamentos" e "consolidado", cada um com roles
   # owner/app próprios, criados por deploy/init/. Contínuo; porta no host ${POSTGRES_PORT:-5432}.
   postgres:
-    image: postgres:17.11-alpine
+    image: postgres:18.4-alpine
     environment:
       POSTGRES_USER: ${POSTGRES_SUPERUSER:-postgres}
       POSTGRES_PASSWORD: ${POSTGRES_SUPERUSER_PASSWORD:?defina POSTGRES_SUPERUSER_PASSWORD (.env.example)}
