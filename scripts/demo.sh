@@ -188,7 +188,12 @@ if $KAFKA_DOWN; then
   $COMPOSE stop kafka >/dev/null 2>&1 || die "Não foi possível parar o kafka"
   expect "POST /lancamentos segue 201" 201 "$(post_lanc "$TOK_A" CREDITO 20.00 "" "$(newkey)")"
   sleep 2
-  info "outbox_pending_events = $(outbox_pending) (esperado > 0 enquanto o Kafka está fora)"
+  PENDENTES="$(outbox_pending)"
+  info "outbox_pending_events = $PENDENTES (esperado > 0 enquanto o Kafka está fora)"
+  if [[ ! "$PENDENTES" =~ ^[0-9]+$ ]] || (( PENDENTES == 0 )); then
+    die "A outbox não acumulou com o Kafka parado (pendentes: $PENDENTES)"
+  fi
+  pass "outbox acumulou $PENDENTES evento(s) com o Kafka parado"
   $COMPOSE start kafka >/dev/null 2>&1
   deadline=$((SECONDS + 180))
   until [[ "$(outbox_pending)" == "0" ]] || (( SECONDS >= deadline )); do sleep 2; done

@@ -14,7 +14,7 @@
 #   lancamentos    contínuo         serviço de Lançamentos em contêiner, só com o profile "apps" (T-035)
 #   consolidado    contínuo         serviço de Consolidado em contêiner, só com o profile "apps" (T-035)
 # Profiles: "tools", "observability" e "apps" (opcionais). As imagens dos serviços saem de
-# ./mvnw -q install -DskipTests && ./mvnw -pl lancamentos-service,consolidado-service spring-boot:build-image -DskipTests
+# ./mvnw -q install -DskipTests -Pimagens
 name: fluxo-caixa
 
 services:
