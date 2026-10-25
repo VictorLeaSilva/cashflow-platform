@@ -1,0 +1,123 @@
+name: Security
+
+# Gates de segurança do pipeline (T-034, Q-067, 04 §2.5 e §4): CodeQL (SAST), OWASP Dependency-Check
+# (CVEs em dependências) e Trivy (imagens dos serviços). O gitleaks continua no ci.yml.
+# Em PR e diário. Supressões só com motivo, tarefa e validade, em docs/security/ (04 §5, Q-076).
+on:
+  pull_request:
+  schedule:
+    - cron: '41 4 * * *'
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: security-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  codeql:
+    name: CodeQL (Java)
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    permissions:
+      contents: read
+      security-events: write
+      actions: read
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: '25'
+          cache: maven
+      - uses: github/codeql-action/init@v4
+        with:
+          languages: java-kotlin
+          build-mode: manual
+      - name: Compilar (build manual do CodeQL)
+        run: ./mvnw -B -ntp -DskipTests package
+      - uses: github/codeql-action/analyze@v4
+        with:
+          category: '/language:java-kotlin'
+
+  dependency-check:
+    name: OWASP Dependency-Check (CVSS >= 7 falha)
+    runs-on: ubuntu-latest
+    timeout-minutes: 60
+    env:
+      NVD_API_KEY: ${{ secrets.NVD_API_KEY }}
+    steps:
+      - name: Exigir a chave da API do NVD
+        run: |
+          if [ -z "$NVD_API_KEY" ]; then
+            echo "::error title=NVD_API_KEY ausente::Crie o segredo NVD_API_KEY em Settings > Secrets and variables > Actions (chave gratuita em https://nvd.nist.gov/developers/request-an-api-key). Sem a chave o Dependency-Check leva horas ou é bloqueado, então este job falha de propósito. PRs de forks não recebem segredos."
+            exit 1
+          fi
+      - uses: actions/checkout@v4
+      - uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: '25'
+          cache: maven
+      - name: Gerar os jars dos serviços
+        run: ./mvnw -B -ntp -DskipTests package
+      - name: Cache dos dados do NVD
+        uses: actions/cache@v4
+        with:
+          path: ${{ runner.temp }}/dc-data
+          key: dc-data-${{ runner.os }}-${{ github.run_id }}
+          restore-keys: dc-data-${{ runner.os }}-
+      - name: Dependency-Check
+        run: |
+          mkdir -p "${RUNNER_TEMP}/dc-data" "${RUNNER_TEMP}/dc-report"
+          chmod -R 777 "${RUNNER_TEMP}/dc-data" "${RUNNER_TEMP}/dc-report"
+          docker run --rm \
+            -e NVD_API_KEY \
+            -v "${GITHUB_WORKSPACE}:/src:ro" \
+            -v "${RUNNER_TEMP}/dc-data:/usr/share/dependency-check/data" \
+            -v "${RUNNER_TEMP}/dc-report:/report" \
+            owasp/dependency-check:12.1.0 \
+            --scan /src/lancamentos-service/target/lancamentos-service-0.1.0-SNAPSHOT.jar \
+            --scan /src/consolidado-service/target/consolidado-service-0.1.0-SNAPSHOT.jar \
+            --nvdApiKey "$NVD_API_KEY" \
+            --failOnCVSS 7 \
+            --suppression /src/docs/security/dependency-check-suppressions.xml \
+            --format HTML --format JSON --out /report
+      - name: Publicar o relatório
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: dependency-check
+          path: ${{ runner.temp }}/dc-report
+          if-no-files-found: warn
+
+  trivy:
+    name: Trivy (imagens, HIGH/CRITICAL com correção)
+    runs-on: ubuntu-latest
+    timeout-minutes: 45
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: '25'
+          cache: maven
+      - name: Compilar
+        run: ./mvnw -B -ntp -q install -DskipTests
+      - name: Gerar as imagens dos serviços
+        run: ./mvnw -B -ntp -pl lancamentos-service,consolidado-service spring-boot:build-image -DskipTests
+      - name: Trivy nas duas imagens
+        run: |
+          for imagem in fluxo-caixa/lancamentos:0.1.0-SNAPSHOT fluxo-caixa/consolidado:0.1.0-SNAPSHOT; do
+            docker run --rm \
+              -v /var/run/docker.sock:/var/run/docker.sock \
+              -v "${GITHUB_WORKSPACE}/docs/security:/security:ro" \
+              aquasec/trivy:0.67.2 image \
+              --severity HIGH,CRITICAL \
+              --ignore-unfixed \
+              --exit-code 1 \
+              --ignorefile /security/trivyignore.yaml \
+              "$imagem"
+          done

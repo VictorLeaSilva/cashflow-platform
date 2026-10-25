@@ -881,6 +881,7 @@ Remove-Item Env:BASE
 - [`docs/specs/`](docs/specs/): especificação (constituição, domínios e capacidades, requisitos, contratos, padrões de qualidade, backlog).
 - Contratos das APIs: [`lancamentos-v1.yaml`](lancamentos-service/src/main/resources/openapi/lancamentos-v1.yaml) e [`consolidado-v1.yaml`](consolidado-service/src/main/resources/openapi/consolidado-v1.yaml). Contrato do evento: [`lancamento-registrado.v1.schema.json`](contracts/src/main/resources/events/lancamento-registrado.v1.schema.json).
 - [Runbook da DLT](docs/runbooks/dlt-reprocessamento.md): o que fazer quando um evento não pode ser aplicado no Consolidado.
+- [Segurança](docs/security/): [mapeamento OWASP API Top 10](docs/security/owasp-mapping.md) (controle e teste de cada risco), [modelo de ameaças](docs/security/ameacas.md) e [lista ASVS nível 1](docs/security/asvs-l1.md). Os gates de segurança do CI (CodeQL, Dependency-Check, Trivy) estão em `.github/workflows/security.yml`; o Dependency-Check precisa do segredo `NVD_API_KEY` no GitHub.
 
 ## Módulos
 

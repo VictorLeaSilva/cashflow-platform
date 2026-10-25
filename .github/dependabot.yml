@@ -1,3 +1,5 @@
+# Atualizações semanais (T-034, 04 §2.5). O ecossistema "docker-compose" cobre as imagens de deploy/docker-compose.yml;
+# o repositório não tem Dockerfile (as imagens dos serviços saem do spring-boot:build-image), então o "docker" puro não se aplica.
 version: 2
 updates:
   - package-ecosystem: maven

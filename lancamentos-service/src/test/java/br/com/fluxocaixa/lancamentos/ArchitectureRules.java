@@ -124,6 +124,23 @@ final class ArchitectureRules {
       GeneralCodingRules.NO_CLASSES_SHOULD_ACCESS_STANDARD_STREAMS;
 
   /**
+   * API7 (SSRF, 04 §2.6, T-034): nenhum cliente HTTP de saída no código de produção. A API não
+   * chama URL alguma, muito menos uma informada pelo usuário; falar com o Kafka e com o banco não
+   * passa por esses pacotes.
+   */
+  static final ArchRule NO_OUTBOUND_HTTP_CLIENTS =
+      noClasses()
+          .should()
+          .dependOnClassesThat()
+          .resideInAnyPackage(
+              "java.net.http..",
+              "org.springframework.web.client..",
+              "org.springframework.web.reactive.function.client..",
+              "org.apache.hc..",
+              "okhttp3..")
+          .allowEmptyShould(true);
+
+  /**
    * Controllers retornam DTOs (04 §2.2, T-013): todo método público de um {@code @RestController}
    * devolve {@code ResponseEntity} de um <i>record</i> de {@code adapter.in.web}, nunca uma classe
    * de {@code domain}.

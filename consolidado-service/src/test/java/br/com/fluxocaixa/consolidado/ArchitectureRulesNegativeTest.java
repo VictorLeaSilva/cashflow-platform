@@ -51,6 +51,12 @@ class ArchitectureRulesNegativeTest {
   }
 
   @Test
+  @Tag("RNF-005")
+  void outboundHttpClientViolatesRule() {
+    assertViolated(ArchitectureRules.NO_OUTBOUND_HTTP_CLIENTS);
+  }
+
+  @Test
   void controllerReturningDomainViolatesRule() {
     assertViolated(ArchitectureRules.CONTROLLERS_RETURN_WEB_RECORDS);
   }

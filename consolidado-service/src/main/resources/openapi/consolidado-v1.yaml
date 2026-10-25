@@ -577,6 +577,29 @@ components:
                 requestId: cliente-req-8f2c1
                 timestamp: '2026-10-23T15:00:00Z'
 
+    MetodoNaoPermitido:
+      description: |
+        `OPTIONS` em qualquer rota de `/api/v1/**` (inclusive um *preflight* CORS): a API não expõe
+        CORS nem responde a `OPTIONS` (Q-067). Resposta de erro comum, sem operação nova no contrato.
+      headers:
+        X-Request-Id:
+          $ref: '#/components/headers/XRequestId'
+      content:
+        application/problem+json:
+          schema:
+            $ref: '#/components/schemas/Problema'
+          examples:
+            options:
+              value:
+                type: /erros/metodo-nao-permitido
+                title: Method Not Allowed
+                status: 405
+                detail: 'OPTIONS não é permitido: a API não responde a preflight nem expõe CORS'
+                instance: /api/v1/consolidado
+                requestId: cliente-req-8f2c1
+                traceId: 4bf92f3577b34da6a3ce929d0e0e4736
+                timestamp: '2026-10-23T15:00:00Z'
+
     Interno:
       description: Erro inesperado; o detalhe é genérico e a causa fica só no log.
       headers:

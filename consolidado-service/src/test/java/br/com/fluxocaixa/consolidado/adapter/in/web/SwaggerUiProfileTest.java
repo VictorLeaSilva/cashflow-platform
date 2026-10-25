@@ -3,6 +3,7 @@ package br.com.fluxocaixa.consolidado.adapter.in.web;
 import static br.com.fluxocaixa.consolidado.adapter.in.web.Chamadas.COMERCIANTE;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.get;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.content;
+import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.header;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.status;
 
 import br.com.fluxocaixa.consolidado.support.IntegracaoWeb;
@@ -26,12 +27,39 @@ class SwaggerUiProfileTest {
     void swaggerUiResponde200SemToken() throws Exception {
       mvc.perform(get("/swagger-ui/index.html"))
           .andExpect(status().isOk())
-          .andExpect(content().string(Matchers.containsString("/v3/api-docs")));
+          .andExpect(
+              content().string(Matchers.containsString("/swagger-ui/swagger-initializer.js")));
     }
 
     @Test
     void assetsDaSwaggerUiRespondem200SemToken() throws Exception {
       mvc.perform(get("/webjars/swagger-ui/swagger-ui-bundle.js")).andExpect(status().isOk());
+    }
+
+    @Test
+    void paginaNaoTemScriptEmLinhaEAInicializacaoVemDeArquivoProprio() throws Exception {
+      String pagina =
+          mvc.perform(get("/swagger-ui/index.html")).andReturn().getResponse().getContentAsString();
+      org.assertj.core.api.Assertions.assertThat(pagina).doesNotContain("<script>");
+      mvc.perform(get("/swagger-ui/swagger-initializer.js"))
+          .andExpect(status().isOk())
+          .andExpect(content().string(Matchers.containsString("/v3/api-docs")));
+    }
+
+    @Test
+    void swaggerUiTemCspPropriaEAsDemaisRotasMantemACspFechada() throws Exception {
+      String csp =
+          "default-src 'self'; img-src 'self' data:; style-src 'self' 'unsafe-inline';"
+              + " frame-ancestors 'none'";
+      mvc.perform(get("/swagger-ui/index.html"))
+          .andExpect(header().string("Content-Security-Policy", csp));
+      mvc.perform(get("/webjars/swagger-ui/swagger-ui-bundle.js"))
+          .andExpect(header().string("Content-Security-Policy", csp));
+      mvc.perform(get("/api/v1/consolidado"))
+          .andExpect(status().isUnauthorized())
+          .andExpect(
+              header()
+                  .string("Content-Security-Policy", "default-src 'none'; frame-ancestors 'none'"));
     }
 
     @Test

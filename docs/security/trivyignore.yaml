@@ -1,0 +1,17 @@
+# Supressões do Trivy (T-034, Q-076, 04 §5).
+# Cada entrada exige: id da vulnerabilidade, statement com o motivo e a tarefa que a criou, e
+# expired_at (AAAA-MM-DD): depois da validade o achado volta a falhar o gate.
+vulnerabilities:
+  # T-037 (Q-081): stdlib do Go 1.27.2 em dois binários auxiliares do Paketo (HIGH, corrigido no Go
+  # 1.27.3). O builder 0.0.201 ainda traz esses dois binários com o Go 1.27.2 (conferido nas
+  # imagens: o do bellsoft-liberica já está no 1.27.3). Os binários são do buildpack, não do
+  # projeto: rodam só ao preparar e iniciar o contêiner, não escutam rede nem atendem requisições.
+  # A correção depende de um novo release do buildpack; revisar a cada novo builder.
+  - id: CVE-2026-111943
+    paths:
+      - "layers/paketo-buildpacks_ca-certificates/helper/helper"
+      - "layers/paketo-buildpacks_spring-boot/helper/helper"
+    statement: >-
+      T-037: binários auxiliares do Paketo com Go 1.27.2, sem correção no builder 0.0.201;
+      não atendem rede; trocar o builder quando o buildpack publicar o Go 1.27.3.
+    expired_at: 2026-11-24

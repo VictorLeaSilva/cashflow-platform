@@ -18,7 +18,7 @@ Gerada por `scripts/check-traceability.sh --write`; não edite à mão. Requisit
 | RNF-002 | evidência | 0; docs/specs/reviews/T-033.evidence.md | T-033 |
 | RNF-003 | @Tag + evidência | 2; docs/specs/reviews/T-033.evidence.md | T-022, T-032, T-033 |
 | RNF-004 | @Tag | 28 | T-010, T-011, T-012, T-014, T-016, T-021, T-022 |
-| RNF-005 | @Tag | 11 | T-013, T-015, T-023, T-034, T-036 |
+| RNF-005 | @Tag | 23 | T-013, T-015, T-023, T-034, T-036, T-037 |
 | RNF-006 | @Tag | 10 | T-032 |
 | RNF-007 | @Tag + evidência | 12; docs/specs/reviews/T-035.evidence.md | T-016, T-031, T-035 |
 | RNF-008 | @Tag + evidência | 4; docs/specs/reviews/T-003.evidence.md | T-001, T-002, T-003 |
@@ -26,7 +26,7 @@ Gerada por `scripts/check-traceability.sh --write`; não edite à mão. Requisit
 | RNF-010 | evidência | docs/specs/reviews/T-033.evidence.md | T-033 |
 | RNF-011 | só desenho | — |  |
 | RNF-012 | @Tag | 16 | T-013, T-014, T-015, T-016, T-022, T-023, T-032 |
-| RNF-013 | @Tag | 4 | T-013, T-014, T-015, T-023, T-034 |
+| RNF-013 | @Tag | 5 | T-013, T-014, T-015, T-023, T-034 |
 | RNF-014 | @Tag | 8 | T-013, T-014, T-015, T-023 |
 
 ## Detalhe dos testes
@@ -186,10 +186,22 @@ Gerada por `scripts/check-traceability.sh --write`; não edite à mão. Requisit
 - `PublicarOutboxTest` (lancamentos-service)
 
 ### RNF-005
+- `ArchitectureRulesNegativeTest#outboundHttpClientViolatesRule` (consolidado-service)
+- `ArchitectureRulesNegativeTest#outboundHttpClientViolatesRule` (lancamentos-service)
+- `ArchitectureTest#outboundHttpClientsAreNotUsed` (consolidado-service)
+- `ArchitectureTest#outboundHttpClientsAreNotUsed` (lancamentos-service)
 - `AuditoriaEstornoWebTest` (lancamentos-service)
+- `CabecalhosDeSegurancaWebTest` (consolidado-service)
+- `CabecalhosDeSegurancaWebTest` (lancamentos-service)
+- `CorsEOptionsWebTest` (consolidado-service)
+- `CorsEOptionsWebTest` (lancamentos-service)
+- `DependenciasSemCveTest` (consolidado-service)
+- `DependenciasSemCveTest` (lancamentos-service)
 - `DevTokenIT` (consolidado-service)
 - `DevTokenIT` (lancamentos-service)
 - `GetLancamentosWebTest` (lancamentos-service)
+- `LimitesHttpWebTest` (consolidado-service)
+- `LimitesHttpWebTest` (lancamentos-service)
 - `LogDeAcessoWebTest` (consolidado-service)
 - `LogDeAcessoWebTest` (lancamentos-service)
 - `PostEstornoWebTest` (lancamentos-service)
@@ -253,6 +265,7 @@ Gerada por `scripts/check-traceability.sh --write`; não edite à mão. Requisit
 - `TratamentoDeErroComCorrelacaoTest` (consolidado-service)
 
 ### RNF-013
+- `DatasEstritasWebTest` (lancamentos-service)
 - `GetConsolidadoWebTest` (consolidado-service)
 - `GetLancamentosWebTest` (lancamentos-service)
 - `PostEstornoWebTest` (lancamentos-service)
