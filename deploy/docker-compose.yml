@@ -10,7 +10,11 @@
 #   kafka-ui       contínuo         UI do Kafka, só com o profile "tools"
 #   prometheus     contínuo         métricas e alertas, só com o profile "observability" (T-032)
 #   grafana        contínuo         painel de operação, só com o profile "observability" (T-032)
-# Profiles: "tools" e "observability" (opcionais); "apps" entra na T-035.
+#   dev-keys       execução única   cria a chave JWT de desenvolvimento, só com o profile "apps" (T-035)
+#   lancamentos    contínuo         serviço de Lançamentos em contêiner, só com o profile "apps" (T-035)
+#   consolidado    contínuo         serviço de Consolidado em contêiner, só com o profile "apps" (T-035)
+# Profiles: "tools", "observability" e "apps" (opcionais). As imagens dos serviços saem de
+# ./mvnw -q install -DskipTests -Pimagens
 name: fluxo-caixa
 
 services:
@@ -94,6 +98,76 @@ services:
       KAFKA_CLUSTERS_0_BOOTSTRAPSERVERS: kafka:29092
     ports:
       - "${KAFKA_UI_PORT:-8090}:8080"
+
+  # Chave JWT de desenvolvimento (T-035, Q-064): execução única, só com --profile apps. Roda o
+  # scripts/DevToken.java, que cria o par de chaves em deploy/dev-keys/ se ele ainda não existir (não
+  # regrava um par existente) e termina. Os serviços esperam este término e montam a pasta só leitura.
+  dev-keys:
+    image: eclipse-temurin:25.0.1_8-jdk-noble
+    profiles: ["apps"]
+    working_dir: /work
+    volumes:
+      - ../scripts/DevToken.java:/work/scripts/DevToken.java:ro
+      - ./dev-keys:/work/deploy/dev-keys
+    entrypoint:
+      - "sh"
+      - "-c"
+      - "java scripts/DevToken.java --merchant 00000000-0000-4000-8000-000000000000 --scopes lancamentos:read --ttl 60 > /dev/null"
+    restart: "no"
+
+  # Serviço de Lançamentos em contêiner (T-035, Q-064). Imagem gerada por spring-boot:build-image
+  # (usuário não-root). Profile Spring "local" e só o que muda dentro da rede do compose: banco,
+  # Kafka e o caminho da chave pública. Sem healthcheck (a imagem não tem curl nem shell): a saúde é
+  # http://localhost:9081/actuator/health, que scripts/demo.sh espera. Portas: API 8081, gestão 9081.
+  lancamentos:
+    image: fluxo-caixa/lancamentos:0.1.0-SNAPSHOT
+    pull_policy: never
+    profiles: ["apps"]
+    depends_on:
+      postgres:
+        condition: service_healthy
+      kafka-topicos:
+        condition: service_completed_successfully
+      dev-keys:
+        condition: service_completed_successfully
+    environment:
+      SPRING_PROFILES_ACTIVE: local
+      SPRING_DATASOURCE_URL: jdbc:postgresql://postgres:5432/lancamentos
+      KAFKA_BOOTSTRAP_SERVERS: kafka:29092
+      SPRING_SECURITY_OAUTH2_RESOURCESERVER_JWT_PUBLICKEYLOCATION: file:/dev-keys/jwt-public.pem
+      LANCAMENTOS_OWNER_PASSWORD: ${LANCAMENTOS_OWNER_PASSWORD:?defina LANCAMENTOS_OWNER_PASSWORD}
+      LANCAMENTOS_APP_PASSWORD: ${LANCAMENTOS_APP_PASSWORD:?defina LANCAMENTOS_APP_PASSWORD}
+    volumes:
+      - ./dev-keys:/dev-keys:ro
+    ports:
+      - "${LANCAMENTOS_PORT:-8081}:8081"
+      - "${LANCAMENTOS_MANAGEMENT_PORT:-9081}:9081"
+
+  # Serviço de Consolidado em contêiner (T-035, Q-064): mesma receita do Lançamentos.
+  # Portas: API 8082, gestão 9082.
+  consolidado:
+    image: fluxo-caixa/consolidado:0.1.0-SNAPSHOT
+    pull_policy: never
+    profiles: ["apps"]
+    depends_on:
+      postgres:
+        condition: service_healthy
+      kafka-topicos:
+        condition: service_completed_successfully
+      dev-keys:
+        condition: service_completed_successfully
+    environment:
+      SPRING_PROFILES_ACTIVE: local
+      SPRING_DATASOURCE_URL: jdbc:postgresql://postgres:5432/consolidado
+      KAFKA_BOOTSTRAP_SERVERS: kafka:29092
+      SPRING_SECURITY_OAUTH2_RESOURCESERVER_JWT_PUBLICKEYLOCATION: file:/dev-keys/jwt-public.pem
+      CONSOLIDADO_OWNER_PASSWORD: ${CONSOLIDADO_OWNER_PASSWORD:?defina CONSOLIDADO_OWNER_PASSWORD}
+      CONSOLIDADO_APP_PASSWORD: ${CONSOLIDADO_APP_PASSWORD:?defina CONSOLIDADO_APP_PASSWORD}
+    volumes:
+      - ./dev-keys:/dev-keys:ro
+    ports:
+      - "${CONSOLIDADO_PORT:-8082}:8082"
+      - "${CONSOLIDADO_MANAGEMENT_PORT:-9082}:9082"
 
   # Métricas e alertas (T-032, Q-062, 03 §8). Opcional: só sobe com --profile observability.
   # Raspa as portas de gestão dos serviços no host (9081 e 9082) por host.docker.internal, que o

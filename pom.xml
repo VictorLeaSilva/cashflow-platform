@@ -51,6 +51,10 @@
     <!-- T-013: Swagger UI (só no profile local) e validação do contrato OpenAPI 3.1 (Q-002). -->
     <swagger-ui.version>5.33.1</swagger-ui.version>
     <json-schema-validator.version>3.0.8</json-schema-validator.version>
+    <!-- T-035: plataforma das imagens dos serviços; sem isso o build-image pode pegar o builder da arquitetura errada (arm64 sob emulação). -->
+    <image.platform>linux/amd64</image.platform>
+    <!-- Builder com tag fixa (04 §2.5): o :latest do Docker Hub resolveu para arm64 num daemon amd64. -->
+    <image.builder>paketobuildpacks/builder-noble-java-tiny:0.0.200</image.builder>
   </properties>
 
   <dependencyManagement>
@@ -333,4 +337,19 @@
       </plugin>
     </plugins>
   </build>
+
+  <profiles>
+    <!-- Máquinas ARM (Apple silicon): imagens linux/arm64. -->
+    <profile>
+      <id>imagem-arm64</id>
+      <activation>
+        <os>
+          <arch>aarch64</arch>
+        </os>
+      </activation>
+      <properties>
+        <image.platform>linux/arm64</image.platform>
+      </properties>
+    </profile>
+  </profiles>
 </project>
