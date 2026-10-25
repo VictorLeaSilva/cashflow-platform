@@ -40,8 +40,10 @@ done
 
 if [[ "$MODE" == "inspect" ]]; then
   for s in smoke load; do
-    dk run --rm -v "$ROOT/loadtest:/loadtest:ro" -e TOKEN=inspect -e TOKEN_READONLY=inspect \
-      "$K6_IMAGE" inspect "/loadtest/$s.js" >/dev/null || die "k6 inspect falhou em $s.js"
+    # Os scripts exigem os tokens ao carregar; valores de mentira bastam para inspecionar.
+    dk run --rm -v "$ROOT/loadtest:/loadtest:ro" \
+      "$K6_IMAGE" inspect -e TOKEN=inspect -e TOKEN_READONLY=inspect "/loadtest/$s.js" >/dev/null \
+      || die "k6 inspect falhou em $s.js"
     echo "✔ k6 inspect: $s.js"
   done
   exit 0
