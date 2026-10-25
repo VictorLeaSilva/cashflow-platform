@@ -145,6 +145,8 @@
             <name>fluxo-caixa/lancamentos:${project.version}</name>
             <!-- Builder e imagem-base ficam no cache do Docker depois da primeira vez (menos rede, menos falha). -->
             <pullPolicy>IF_NOT_PRESENT</pullPolicy>
+            <imagePlatform>${image.platform}</imagePlatform>
+            <builder>${image.builder}</builder>
           </image>
         </configuration>
       </plugin>
