@@ -8,7 +8,9 @@
 #   kafka          contínuo         broker KRaft de nó único
 #   kafka-topicos  execução única   cria o tópico de eventos e a DLT, termina com exit 0
 #   kafka-ui       contínuo         UI do Kafka, só com o profile "tools"
-# Profiles: "tools" (opcional); "observability" e "apps" entram nas T-032 e T-035.
+#   prometheus     contínuo         métricas e alertas, só com o profile "observability" (T-032)
+#   grafana        contínuo         painel de operação, só com o profile "observability" (T-032)
+# Profiles: "tools" e "observability" (opcionais); "apps" entra na T-035.
 name: fluxo-caixa
 
 services:
@@ -92,6 +94,54 @@ services:
       KAFKA_CLUSTERS_0_BOOTSTRAPSERVERS: kafka:29092
     ports:
       - "${KAFKA_UI_PORT:-8090}:8080"
+
+  # Métricas e alertas (T-032, Q-062, 03 §8). Opcional: só sobe com --profile observability.
+  # Raspa as portas de gestão dos serviços no host (9081 e 9082) por host.docker.internal, que o
+  # host-gateway resolve no Docker Desktop e no Linux. Contínuo; http://localhost:${PROMETHEUS_PORT:-9090}.
+  prometheus:
+    image: prom/prometheus:v3.15.1
+    profiles: ["observability"]
+    command:
+      - "--config.file=/etc/prometheus/prometheus.yml"
+      - "--storage.tsdb.retention.time=2d"
+    extra_hosts:
+      - "host.docker.internal:host-gateway"
+    volumes:
+      - ./prometheus/prometheus.yml:/etc/prometheus/prometheus.yml:ro
+      - ./prometheus/alertas.yml:/etc/prometheus/alertas.yml:ro
+    ports:
+      - "${PROMETHEUS_PORT:-9090}:9090"
+    healthcheck:
+      test: ["CMD", "wget", "-q", "--spider", "http://localhost:9090/-/ready"]
+      interval: 5s
+      timeout: 5s
+      retries: 12
+
+  # Painel de operação (T-032). Opcional: só sobe com --profile observability. Só para uso local:
+  # acesso anônimo somente leitura e sem tela de login (nenhuma credencial no repositório).
+  # Contínuo; http://localhost:${GRAFANA_PORT:-3000}.
+  grafana:
+    image: grafana/grafana:13.2.4
+    profiles: ["observability"]
+    depends_on:
+      prometheus:
+        condition: service_healthy
+    environment:
+      GF_AUTH_ANONYMOUS_ENABLED: "true"
+      GF_AUTH_ANONYMOUS_ORG_ROLE: Viewer
+      GF_AUTH_DISABLE_LOGIN_FORM: "true"
+      GF_ANALYTICS_REPORTING_ENABLED: "false"
+      GF_ANALYTICS_CHECK_FOR_UPDATES: "false"
+    volumes:
+      - ./grafana/provisioning:/etc/grafana/provisioning:ro
+      - ./grafana/dashboards:/var/lib/grafana/dashboards:ro
+    ports:
+      - "${GRAFANA_PORT:-3000}:3000"
+    healthcheck:
+      test: ["CMD-SHELL", "wget -q --spider http://localhost:3000/api/health || exit 1"]
+      interval: 5s
+      timeout: 5s
+      retries: 12
 
 volumes:
   postgres-data:

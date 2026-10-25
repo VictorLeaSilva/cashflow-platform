@@ -16,16 +16,16 @@ Gerada por `scripts/check-traceability.sh --write`; não edite à mão. Requisit
 | RF-010 | @Tag + evidência | 10; docs/specs/reviews/T-035.evidence.md (pendente) | T-013, T-014, T-015, T-023, T-035 |
 | RNF-001 | @Tag + evidência | 2; docs/specs/reviews/T-035.evidence.md (pendente) | T-004, T-016, T-031, T-035 |
 | RNF-002 | evidência | 0; docs/specs/reviews/T-033.evidence.md (pendente) | T-033 |
-| RNF-003 | @Tag + evidência | 1; docs/specs/reviews/T-033.evidence.md (pendente) | T-022, T-032, T-033 |
+| RNF-003 | @Tag + evidência | 2; docs/specs/reviews/T-033.evidence.md (pendente) | T-022, T-032, T-033 |
 | RNF-004 | @Tag | 27 | T-010, T-011, T-012, T-014, T-016, T-021, T-022 |
 | RNF-005 | @Tag | 11 | T-013, T-015, T-023, T-034, T-036 |
-| RNF-006 | FALTA | 0 | T-032 |
+| RNF-006 | @Tag | 10 | T-032 |
 | RNF-007 | @Tag + evidência | 11; docs/specs/reviews/T-035.evidence.md (pendente) | T-016, T-031, T-035 |
 | RNF-008 | @Tag + evidência | 4; docs/specs/reviews/T-003.evidence.md | T-001, T-002, T-003 |
 | RNF-009 | @Tag + evidência | 2; docs/specs/reviews/T-001.evidence.md; docs/specs/reviews/T-004.evidence.md; docs/specs/reviews/T-006.evidence.md; docs/specs/reviews/T-007.evidence.md; docs/specs/reviews/T-035.evidence.md (pendente) | T-001, T-004, T-006, T-007, T-035 |
 | RNF-010 | evidência | docs/specs/reviews/T-033.evidence.md (pendente) | T-033 |
 | RNF-011 | só desenho | — |  |
-| RNF-012 | @Tag | 11 | T-013, T-014, T-015, T-016, T-022, T-023, T-032 |
+| RNF-012 | @Tag | 16 | T-013, T-014, T-015, T-016, T-022, T-023, T-032 |
 | RNF-013 | @Tag | 4 | T-013, T-014, T-015, T-023, T-034 |
 | RNF-014 | @Tag | 8 | T-013, T-014, T-015, T-023 |
 
@@ -148,6 +148,7 @@ Gerada por `scripts/check-traceability.sh --write`; não edite à mão. Requisit
 - `PublicadorOutboxIT` (lancamentos-service)
 
 ### RNF-003
+- `HistogramaDoLagTest` (consolidado-service)
 - `MetricasDoConsumidorIT` (consolidado-service)
 
 ### RNF-004
@@ -192,6 +193,18 @@ Gerada por `scripts/check-traceability.sh --write`; não edite à mão. Requisit
 - `SwaggerUiProfileTest` (consolidado-service)
 - `SwaggerUiProfileTest` (lancamentos-service)
 
+### RNF-006
+- `GestaoActuatorWebTest` (consolidado-service)
+- `GestaoActuatorWebTest` (lancamentos-service)
+- `HistogramaDoLagTest` (consolidado-service)
+- `MetricasDeNegocioWebTest` (lancamentos-service)
+- `MetricasDosPoolsEDoKafkaIT` (consolidado-service)
+- `PoolsMetricasIT` (lancamentos-service)
+- `RastroDoConsumoIT` (consolidado-service)
+- `RastroDoEventoIT` (lancamentos-service)
+- `TraceIdNosErrosWebTest` (consolidado-service)
+- `TraceIdNosErrosWebTest` (lancamentos-service)
+
 ### RNF-007
 - `DescricaoDeFalhaTest` (lancamentos-service)
 - `FalhaEntreEnvioEMarcacaoIT` (lancamentos-service)
@@ -225,8 +238,13 @@ Gerada por `scripts/check-traceability.sh --write`; não edite à mão. Requisit
 - `PostEstornoWebTest` (lancamentos-service)
 - `PostLancamentoIT` (lancamentos-service)
 - `PublicadorOutboxIT` (lancamentos-service)
+- `RastroDoConsumoIT` (consolidado-service)
+- `RastroDoEventoIT` (lancamentos-service)
 - `RequestIdWebTest` (consolidado-service)
 - `RequestIdWebTest` (lancamentos-service)
+- `TraceIdNosErrosWebTest` (consolidado-service)
+- `TraceIdNosErrosWebTest` (lancamentos-service)
+- `TratamentoDeErroComCorrelacaoTest` (consolidado-service)
 
 ### RNF-013
 - `GetConsolidadoWebTest` (consolidado-service)

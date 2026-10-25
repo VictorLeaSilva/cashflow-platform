@@ -1,0 +1,188 @@
+# Testes das regras de alertas.yml (promtool test rules). Para cada alerta, um caso que dispara e
+# um que não dispara. Comandos (da raiz do repositório):
+#   bash:        MSYS_NO_PATHCONV=1 docker run --rm --entrypoint promtool -v "$PWD/deploy/prometheus:/work:ro" prom/prometheus:v3.15.1 test rules /work/alertas.test.yml
+#   PowerShell:  docker run --rm --entrypoint promtool -v "${PWD}/deploy/prometheus:/work:ro" prom/prometheus:v3.15.1 test rules /work/alertas.test.yml
+rule_files:
+  - alertas.yml
+
+evaluation_interval: 1m
+
+tests:
+  # OutboxComIdadeAlta
+  - name: outbox envelhecida dispara
+    interval: 1m
+    input_series:
+      - series: 'outbox_oldest_pending_age_seconds{job="lancamentos", instance="l1"}'
+        values: '120x15'
+    alert_rule_test:
+      - eval_time: 10m
+        alertname: OutboxComIdadeAlta
+        exp_alerts:
+          - exp_labels: {severity: critical, job: lancamentos, instance: l1}
+            exp_annotations:
+              summary: "Evento mais antigo da outbox pendente há mais de 60 s"
+  - name: outbox em dia não dispara
+    interval: 1m
+    input_series:
+      - series: 'outbox_oldest_pending_age_seconds{job="lancamentos", instance="l1"}'
+        values: '5x15'
+    alert_rule_test:
+      - eval_time: 10m
+        alertname: OutboxComIdadeAlta
+        exp_alerts: []
+
+  # ConsolidadoForaDoAr
+  - name: consolidado parado dispara
+    interval: 1m
+    input_series:
+      - series: 'up{job="consolidado", instance="h:9082"}'
+        values: '0x10'
+    alert_rule_test:
+      - eval_time: 5m
+        alertname: ConsolidadoForaDoAr
+        exp_alerts:
+          - exp_labels: {severity: critical, job: consolidado, instance: "h:9082"}
+            exp_annotations:
+              summary: "Consolidado sem responder à raspagem há mais de 2 minutos"
+  - name: consolidado de pé não dispara
+    interval: 1m
+    input_series:
+      - series: 'up{job="consolidado", instance="h:9082"}'
+        values: '1x10'
+    alert_rule_test:
+      - eval_time: 5m
+        alertname: ConsolidadoForaDoAr
+        exp_alerts: []
+
+  # LagDoConsumidorCrescente
+  - name: lag crescente dispara
+    interval: 1m
+    input_series:
+      - series: 'kafka_consumer_fetch_manager_records_lag_max{job="consolidado", instance="h:9082"}'
+        values: '10+10x20'
+    alert_rule_test:
+      - eval_time: 15m
+        alertname: LagDoConsumidorCrescente
+        exp_alerts:
+          - exp_labels: {severity: warning, job: consolidado, instance: "h:9082"}
+            exp_annotations:
+              summary: "Lag do consumidor Kafka do Consolidado crescendo há 5 minutos"
+  - name: lag estável ou zerado não dispara
+    interval: 1m
+    input_series:
+      - series: 'kafka_consumer_fetch_manager_records_lag_max{job="consolidado", instance="estavel"}'
+        values: '100x20'
+      - series: 'kafka_consumer_fetch_manager_records_lag_max{job="consolidado", instance="zerado"}'
+        values: '0x20'
+    alert_rule_test:
+      - eval_time: 15m
+        alertname: LagDoConsumidorCrescente
+        exp_alerts: []
+
+  # EventoNaDlt
+  - name: evento na DLT dispara
+    interval: 1m
+    input_series:
+      - series: 'consolidado_events_dlt_total{job="consolidado", instance="h:9082"}'
+        values: '0 0 0 1 1 1 1 1'
+    alert_rule_test:
+      - eval_time: 4m
+        alertname: EventoNaDlt
+        exp_alerts:
+          - exp_labels: {severity: critical, job: consolidado, instance: "h:9082"}
+            exp_annotations:
+              summary: "Evento enviado para a DLT; siga o runbook de reprocessamento"
+  - name: DLT parada não dispara
+    interval: 1m
+    input_series:
+      - series: 'consolidado_events_dlt_total{job="consolidado", instance="h:9082"}'
+        values: '0x10'
+    alert_rule_test:
+      - eval_time: 8m
+        alertname: EventoNaDlt
+        exp_alerts: []
+
+  # LagDeProjecaoAlto
+  - name: lag de projeção p95 alto dispara
+    interval: 1m
+    input_series:
+      - series: 'consolidado_event_lag_seconds_bucket{job="consolidado", le="1"}'
+        values: '0+0x20'
+      - series: 'consolidado_event_lag_seconds_bucket{job="consolidado", le="10"}'
+        values: '0+1x20'
+      - series: 'consolidado_event_lag_seconds_bucket{job="consolidado", le="+Inf"}'
+        values: '0+10x20'
+    alert_rule_test:
+      - eval_time: 15m
+        alertname: LagDeProjecaoAlto
+        exp_alerts:
+          - exp_labels: {severity: warning, job: consolidado}
+            exp_annotations:
+              summary: "Lag de projeção p95 acima de 5 s há 5 minutos"
+  - name: lag de projeção baixo não dispara
+    interval: 1m
+    input_series:
+      - series: 'consolidado_event_lag_seconds_bucket{job="consolidado", le="1"}'
+        values: '0+10x20'
+      - series: 'consolidado_event_lag_seconds_bucket{job="consolidado", le="10"}'
+        values: '0+10x20'
+      - series: 'consolidado_event_lag_seconds_bucket{job="consolidado", le="+Inf"}'
+        values: '0+10x20'
+    alert_rule_test:
+      - eval_time: 15m
+        alertname: LagDeProjecaoAlto
+        exp_alerts: []
+
+  # Taxa5xxAlta
+  - name: taxa de 5xx alta dispara
+    interval: 1m
+    input_series:
+      - series: 'http_server_requests_seconds_count{job="lancamentos", status="500"}'
+        values: '0+1x20'
+      - series: 'http_server_requests_seconds_count{job="lancamentos", status="201"}'
+        values: '0+9x20'
+    alert_rule_test:
+      - eval_time: 15m
+        alertname: Taxa5xxAlta
+        exp_alerts:
+          - exp_labels: {severity: critical, job: lancamentos}
+            exp_annotations:
+              summary: "Mais de 5 % das respostas HTTP com erro 5xx há 5 minutos"
+  - name: poucos 5xx não disparam
+    interval: 1m
+    input_series:
+      - series: 'http_server_requests_seconds_count{job="lancamentos", status="500"}'
+        values: '0x20'
+      - series: 'http_server_requests_seconds_count{job="lancamentos", status="201"}'
+        values: '0+10x20'
+    alert_rule_test:
+      - eval_time: 15m
+        alertname: Taxa5xxAlta
+        exp_alerts: []
+
+  # PoolJdbcSaturado
+  - name: pool saturado dispara
+    interval: 1m
+    input_series:
+      - series: 'hikaricp_connections_active{job="lancamentos", pool="api"}'
+        values: '10x15'
+      - series: 'hikaricp_connections_max{job="lancamentos", pool="api"}'
+        values: '10x15'
+    alert_rule_test:
+      - eval_time: 10m
+        alertname: PoolJdbcSaturado
+        exp_alerts:
+          - exp_labels: {severity: warning, job: lancamentos, pool: api}
+            exp_annotations:
+              summary: "Pool JDBC com mais de 90 % das conexões em uso há 5 minutos"
+  - name: pool folgado não dispara
+    interval: 1m
+    input_series:
+      - series: 'hikaricp_connections_active{job="lancamentos", pool="api"}'
+        values: '2x15'
+      - series: 'hikaricp_connections_max{job="lancamentos", pool="api"}'
+        values: '10x15'
+    alert_rule_test:
+      - eval_time: 10m
+        alertname: PoolJdbcSaturado
+        exp_alerts: []

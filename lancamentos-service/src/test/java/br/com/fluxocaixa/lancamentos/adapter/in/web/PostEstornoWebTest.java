@@ -412,6 +412,6 @@ class PostEstornoWebTest extends IntegracaoWeb {
     return resultado
         .getResponse()
         .getContentAsString()
-        .replaceAll("\"(instance|requestId|timestamp)\":\"[^\"]*\"", "");
+        .replaceAll("\"(instance|requestId|traceId|timestamp)\":\"[^\"]*\"", "");
   }
 }

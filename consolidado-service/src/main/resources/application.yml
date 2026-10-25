@@ -25,6 +25,9 @@ spring:
   kafka:
     # Broker local do compose (T-004); outro ambiente informa KAFKA_BOOTSTRAP_SERVERS.
     bootstrap-servers: ${KAFKA_BOOTSTRAP_SERVERS:localhost:${KAFKA_PORT:9092}}
+    template:
+      # Observação do envio da DLT (Q-061).
+      observation-enabled: true
     consumer:
       # 03 §7.1 e Q-047: lote do poll, grupo novo lê desde o começo da retenção, offset manual.
       max-poll-records: 100
@@ -42,6 +45,8 @@ spring:
     listener:
       # Q-044: o offset de cada registro só é confirmado depois que o listener retorna (o commit).
       ack-mode: record
+      # Observação do consumo: continua o trace do publicador pelo traceparent (Q-061).
+      observation-enabled: true
   security:
     oauth2:
       resourceserver:
@@ -50,6 +55,37 @@ spring:
           public-key-location: ${CONSOLIDADO_JWT_PUBLIC_KEY_LOCATION:}
           issuer-uri: ${CONSOLIDADO_JWT_ISSUER:}
           audiences: ${CONSOLIDADO_JWT_AUDIENCE:}
+
+
+# Observabilidade (03 §5, §8; Q-061, Q-062): Actuator em porta de gestão separada, sem autenticação
+# (nunca publicada para fora no alvo, ADR-010), só health (sem detalhes) e prometheus. Tracing com a
+# ponte OpenTelemetry, amostragem 100 % e nenhum exportador: o traceId aparece nos logs e no problem+json.
+management:
+  server:
+    port: ${CONSOLIDADO_MANAGEMENT_PORT:9082}
+  endpoints:
+    web:
+      exposure:
+        include: health,prometheus
+  endpoint:
+    health:
+      show-details: never
+  tracing:
+    sampling:
+      probability: 1.0
+  otlp:
+    metrics:
+      export:
+        enabled: false
+  opentelemetry:
+    tracing:
+      export:
+        otlp:
+          enabled: false
+    logging:
+      export:
+        otlp:
+          enabled: false
 
 # Logs JSON com o MDC (requestId, eventId), como no Lançamentos (ADR-008, Q-049).
 logging:

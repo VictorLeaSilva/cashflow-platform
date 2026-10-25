@@ -1,11 +1,14 @@
 package br.com.fluxocaixa.lancamentos.application;
 
+import br.com.fluxocaixa.lancamentos.application.port.out.ContextoDeTrace;
 import br.com.fluxocaixa.lancamentos.application.port.out.EventoOutbox;
 import br.com.fluxocaixa.lancamentos.application.port.out.IdGenerator;
 import br.com.fluxocaixa.lancamentos.application.port.out.LancamentoRepository;
+import br.com.fluxocaixa.lancamentos.application.port.out.MetricasDeLancamentos;
 import br.com.fluxocaixa.lancamentos.application.port.out.OutboxRepository;
 import br.com.fluxocaixa.lancamentos.domain.Lancamento;
 import br.com.fluxocaixa.lancamentos.domain.PoliticaLancamento;
+import br.com.fluxocaixa.lancamentos.domain.TipoLancamento;
 import java.time.Clock;
 import java.util.UUID;
 
@@ -29,20 +32,23 @@ public class RegistrarLancamento {
   private final IdGenerator ids;
   private final PoliticaLancamento politica;
   private final Clock clock;
+  private final MetricasDeLancamentos metricas;
+  private final ContextoDeTrace trace;
 
   public RegistrarLancamento(
       ExecucaoIdempotente execucaoIdempotente,
       LancamentoRepository lancamentos,
       OutboxRepository outbox,
-      IdGenerator ids,
-      PoliticaLancamento politica,
-      Clock clock) {
+      Ambiente ambiente,
+      Observabilidade observabilidade) {
     this.execucaoIdempotente = execucaoIdempotente;
     this.lancamentos = lancamentos;
     this.outbox = outbox;
-    this.ids = ids;
-    this.politica = politica;
-    this.clock = clock;
+    this.ids = ambiente.ids();
+    this.politica = ambiente.politica();
+    this.clock = ambiente.clock();
+    this.metricas = observabilidade.metricas();
+    this.trace = observabilidade.trace();
   }
 
   /**
@@ -68,24 +74,31 @@ public class RegistrarLancamento {
             comando.identificadorExterno());
     Lancamento.validarCampos(novo, politica);
     UUID lancamentoId = ids.gerar();
-    var resultado =
-        execucaoIdempotente.executar(
-            comercianteId,
-            comando.chave(),
-            RequestFingerprint.deRegistro(comando),
-            lancamentoId,
-            () ->
-                gravar(
-                    Lancamento.registrar(lancamentoId, novo, politica, clock), comando.requestId()),
-            existente -> carregar(comercianteId, existente));
-    return new Resultado(resultado.valor(), resultado.replay());
+    try {
+      var resultado =
+          execucaoIdempotente.executar(
+              comercianteId,
+              comando.chave(),
+              RequestFingerprint.deRegistro(comando),
+              lancamentoId,
+              () ->
+                  gravar(
+                      Lancamento.registrar(lancamentoId, novo, politica, clock),
+                      comando.requestId()),
+              existente -> carregar(comercianteId, existente));
+      contar(resultado.valor().tipo(), resultado.replay());
+      return new Resultado(resultado.valor(), resultado.replay());
+    } catch (IdempotencyKeyReuseException e) {
+      metricas.conflito();
+      throw e;
+    }
   }
 
   /** Passo 4: lançamento e evento na transação aberta pela execução idempotente. */
   private Lancamento gravar(Lancamento lancamento, String requestId) {
     lancamentos.inserir(lancamento);
     LancamentoRegistradoV1 evento =
-        LancamentoRegistradoV1.de(lancamento, ids.gerar(), clock.instant());
+        LancamentoRegistradoV1.de(lancamento, ids.gerar(), clock.instant(), trace.traceIdAtual());
     outbox.inserir(
         new EventoOutbox(
             evento.eventId(),
@@ -97,6 +110,15 @@ public class RegistrarLancamento {
             evento,
             requestId));
     return lancamento;
+  }
+
+  /** Depois do commit: lançamento novo conta como registrado; replay, como replay (Q-063). */
+  private void contar(TipoLancamento tipo, boolean replay) {
+    if (replay) {
+      metricas.replay();
+    } else {
+      metricas.registrado(tipo);
+    }
   }
 
   /** Replay: a resposta é reconstruída do lançamento original (D-08). */

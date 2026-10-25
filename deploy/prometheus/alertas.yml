@@ -1,0 +1,69 @@
+# Alertas de 03 §8 (T-032). Os limiares são valores iniciais (P8), a revisar com a medição da T-033.
+# Sem Alertmanager no MVP: os alertas aparecem na UI do Prometheus (aba Alerts).
+groups:
+  - name: fluxo-caixa
+    rules:
+      # Kafka fora => a outbox acumula e o evento mais antigo envelhece (03 §8).
+      - alert: OutboxComIdadeAlta
+        expr: outbox_oldest_pending_age_seconds > 60
+        for: 5m
+        labels:
+          severity: critical
+        annotations:
+          summary: "Evento mais antigo da outbox pendente há mais de 60 s"
+
+      # Consolidado parado => lag do consumidor sobe com a outbox drenando (03 §8).
+      - alert: ConsolidadoForaDoAr
+        expr: up{job="consolidado"} == 0
+        for: 2m
+        labels:
+          severity: critical
+        annotations:
+          summary: "Consolidado sem responder à raspagem há mais de 2 minutos"
+
+      - alert: LagDoConsumidorCrescente
+        expr: >
+          kafka_consumer_fetch_manager_records_lag_max{job="consolidado"} > 0
+          and deriv(kafka_consumer_fetch_manager_records_lag_max{job="consolidado"}[5m]) > 0
+        for: 5m
+        labels:
+          severity: warning
+        annotations:
+          summary: "Lag do consumidor Kafka do Consolidado crescendo há 5 minutos"
+
+      # Qualquer evento na DLT deixa o consolidado incompleto até o reprocessamento (03 §7.2).
+      - alert: EventoNaDlt
+        expr: increase(consolidado_events_dlt_total[5m]) > 0
+        labels:
+          severity: critical
+        annotations:
+          summary: "Evento enviado para a DLT; siga o runbook de reprocessamento"
+
+      # Frescor ponta a ponta da projeção, p95 acima da meta de 5 s (RNF-003).
+      - alert: LagDeProjecaoAlto
+        expr: >
+          histogram_quantile(0.95,
+            sum by (job, le) (rate(consolidado_event_lag_seconds_bucket{job="consolidado"}[5m]))) > 5
+        for: 5m
+        labels:
+          severity: warning
+        annotations:
+          summary: "Lag de projeção p95 acima de 5 s há 5 minutos"
+
+      - alert: Taxa5xxAlta
+        expr: >
+          sum by (job) (rate(http_server_requests_seconds_count{status=~"5.."}[5m]))
+          / sum by (job) (rate(http_server_requests_seconds_count[5m])) > 0.05
+        for: 5m
+        labels:
+          severity: critical
+        annotations:
+          summary: "Mais de 5 % das respostas HTTP com erro 5xx há 5 minutos"
+
+      - alert: PoolJdbcSaturado
+        expr: hikaricp_connections_active / hikaricp_connections_max > 0.9
+        for: 5m
+        labels:
+          severity: warning
+        annotations:
+          summary: "Pool JDBC com mais de 90 % das conexões em uso há 5 minutos"

@@ -1,0 +1,10 @@
+# Carrega os painéis versionados em deploy/grafana/dashboards (T-032).
+apiVersion: 1
+
+providers:
+  - name: fluxo-caixa
+    type: file
+    disableDeletion: true
+    allowUiUpdates: false
+    options:
+      path: /var/lib/grafana/dashboards

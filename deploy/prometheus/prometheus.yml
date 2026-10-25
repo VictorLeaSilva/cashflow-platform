@@ -1,0 +1,21 @@
+# Prometheus local (T-032, Q-062). Raspa as portas de gestão dos dois serviços no host
+# (host.docker.internal, mapeado por extra_hosts no compose): serve tanto para os serviços rodando
+# pelo Maven (README) quanto, na T-035, para os contêineres com as portas de gestão publicadas.
+# Se trocar LANCAMENTOS_MANAGEMENT_PORT ou CONSOLIDADO_MANAGEMENT_PORT, troque os alvos abaixo.
+global:
+  scrape_interval: 5s
+  evaluation_interval: 15s
+
+rule_files:
+  - /etc/prometheus/alertas.yml
+
+scrape_configs:
+  - job_name: lancamentos
+    metrics_path: /actuator/prometheus
+    static_configs:
+      - targets: ["host.docker.internal:9081"]
+
+  - job_name: consolidado
+    metrics_path: /actuator/prometheus
+    static_configs:
+      - targets: ["host.docker.internal:9082"]

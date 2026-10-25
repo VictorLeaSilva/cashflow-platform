@@ -109,6 +109,25 @@ public final class KafkaConsolidado {
         requestId == null ? null : requestId.getBytes(StandardCharsets.UTF_8));
   }
 
+  /**
+   * Publica no tópico principal com os cabeçalhos informados (por exemplo, {@code traceparent}).
+   */
+  public static RecordMetadata publicarComCabecalhos(
+      String chave, String valor, Map<String, String> cabecalhos) {
+    ProducerRecord<String, String> registro = new ProducerRecord<>(TOPICO, chave, valor);
+    cabecalhos.forEach(
+        (nome, conteudo) ->
+            registro.headers().add(nome, conteudo.getBytes(StandardCharsets.UTF_8)));
+    try {
+      return PRODUTOR.send(registro).get(30, TimeUnit.SECONDS);
+    } catch (ExecutionException | TimeoutException e) {
+      throw new IllegalStateException("falha ao publicar no tópico de teste", e);
+    } catch (InterruptedException e) {
+      Thread.currentThread().interrupt();
+      throw new IllegalStateException(e);
+    }
+  }
+
   /** Publica com o cabeçalho {@code x-request-id} em bytes arbitrários (inclusive inválidos). */
   public static RecordMetadata publicar(
       String topico, String chave, String valor, byte[] requestId) {

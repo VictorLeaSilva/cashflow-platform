@@ -2,11 +2,15 @@ package br.com.fluxocaixa.lancamentos.adapter.out.persistence;
 
 import static org.assertj.core.api.Assertions.assertThat;
 
+import br.com.fluxocaixa.lancamentos.adapter.out.observabilidade.MetricasMicrometer;
+import br.com.fluxocaixa.lancamentos.application.Ambiente;
 import br.com.fluxocaixa.lancamentos.application.EstornarLancamento;
 import br.com.fluxocaixa.lancamentos.application.EstornarLancamentoCommand;
 import br.com.fluxocaixa.lancamentos.application.ExecucaoIdempotente;
+import br.com.fluxocaixa.lancamentos.application.Observabilidade;
 import br.com.fluxocaixa.lancamentos.application.RegistrarLancamento;
 import br.com.fluxocaixa.lancamentos.application.RegistrarLancamentoCommand;
+import br.com.fluxocaixa.lancamentos.application.port.out.ContextoDeTrace;
 import br.com.fluxocaixa.lancamentos.application.port.out.IdGenerator;
 import br.com.fluxocaixa.lancamentos.application.port.out.LancamentoRepository;
 import br.com.fluxocaixa.lancamentos.application.port.out.OutboxRepository;
@@ -15,6 +19,7 @@ import br.com.fluxocaixa.lancamentos.domain.TipoLancamento;
 import br.com.fluxocaixa.lancamentos.support.ContratoDoEvento;
 import br.com.fluxocaixa.lancamentos.support.IntegracaoPostgres;
 import br.com.fluxocaixa.lancamentos.support.RelogioFixo;
+import io.micrometer.core.instrument.simple.SimpleMeterRegistry;
 import java.math.BigDecimal;
 import java.time.Instant;
 import java.util.ArrayDeque;
@@ -27,7 +32,6 @@ import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.jdbc.core.simple.JdbcClient;
 import tools.jackson.databind.JsonNode;
-import tools.jackson.databind.node.ObjectNode;
 
 /**
  * AC-T030.2: com {@code Clock} e {@code IdGenerator} fixos e a entrada do exemplo, o JSON gravado
@@ -35,9 +39,9 @@ import tools.jackson.databind.node.ObjectNode;
  * também é válido no schema. Os casos de uso são montados aqui com os mesmos componentes do
  * contexto, trocando só a sequência de ids e o relógio de cada exemplo.
  *
- * <p>Exceção da Q-069: o <i>golden</i> de estorno traz {@code traceId}, que o produtor só emite a
- * partir da T-032. O teste retira esse campo do esperado e uma sentinela falha quando o produtor
- * passar a emiti-lo, obrigando a remover a exceção.
+ * <p>O {@code traceId} do estorno (T-032, Q-061) vem de um {@link ContextoDeTrace} fixo com o valor
+ * do <i>golden</i>; crédito e débito são produzidos sem ele, como nos exemplos. A exceção da Q-069
+ * (T-030) deixou de existir: o <i>golden</i> de estorno é comparado inteiro.
  */
 @Tag("RF-008")
 class ContratoDoEventoIT extends IntegracaoPostgres {
@@ -66,18 +70,7 @@ class ContratoDoEventoIT extends IntegracaoPostgres {
 
     assertIgual(CREDITO, credito, registrar(credito, TipoLancamento.CREDITO));
     assertIgual(DEBITO, debito, registrar(debito, TipoLancamento.DEBITO));
-    assertEstornoIgual(estorno, estornar(estorno));
-  }
-
-  private void assertEstornoIgual(JsonNode golden, JsonNode produzido) {
-    assertThat(produzido.has("traceId"))
-        .as(
-            "o produtor passou a emitir traceId (T-032): remova a exceção da Q-069 deste teste e"
-                + " compare o golden inteiro")
-        .isFalse();
-    ObjectNode esperado = (ObjectNode) golden.deepCopy();
-    esperado.remove("traceId");
-    assertIgual(ESTORNO + " (sem traceId, Q-069)", esperado, produzido);
+    assertIgual(ESTORNO, estorno, estornar(estorno));
   }
 
   private static void assertIgual(String golden, JsonNode esperado, JsonNode produzido) {
@@ -94,9 +87,11 @@ class ContratoDoEventoIT extends IntegracaoPostgres {
             execucaoIdempotente,
             lancamentos,
             outbox,
-            ids(golden.get("lancamentoId").asString(), golden.get("eventId").asString()),
-            politica,
-            relogio);
+            new Ambiente(
+                ids(golden.get("lancamentoId").asString(), golden.get("eventId").asString()),
+                politica,
+                relogio),
+            new Observabilidade(new MetricasMicrometer(new SimpleMeterRegistry()), () -> null));
     casoDeUso.registrar(
         new RegistrarLancamentoCommand(
             UUID.fromString(golden.get("comercianteId").asString()),
@@ -117,9 +112,13 @@ class ContratoDoEventoIT extends IntegracaoPostgres {
             execucaoIdempotente,
             lancamentos,
             outbox,
-            ids(golden.get("lancamentoId").asString(), golden.get("eventId").asString()),
-            politica,
-            relogio);
+            new Ambiente(
+                ids(golden.get("lancamentoId").asString(), golden.get("eventId").asString()),
+                politica,
+                relogio),
+            new Observabilidade(
+                new MetricasMicrometer(new SimpleMeterRegistry()),
+                () -> golden.get("traceId").asString()));
     casoDeUso.estornar(
         new EstornarLancamentoCommand(
             UUID.fromString(golden.get("comercianteId").asString()),

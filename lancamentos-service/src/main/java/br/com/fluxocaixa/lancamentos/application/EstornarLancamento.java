@@ -1,8 +1,10 @@
 package br.com.fluxocaixa.lancamentos.application;
 
+import br.com.fluxocaixa.lancamentos.application.port.out.ContextoDeTrace;
 import br.com.fluxocaixa.lancamentos.application.port.out.EventoOutbox;
 import br.com.fluxocaixa.lancamentos.application.port.out.IdGenerator;
 import br.com.fluxocaixa.lancamentos.application.port.out.LancamentoRepository;
+import br.com.fluxocaixa.lancamentos.application.port.out.MetricasDeLancamentos;
 import br.com.fluxocaixa.lancamentos.application.port.out.OutboxRepository;
 import br.com.fluxocaixa.lancamentos.domain.Lancamento;
 import br.com.fluxocaixa.lancamentos.domain.PoliticaLancamento;
@@ -38,20 +40,23 @@ public class EstornarLancamento {
   private final IdGenerator ids;
   private final PoliticaLancamento politica;
   private final Clock clock;
+  private final MetricasDeLancamentos metricas;
+  private final ContextoDeTrace trace;
 
   public EstornarLancamento(
       ExecucaoIdempotente execucaoIdempotente,
       LancamentoRepository lancamentos,
       OutboxRepository outbox,
-      IdGenerator ids,
-      PoliticaLancamento politica,
-      Clock clock) {
+      Ambiente ambiente,
+      Observabilidade observabilidade) {
     this.execucaoIdempotente = execucaoIdempotente;
     this.lancamentos = lancamentos;
     this.outbox = outbox;
-    this.ids = ids;
-    this.politica = politica;
-    this.clock = clock;
+    this.ids = ambiente.ids();
+    this.politica = ambiente.politica();
+    this.clock = ambiente.clock();
+    this.metricas = observabilidade.metricas();
+    this.trace = observabilidade.trace();
   }
 
   /**
@@ -67,18 +72,26 @@ public class EstornarLancamento {
   public Resultado estornar(EstornarLancamentoCommand comando) {
     UUID comercianteId = comando.comercianteId();
     UUID estornoId = ids.gerar();
-    var resultado =
-        execucaoIdempotente.executar(
-            comercianteId,
-            comando.chave(),
-            RequestFingerprint.deEstorno(comando),
-            estornoId,
-            () -> gravar(criar(comando, estornoId), comando.requestId()),
-            existente -> carregar(comercianteId, existente));
-    if (!resultado.replay()) {
-      auditar(resultado.valor());
+    try {
+      var resultado =
+          execucaoIdempotente.executar(
+              comercianteId,
+              comando.chave(),
+              RequestFingerprint.deEstorno(comando),
+              estornoId,
+              () -> gravar(criar(comando, estornoId), comando.requestId()),
+              existente -> carregar(comercianteId, existente));
+      if (resultado.replay()) {
+        metricas.replay();
+      } else {
+        metricas.registrado(resultado.valor().tipo());
+        auditar(resultado.valor());
+      }
+      return new Resultado(resultado.valor(), resultado.replay());
+    } catch (IdempotencyKeyReuseException e) {
+      metricas.conflito();
+      throw e;
     }
-    return new Resultado(resultado.valor(), resultado.replay());
   }
 
   /** Passo 4: o original só é visível para o próprio comerciante (RF-010). */
@@ -94,7 +107,7 @@ public class EstornarLancamento {
   private Lancamento gravar(Lancamento estorno, String requestId) {
     lancamentos.inserir(estorno);
     LancamentoRegistradoV1 evento =
-        LancamentoRegistradoV1.de(estorno, ids.gerar(), clock.instant());
+        LancamentoRegistradoV1.de(estorno, ids.gerar(), clock.instant(), trace.traceIdAtual());
     outbox.inserir(
         new EventoOutbox(
             evento.eventId(),

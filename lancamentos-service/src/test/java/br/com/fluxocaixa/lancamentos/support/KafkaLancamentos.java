@@ -91,7 +91,8 @@ public final class KafkaLancamentos {
   }
 
   /** Mensagem lida do tópico, com o cabeçalho {@code x-request-id} já decodificado. */
-  public record Mensagem(String chave, String valor, int particao, String requestId) {}
+  public record Mensagem(
+      String chave, String valor, int particao, String requestId, String traceparent) {}
 
   /** Leitor do tópico desde o início, com grupo próprio (não interfere em outros testes). */
   public static Leitor leitor() {
@@ -118,15 +119,20 @@ public final class KafkaLancamentos {
     /** Lê o que houver por até {@code espera} e devolve tudo o que já foi lido. */
     public List<Mensagem> ler(Duration espera) {
       for (ConsumerRecord<String, String> registro : consumidor.poll(espera)) {
-        Header cabecalho = registro.headers().lastHeader("x-request-id");
         lidas.add(
             new Mensagem(
                 registro.key(),
                 registro.value(),
                 registro.partition(),
-                cabecalho == null ? null : new String(cabecalho.value(), StandardCharsets.UTF_8)));
+                cabecalho(registro, "x-request-id"),
+                cabecalho(registro, "traceparent")));
       }
       return List.copyOf(lidas);
+    }
+
+    private static String cabecalho(ConsumerRecord<String, String> registro, String nome) {
+      Header cabecalho = registro.headers().lastHeader(nome);
+      return cabecalho == null ? null : new String(cabecalho.value(), StandardCharsets.UTF_8);
     }
 
     @Override

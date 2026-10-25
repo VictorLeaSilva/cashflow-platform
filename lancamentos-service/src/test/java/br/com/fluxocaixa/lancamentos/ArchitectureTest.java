@@ -26,6 +26,11 @@ class ArchitectureTest {
   }
 
   @Test
+  void applicationAndDomainDoNotDependOnObservabilityLibs() {
+    ArchitectureRules.APPLICATION_AND_DOMAIN_WITHOUT_OBSERVABILITY_LIBS.check(PRODUCTION_CLASSES);
+  }
+
+  @Test
   void serviceDoesNotDependOnPeerService() {
     ArchitectureRules.NO_PEER_SERVICE_DEPENDENCY.check(PRODUCTION_CLASSES);
   }

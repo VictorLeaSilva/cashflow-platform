@@ -4,6 +4,7 @@ import br.com.fluxocaixa.consolidado.adapter.in.kafka.ConsumidorDeLancamentos;
 import br.com.fluxocaixa.consolidado.adapter.in.kafka.EventoForaDoContratoException;
 import br.com.fluxocaixa.consolidado.adapter.in.kafka.LeitorDeEvento;
 import br.com.fluxocaixa.consolidado.adapter.in.kafka.MetricasDoConsumidor;
+import br.com.fluxocaixa.consolidado.adapter.in.kafka.TratamentoDeErroComCorrelacao;
 import br.com.fluxocaixa.consolidado.adapter.out.persistence.ProjecaoJdbcRepository;
 import br.com.fluxocaixa.consolidado.application.AplicarEvento;
 import br.com.fluxocaixa.consolidado.application.port.out.ProjecaoRepository;
@@ -123,7 +124,7 @@ public class ConsumidorConfig {
         new ExponentialBackOffWithMaxRetries(NOVAS_TENTATIVAS);
     backoff.setInitialInterval(PRIMEIRO_INTERVALO_MS);
     backoff.setMultiplier(MULTIPLICADOR);
-    DefaultErrorHandler tratamento = new DefaultErrorHandler(publicarEContar, backoff);
+    DefaultErrorHandler tratamento = new TratamentoDeErroComCorrelacao(publicarEContar, backoff);
     tratamento.addNotRetryableExceptions(
         EventoForaDoContratoException.class, EventoInvalidoException.class);
     return tratamento;
