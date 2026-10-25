@@ -27,12 +27,23 @@ class SwaggerUiProfileTest {
     void swaggerUiResponde200SemToken() throws Exception {
       mvc.perform(get("/swagger-ui/index.html"))
           .andExpect(status().isOk())
-          .andExpect(content().string(Matchers.containsString("/v3/api-docs")));
+          .andExpect(
+              content().string(Matchers.containsString("/swagger-ui/swagger-initializer.js")));
     }
 
     @Test
     void assetsDaSwaggerUiRespondem200SemToken() throws Exception {
       mvc.perform(get("/webjars/swagger-ui/swagger-ui-bundle.js")).andExpect(status().isOk());
+    }
+
+    @Test
+    void paginaNaoTemScriptEmLinhaEAInicializacaoVemDeArquivoProprio() throws Exception {
+      String pagina =
+          mvc.perform(get("/swagger-ui/index.html")).andReturn().getResponse().getContentAsString();
+      org.assertj.core.api.Assertions.assertThat(pagina).doesNotContain("<script>");
+      mvc.perform(get("/swagger-ui/swagger-initializer.js"))
+          .andExpect(status().isOk())
+          .andExpect(content().string(Matchers.containsString("/v3/api-docs")));
     }
 
     @Test
