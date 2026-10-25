@@ -1,0 +1,44 @@
+name: Demo
+
+# Prova cruzada com os dois serviços de verdade (T-035, Q-064): gera as imagens, sobe o profile
+# "apps" do compose e roda scripts/demo.sh, com e sem o Kafka parado. Manual (workflow_dispatch).
+on:
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: demo-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  demo:
+    name: Demo guiada (apps + demo.sh)
+    runs-on: ubuntu-latest
+    timeout-minutes: 45
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: '25'
+          cache: maven
+      - name: Configuração local (.env)
+        run: cp .env.example .env
+      - name: Compilar
+        run: ./mvnw -B -ntp -q install -DskipTests
+      - name: Gerar as imagens dos serviços
+        run: ./mvnw -B -ntp -pl lancamentos-service,consolidado-service spring-boot:build-image -DskipTests
+      - name: Subir o profile apps
+        run: docker compose --env-file .env -f deploy/docker-compose.yml --profile apps up -d --wait --remove-orphans
+      - name: Demo
+        run: scripts/demo.sh
+      - name: Demo com o Kafka parado
+        run: scripts/demo.sh --kafka-down
+      - name: Logs dos contêineres (em caso de falha)
+        if: failure()
+        run: docker compose --env-file .env -f deploy/docker-compose.yml --profile apps logs --no-color --tail 200
+      - name: Derrubar tudo
+        if: always()
+        run: docker compose --env-file .env -f deploy/docker-compose.yml --profile apps down -v

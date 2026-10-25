@@ -139,6 +139,12 @@
       <plugin>
         <groupId>org.springframework.boot</groupId>
         <artifactId>spring-boot-maven-plugin</artifactId>
+        <!-- Imagem do serviço (T-035, Q-064): Paketo, usuário não-root, sem Dockerfile próprio. -->
+        <configuration>
+          <image>
+            <name>fluxo-caixa/lancamentos:${project.version}</name>
+          </image>
+        </configuration>
       </plugin>
       <!-- AC-T001.3: os serviços nunca dependem um do outro (P6). -->
       <plugin>
@@ -165,4 +171,28 @@
       </plugin>
     </plugins>
   </build>
+
+  <profiles>
+    <!-- Gera a imagem do serviço junto com o install: ./mvnw -q install -DskipTests -Pimagens (T-035). -->
+    <profile>
+      <id>imagens</id>
+      <build>
+        <plugins>
+          <plugin>
+            <groupId>org.springframework.boot</groupId>
+            <artifactId>spring-boot-maven-plugin</artifactId>
+            <executions>
+              <execution>
+                <id>imagem-do-servico</id>
+                <phase>package</phase>
+                <goals>
+                  <goal>build-image-no-fork</goal>
+                </goals>
+              </execution>
+            </executions>
+          </plugin>
+        </plugins>
+      </build>
+    </profile>
+  </profiles>
 </project>

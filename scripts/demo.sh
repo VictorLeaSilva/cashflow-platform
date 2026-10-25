@@ -1,10 +1,13 @@
 #!/usr/bin/env bash
-# Demonstração guiada: prova, passo a passo, os requisitos centrais do case.
+# Demonstração guiada: prova, passo a passo, os requisitos centrais do case, com os dois serviços de
+# verdade ao mesmo tempo (profile "apps" do compose).
 #   RF-007 idempotência · RF-003 estorno · RF-009 retroativo · RF-010 isolamento
 #   RNF-001 Lançamentos segue de pé com o Consolidado parado
 #   RNF-007 (opcional, --kafka-down) Lançamentos segue de pé com o Kafka parado
 # Uso: scripts/demo.sh [--kafka-down]
-# Pré-requisito: stack no ar com o profile "apps" (ver README / T-035).
+# Pré-requisitos: bash, curl, jq, java e docker; stack no ar com o profile "apps" (ver README).
+# Roda no Linux, no macOS e no Git Bash do Windows (Q-065). Cada execução usa comerciantes novos.
+# Variáveis opcionais: LANC_URL, CONS_URL, MGMT_LANC, MGMT_CONS, COMPOSE, ENV_FILE.
 set -euo pipefail
 cd "$(dirname "$0")/.."
 
@@ -12,13 +15,13 @@ LANC_URL="${LANC_URL:-http://localhost:8081}"
 CONS_URL="${CONS_URL:-http://localhost:8082}"
 MGMT_LANC="${MGMT_LANC:-http://localhost:9081}"
 MGMT_CONS="${MGMT_CONS:-http://localhost:9082}"
-COMPOSE="${COMPOSE:-docker compose -f deploy/docker-compose.yml --profile apps}"
+COMPOSE="${COMPOSE:-docker compose --env-file ${ENV_FILE:-.env} -f deploy/docker-compose.yml --profile apps}"
 SCOPES="lancamentos:write,lancamentos:read,consolidado:read"
 KAFKA_DOWN=false
 if [[ "${1:-}" == "--kafka-down" ]]; then KAFKA_DOWN=true; fi
 
-for bin in curl jq java uuidgen docker awk; do
-  command -v "$bin" >/dev/null || { echo "Dependência ausente: $bin" >&2; exit 2; }
+for bin in curl jq java docker awk; do
+  command -v "$bin" >/dev/null || { echo "Dependência ausente: $bin (veja o README)" >&2; exit 2; }
 done
 
 BOLD=$'\033[1m'; GREEN=$'\033[32m'; RED=$'\033[31m'; DIM=$'\033[2m'; RESET=$'\033[0m'
@@ -29,21 +32,43 @@ die()  { printf '%s ✘ %s%s\n' "$RED" "$*" "$RESET" >&2; exit 1; }
 expect() { if [[ "$2" == "$3" ]]; then pass "$1 (= $3)"; else die "$1: esperado '$2', obtido '$3'"; fi; }
 num() { awk -v v="$1" 'BEGIN { printf "%.2f", v }'; }
 
-# Datas: instante UTC e data de negócio (America/Sao_Paulo), GNU e BSD/macOS.
-if date -d '1 day ago' >/dev/null 2>&1; then
-  inst_ago() { date -u -d "$1 days ago" +%Y-%m-%dT%H:%M:%SZ; }
-  day_ago()  { TZ=America/Sao_Paulo date -d "$1 days ago" +%F; }
-else
-  inst_ago() { date -u -v-"$1"d +%Y-%m-%dT%H:%M:%SZ; }
-  day_ago()  { TZ=America/Sao_Paulo date -v-"$1"d +%F; }
-fi
-
-BODY_F="$(mktemp)"; HDR_F="$(mktemp)"
+BODY_F="$(mktemp)"; HDR_F="$(mktemp)"; UUID_F="$(mktemp)"
 cleanup() {
-  rm -f "$BODY_F" "$HDR_F"
-  $COMPOSE start consolidado kafka >/dev/null 2>&1 || true   # nunca deixar a stack parada
+  rm -f "$BODY_F" "$HDR_F" "$UUID_F"
+  # Nunca deixar a stack parada, mesmo se o script falhar no meio (AC-T035.4).
+  $COMPOSE start consolidado kafka >/dev/null 2>&1 || true
 }
 trap cleanup EXIT
+
+# UUIDs novos: uuidgen, /proc ou, no Git Bash, uma lista gerada de uma vez pelo java (sem subshell
+# que perca o estado: a fila fica num arquivo).
+if ! command -v uuidgen >/dev/null && [[ ! -r /proc/sys/kernel/random/uuid ]]; then
+  UUIDS_JAVA="$(mktemp -d)/Uuids.java"
+  printf 'public class Uuids { public static void main(String[] a) { for (int i = 0; i < 80; i++) System.out.println(java.util.UUID.randomUUID()); } }\n' > "$UUIDS_JAVA"
+  java "$UUIDS_JAVA" > "$UUID_F"
+  rm -rf "$(dirname "$UUIDS_JAVA")"
+fi
+novo_uuid() {
+  local linha
+  if command -v uuidgen >/dev/null; then
+    uuidgen | tr '[:upper:]' '[:lower:]'
+  elif [[ -r /proc/sys/kernel/random/uuid ]]; then
+    cat /proc/sys/kernel/random/uuid
+  else
+    linha="$(head -n 1 "$UUID_F")"
+    tail -n +2 "$UUID_F" > "$UUID_F.novo" && mv "$UUID_F.novo" "$UUID_F"
+    printf '%s\n' "$linha"
+  fi
+}
+
+# Instante UTC de N dias atrás e data N dias antes de uma data (GNU e BSD/macOS).
+if date -d '1 day ago' >/dev/null 2>&1; then
+  inst_ago()  { date -u -d "$1 days ago" +%Y-%m-%dT%H:%M:%SZ; }
+  data_menos() { date -d "$1 -$2 days" +%F; }
+else
+  inst_ago()  { date -u -v-"$1"d +%Y-%m-%dT%H:%M:%SZ; }
+  data_menos() { date -j -v-"$2"d -f %F "$1" +%F; }
+fi
 
 # call METHOD URL TOKEN [KEY] [JSON] → imprime o status HTTP (000 se sem conexão)
 call() {
@@ -56,7 +81,7 @@ call() {
 }
 
 token() { java scripts/DevToken.java --merchant "$1" --scopes "$SCOPES" --ttl 3600; }
-newkey() { uuidgen | tr 'A-Z' 'a-z'; }
+newkey() { novo_uuid; }
 
 # post_lanc TOKEN TIPO VALOR DATA_OCORRENCIA_OU_VAZIO KEY
 post_lanc() {
@@ -69,7 +94,7 @@ post_lanc() {
   call POST "$LANC_URL/api/v1/lancamentos" "$1" "$5" "$body" 2>/dev/null
 }
 
-# wait_json URL TOKEN JQ_EXPR [TIMEOUT_S] → espera a projeção satisfazer a expressão
+# wait_json URL TOKEN JQ_EXPR [TIMEOUT_S] → espera a resposta satisfazer a expressão
 wait_json() {
   local deadline=$((SECONDS + ${4:-30}))
   while (( SECONDS < deadline )); do
@@ -81,30 +106,40 @@ wait_json() {
   return 1
 }
 
+# wait_health URL NOME [TIMEOUT_S] → espera o /actuator/health responder 200
+wait_health() {
+  local deadline=$((SECONDS + ${3:-120}))
+  until curl -fsS --max-time 3 "$1/actuator/health" >/dev/null 2>&1; do
+    (( SECONDS < deadline )) || die "$2 fora do ar ($1)"
+    sleep 2
+  done
+}
+
 outbox_pending() {
   curl -fsS --max-time 3 "$MGMT_LANC/actuator/prometheus" 2>/dev/null \
     | awk '/^outbox_pending_events[ {]/ { v=$NF } END { print (v=="" ? "n/d" : v+0) }'
 }
 
-HOJE="$(day_ago 0)"
-DIA_URL="$CONS_URL/api/v1/consolidado/$HOJE"
-MERCHANT_A="$(uuidgen | tr 'A-Z' 'a-z')"   # comerciantes novos a cada execução: base limpa
-MERCHANT_B="$(uuidgen | tr 'A-Z' 'a-z')"
+MERCHANT_A="$(novo_uuid)"   # comerciantes novos a cada execução: base limpa
+MERCHANT_B="$(novo_uuid)"
 TOK_A="$(token "$MERCHANT_A")"
 TOK_B="$(token "$MERCHANT_B")"
 
 step "0/7 Saúde dos serviços"
-curl -fsS --max-time 3 "$MGMT_LANC/actuator/health" >/dev/null || die "Lançamentos fora do ar ($MGMT_LANC)"
-curl -fsS --max-time 3 "$MGMT_CONS/actuator/health" >/dev/null || die "Consolidado fora do ar ($MGMT_CONS)"
+wait_health "$MGMT_LANC" "Lançamentos"
+wait_health "$MGMT_CONS" "Consolidado"
 pass "Lançamentos e Consolidado saudáveis"
 info "Comerciante A: $MERCHANT_A"
 
 step "1/7 Registrar: crédito 1000.00, débito 250.00, crédito 80.00"
 K1="$(newkey)"; K2="$(newkey)"; K3="$(newkey)"
 expect "crédito 1000.00" 201 "$(post_lanc "$TOK_A" CREDITO 1000.00 "" "$K1")"; ID_C1="$(jq -r .id "$BODY_F")"
+# O dia de hoje é o da resposta do serviço (fuso de negócio America/Sao_Paulo, 03 §4.1).
+HOJE="$(jq -r .dataReferencia "$BODY_F")"
 expect "débito 250.00"   201 "$(post_lanc "$TOK_A" DEBITO 250.00 "" "$K2")";   ID_D="$(jq -r .id "$BODY_F")"
 expect "crédito 80.00"   201 "$(post_lanc "$TOK_A" CREDITO 80.00 "" "$K3")"
-wait_json "$DIA_URL" "$TOK_A" '.qtdLancamentos >= 3' 30 || die "Consolidado não convergiu (3 lançamentos)"
+DIA_URL="$CONS_URL/api/v1/consolidado/$HOJE"
+wait_json "$DIA_URL" "$TOK_A" '.qtdLancamentos >= 3' 60 || die "Consolidado não convergiu (3 lançamentos)"
 expect "saldo do dia (1080 - 250)" "830.00" "$(num "$(jq -r .saldoDia "$BODY_F")")"
 
 step "2/7 Idempotência (RF-007): mesma chave, mesma resposta; payload diferente é rejeitado"
@@ -125,7 +160,7 @@ expect "saldo do dia após estorno" "1080.00" "$(num "$(jq -r .saldoDia "$BODY_F
 
 step "4/7 Lançamento retroativo (RF-009): crédito 500.00 há 3 dias"
 expect "crédito retroativo" 201 "$(post_lanc "$TOK_A" CREDITO 500.00 "$(inst_ago 3)" "$(newkey)")"
-RANGE_URL="$CONS_URL/api/v1/consolidado?dataInicio=$(day_ago 3)&dataFim=$HOJE"
+RANGE_URL="$CONS_URL/api/v1/consolidado?dataInicio=$(data_menos "$HOJE" 3)&dataFim=$HOJE"
 wait_json "$RANGE_URL" "$TOK_A" '.dias[0].qtdLancamentos >= 1' 30 || die "Consolidado não refletiu o retroativo"
 expect "dias no intervalo" 4 "$(jq -r '.dias | length' "$BODY_F")"
 expect "saldo do dia D-3" "500.00" "$(num "$(jq -r '.dias[0].saldoDia' "$BODY_F")")"
@@ -143,6 +178,7 @@ expect "consulta ao Consolidado falha (sem conexão)" 000 "$(call GET "$DIA_URL"
 expect "POST /lancamentos segue 201" 201 "$(post_lanc "$TOK_A" DEBITO 10.00 "" "$(newkey)")"
 info "docker compose start consolidado — o backlog do Kafka é consumido"
 $COMPOSE start consolidado >/dev/null 2>&1
+wait_health "$MGMT_CONS" "Consolidado" 120
 wait_json "$DIA_URL" "$TOK_A" '.qtdLancamentos >= 5' 90 || die "Consolidado não convergiu após voltar"
 pass "Consolidado convergiu sem perda: qtd=$(jq -r .qtdLancamentos "$BODY_F"), saldoDia=$(jq -r .saldoDia "$BODY_F")"
 
@@ -154,15 +190,16 @@ if $KAFKA_DOWN; then
   sleep 2
   info "outbox_pending_events = $(outbox_pending) (esperado > 0 enquanto o Kafka está fora)"
   $COMPOSE start kafka >/dev/null 2>&1
-  deadline=$((SECONDS + 120))
+  deadline=$((SECONDS + 180))
   until [[ "$(outbox_pending)" == "0" ]] || (( SECONDS >= deadline )); do sleep 2; done
-  [[ "$(outbox_pending)" == "0" ]] || die "Outbox não drenou em 120 s"
-  wait_json "$DIA_URL" "$TOK_A" '.qtdLancamentos >= 6' 60 || die "Consolidado não convergiu após o Kafka voltar"
+  [[ "$(outbox_pending)" == "0" ]] || die "Outbox não drenou em 180 s"
+  wait_json "$DIA_URL" "$TOK_A" '.qtdLancamentos >= 6' 90 || die "Consolidado não convergiu após o Kafka voltar"
   pass "Outbox drenada e Consolidado convergido (qtd=$(jq -r .qtdLancamentos "$BODY_F"))"
 else
   step "7/7 (opcional) Kafka parado"
   info "Execute scripts/demo.sh --kafka-down para provar RNF-007."
 fi
 
+if $KAFKA_DOWN; then PROVAS=" e RNF-007"; else PROVAS=""; fi
 printf '\n%sDemonstração concluída: RF-007, RF-003, RF-009, RF-010 e RNF-001%s%s\n' \
-  "$BOLD$GREEN" "$($KAFKA_DOWN && echo ' e RNF-007')" "$RESET"
+  "$BOLD$GREEN" "$PROVAS" "$RESET"
