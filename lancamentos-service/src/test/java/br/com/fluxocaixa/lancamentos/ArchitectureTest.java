@@ -52,6 +52,12 @@ class ArchitectureTest {
   }
 
   @Test
+  @Tag("RNF-005")
+  void outboundHttpClientsAreNotUsed() {
+    ArchitectureRules.NO_OUTBOUND_HTTP_CLIENTS.check(PRODUCTION_CLASSES);
+  }
+
+  @Test
   @Tag("RNF-004")
   void controllersReturnWebRecords() {
     ArchitectureRules.CONTROLLERS_RETURN_WEB_RECORDS.check(PRODUCTION_CLASSES);

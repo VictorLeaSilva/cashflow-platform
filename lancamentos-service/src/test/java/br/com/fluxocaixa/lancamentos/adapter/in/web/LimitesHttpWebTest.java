@@ -93,6 +93,17 @@ class LimitesHttpWebTest {
   }
 
   @Test
+  void respostasNaoRevelamAVersaoDoServidor() throws Exception {
+    HttpResponse<String> resposta =
+        HTTP.send(
+            HttpRequest.newBuilder(api("/api/v1/inexistente")).GET().build(),
+            BodyHandlers.ofString());
+
+    assertThat(resposta.headers().firstValue("Server").orElse("")).doesNotContainPattern("[0-9]");
+    assertThat(resposta.headers().firstValue("X-Powered-By")).isEmpty();
+  }
+
+  @Test
   void limitesDoServidorEstaoNaConfiguracao() {
     assertThat(ambiente.getProperty("server.max-http-request-header-size", DataSize.class))
         .isEqualTo(DataSize.ofKilobytes(8));
