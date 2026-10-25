@@ -30,6 +30,10 @@ final class EntradaDeLancamento {
   private static final int MAX_CASAS_NOS_SEGUNDOS = 6;
 
   private static final Pattern CHAVE = Pattern.compile("^[A-Za-z0-9._-]{1,64}$");
+
+  /** O ISO do JDK aceita ano com sinal ou com 5 dígitos; aqui só AAAA- (N1 da T-023, RNF-013). */
+  private static final Pattern ANO_DE_QUATRO_DIGITOS = Pattern.compile("^[0-9]{4}-.*$");
+
   private static final Pattern CONTROLE = Pattern.compile("\\p{Cc}");
 
   private EntradaDeLancamento() {}
@@ -132,6 +136,10 @@ final class EntradaDeLancamento {
     if (data == null) {
       return null;
     }
+    if (!ANO_DE_QUATRO_DIGITOS.matcher(data).matches()) {
+      erros.add(formatoDeOcorrenciaInvalido());
+      return null;
+    }
     try {
       Instant instante =
           OffsetDateTime.parse(data, DateTimeFormatter.ISO_OFFSET_DATE_TIME).toInstant();
@@ -145,13 +153,17 @@ final class EntradaDeLancamento {
       }
       return instante;
     } catch (DateTimeParseException e) {
-      erros.add(
-          erro(
-              "dataOcorrencia",
-              "formato-invalido",
-              "dataOcorrencia deve ser ISO-8601 com offset ou Z, como 2026-10-21T14:03:11-03:00"));
+      erros.add(formatoDeOcorrenciaInvalido());
       return null;
     }
+  }
+
+  private static ErroCampo formatoDeOcorrenciaInvalido() {
+    return erro(
+        "dataOcorrencia",
+        "formato-invalido",
+        "dataOcorrencia deve ser ISO-8601 com ano de 4 dígitos e offset ou Z, como"
+            + " 2026-10-21T14:03:11-03:00");
   }
 
   /** Controle, espaço nas pontas e vazio são rejeitados; o resto segue em NFC. */

@@ -3,6 +3,7 @@ package br.com.fluxocaixa.lancamentos.adapter.in.web;
 import static br.com.fluxocaixa.lancamentos.adapter.in.web.Chamadas.COMERCIANTE;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.get;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.content;
+import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.header;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.status;
 
 import br.com.fluxocaixa.lancamentos.support.IntegracaoWeb;
@@ -32,6 +33,22 @@ class SwaggerUiProfileTest {
     @Test
     void assetsDaSwaggerUiRespondem200SemToken() throws Exception {
       mvc.perform(get("/webjars/swagger-ui/swagger-ui-bundle.js")).andExpect(status().isOk());
+    }
+
+    @Test
+    void swaggerUiTemCspPropriaEAsDemaisRotasMantemACspFechada() throws Exception {
+      String csp =
+          "default-src 'self'; img-src 'self' data:; style-src 'self' 'unsafe-inline';"
+              + " frame-ancestors 'none'";
+      mvc.perform(get("/swagger-ui/index.html"))
+          .andExpect(header().string("Content-Security-Policy", csp));
+      mvc.perform(get("/webjars/swagger-ui/swagger-ui-bundle.js"))
+          .andExpect(header().string("Content-Security-Policy", csp));
+      mvc.perform(get("/api/v1/lancamentos"))
+          .andExpect(status().isUnauthorized())
+          .andExpect(
+              header()
+                  .string("Content-Security-Policy", "default-src 'none'; frame-ancestors 'none'"));
     }
 
     @Test

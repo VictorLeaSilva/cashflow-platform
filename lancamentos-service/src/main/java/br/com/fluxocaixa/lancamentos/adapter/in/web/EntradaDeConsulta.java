@@ -14,6 +14,7 @@ import java.util.List;
 import java.util.Map;
 import java.util.Set;
 import java.util.UUID;
+import java.util.regex.Pattern;
 import org.springframework.util.MultiValueMap;
 
 /**
@@ -35,6 +36,7 @@ final class EntradaDeConsulta {
   private static final Set<String> PARAMETROS_DO_HISTORICO =
       Set.of(DATA_INICIO, DATA_FIM, TIPO, PAGE, SIZE);
   private static final String FORMATO_INVALIDO = "formato-invalido";
+  private static final Pattern AAAA_MM_DD = Pattern.compile("^[0-9]{4}-[0-9]{2}-[0-9]{2}$");
 
   private EntradaDeConsulta() {}
 
@@ -95,12 +97,17 @@ final class EntradaDeConsulta {
     if (valor == null) {
       return null;
     }
-    try {
-      return LocalDate.parse(valor, DateTimeFormatter.ISO_LOCAL_DATE);
-    } catch (DateTimeParseException e) {
-      erros.add(erro(campo, FORMATO_INVALIDO, campo + " deve ser uma data AAAA-MM-DD"));
-      return null;
+    // AAAA-MM-DD é exigido antes do parse: o ISO do JDK também aceita ano com sinal ou com mais de
+    // 4 dígitos (N1 da T-023, RNF-013).
+    if (AAAA_MM_DD.matcher(valor).matches()) {
+      try {
+        return LocalDate.parse(valor, DateTimeFormatter.ISO_LOCAL_DATE);
+      } catch (DateTimeParseException e) {
+        // data inexistente (2026-02-30): cai no erro abaixo
+      }
     }
+    erros.add(erro(campo, FORMATO_INVALIDO, campo + " deve ser uma data AAAA-MM-DD"));
+    return null;
   }
 
   private static TipoLancamento tipo(String valor, List<ErroCampo> erros) {
