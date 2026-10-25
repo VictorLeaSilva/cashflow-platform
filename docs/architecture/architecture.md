@@ -388,6 +388,7 @@ Cada estado cita a prova. Onde há `@Tag`, a lista completa de testes por requis
 | [008](decisions/ADR-008-observabilidade.md) | Observabilidade |
 | [009](decisions/ADR-009-hexagonal-enxuta-archunit.md) | Hexagonal enxuta + ArchUnit |
 | [010](decisions/ADR-010-plataforma-alvo-aws.md) | Plataforma-alvo AWS (desenho, não implementado) |
+| [011](decisions/ADR-011-arquitetura-de-transicao.md) | Arquitetura de transição (condicional, não implementada); resumo em [`transition.md`](transition.md) |
 
 ## 10. Evolução e o que ficou de fora
 
@@ -400,7 +401,7 @@ Fora do escopo do case, com o caminho de evolução registrado (`00 §7`):
 | Cache distribuído / réplica de leitura | Sem medição que justifique (A9) | Se o k6 mostrar saturação (ADR-002) |
 | Schema Registry | Um produtor e um consumidor | Com mais consumidores (ADR-004) |
 | Estorno parcial, multi-moeda | Fora do enunciado | Novas regras de domínio |
-| Saldo de abertura / migração de legado | O enunciado não descreve legado | Arquitetura de transição (T-041) |
+| Saldo de abertura / migração de legado | O enunciado não descreve legado | Arquitetura de transição ([`transition.md`](transition.md), [ADR-011](decisions/ADR-011-arquitetura-de-transicao.md)) |
 | Frontend próprio | Decisão do dono do produto | API exercitada por Swagger UI, `demo.sh` e k6 |
 | IaC e qualquer recurso de nuvem | O alvo é só desenho | Terraform/CDK quando houver ambiente |
 | Consumidor em executável próprio | A leitura de 50 a 200 req/s não aumentou o lag (ADR-001) | Se um cenário de **drenagem de backlog sob leitura**, ainda não medido, mostrar interferência; ou carga acima de 200 req/s |
