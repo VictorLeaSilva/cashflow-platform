@@ -337,7 +337,7 @@ flowchart TB
 | Serviços *stateless* escalam horizontalmente (RNF-010) | A latência de leitura não cresceu de 50 a 200 req/s | Escala horizontal e *auto scaling* não foram exercitados; só desenho |
 | Pools e tamanho das *tasks* | Pico de 1 conexão por pool; contêineres de 330 a 370 MiB | Sem limite de CPU ou memória no compose; o dimensionamento das *tasks* do Fargate fica para a validação no ambiente real |
 
-**Estimativa de custo mensal (não é medição).** A estimativa do desenho acima, feita no AWS Pricing Calculator em 2026-10-25 para a região `sa-east-1`, está em [`docs/cost/estimativa.md`](../cost/estimativa.md): do MVP à produção resiliente, com a comparação MSK provisionado × Serverless e as lacunas do desenho (por exemplo, a saída das *tasks* para a internet, que o ADR-010 não cobre).
+**Estimativa de custo mensal (não é medição).** A estimativa do desenho acima, exportada do AWS Pricing Calculator em 2026-10-26 para a região `sa-east-1`, está em [`docs/cost/estimativa.md`](../cost/estimativa.md): do MVP à produção resiliente, com a comparação MSK provisionado × Serverless e as lacunas do desenho (por exemplo, a saída das *tasks* para a internet, que o ADR-010 não cobre).
 
 ## 7. Do case local ao alvo
 

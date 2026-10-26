@@ -1,6 +1,6 @@
 # Estimativa de custos da arquitetura-alvo
 
-> **Não é medição, nem orçamento.** É a estimativa mensal do **desenho** da arquitetura-alvo AWS (ADR-010, `architecture.md` §6), gerada no AWS Pricing Calculator em **2026-10-25**, região `sa-east-1` (São Paulo), em USD e sem impostos. Todos os valores vêm dos arquivos de [`pricing-calculator/`](pricing-calculator/); nada foi provisionado e nenhum valor foi tirado de outra fonte (P8, Q-089). O [relatório de desempenho](../performance/relatorio.md) mede o código no notebook local e **não dimensiona** instâncias da AWS. Os preços da AWS mudam: vale a data do export.
+> **Não é medição, nem orçamento.** É a estimativa mensal do **desenho** da arquitetura-alvo AWS (ADR-010, `architecture.md` §6), exportada do AWS Pricing Calculator em **2026-10-26** (campo `Criado em` dos JSON; os nomes dos arquivos mantêm `2026-10-25`, data da primeira rodada de exportação), região `sa-east-1` (São Paulo), em USD e sem impostos. Todos os valores vêm dos arquivos de [`pricing-calculator/`](pricing-calculator/); nada foi provisionado e nenhum valor foi tirado de outra fonte (P8, Q-089). O [relatório de desempenho](../performance/relatorio.md) mede o código no notebook local e **não dimensiona** instâncias da AWS. Os preços da AWS mudam: vale a data do export.
 
 ## 1. Cenários e premissas
 Os itens e as premissas foram definidos antes do export em [`itens-para-o-calculator.md`](itens-para-o-calculator.md). Resumo:
