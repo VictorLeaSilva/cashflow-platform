@@ -48,7 +48,7 @@ O procedimento de restauração por PITR fica a documentar e testar quando houve
 | Lambda | O consumidor Kafka é contínuo e os pools JDBC são limitados por desenho (`03 §7.1`); *cold start* e conexões por invocação atrapalham ambos |
 | API Gateway como borda principal | O ALB + WAF cobre TLS e *rate limit* para dois serviços; API Gateway entra se surgir monetização/planos de uso por cliente |
 | Aurora PostgreSQL | Melhor *failover* e escala de leitura, mas custo maior sem necessidade medida; RDS Multi-AZ atende as metas |
-| MSK Serverless | Mais simples de operar e possivelmente mais barato em carga baixa; mantido como **alternativa de custo** a avaliar na T-042 |
+| MSK Serverless | Mais simples de operar e possivelmente mais barato em carga baixa; mantido como **alternativa de custo**. *Atualizado na T-042:* na estimativa exportada em 2026-10-26 (`docs/cost/estimativa.md`), o Serverless saiu 95,05 USD por mês (12,0 %) mais caro que o provisionado na faixa base; o provisionado segue como escolha do desenho (vale só para aquele dimensionamento) |
 | Instâncias RDS separadas por serviço | Isolamento físico sem requisito; roles separados já isolam (D-15) |
 | Keycloak autogerenciado | Mais uma aplicação com estado para operar; Cognito é gerenciado |
 

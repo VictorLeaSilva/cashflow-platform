@@ -1,0 +1,238 @@
+{
+	"Nome": "resiliente-alta-msk-provisionado-2026-10-25",
+	"Custo total": {
+		"mensal": "2972.37",
+		"Pagamento adiantado": "0.00",
+		"12 meses": "35668.44"
+	},
+	"Metadados": {
+		"Moeda": "USD",
+		"Localidade": "pt_BR",
+		"Criado em": "26/10/2026",
+		"Isenção de responsabilidade legal": "A Calculadora de Preços da AWS fornece apenas uma estimativa de suas taxas da AWS e não inclui nenhuma taxa aplicável. Suas taxas reais dependem de vários fatores, inclusive de seu uso real dos serviços da AWS.",
+		"Compartilhar URL": "https://calculator.aws/#/estimate?id=1b854cd1c2f3e1637d07d48a3c67b4282bd4a7bc"
+	},
+	"Grupos": {
+		"Serviços": [
+			{
+				"Nome do serviço": "Amazon Route 53",
+				"Descrição": "1. Route 53",
+				"Região": "América do Sul (São Paulo)",
+				"Status": "",
+				"Custo do serviço": {
+					"mensal": "13.30",
+					"Pagamento adiantado": "0.00",
+					"12 meses": "159.60"
+				},
+				"Propriedades": {
+					"Zonas hospedadas": "1"
+				}
+			},
+			{
+				"Nome do serviço": "Application Load Balancer",
+				"Descrição": "2. Application Load Balancer (ALB)",
+				"Região": "América do Sul (São Paulo)",
+				"Status": "",
+				"Custo do serviço": {
+					"mensal": "26.80",
+					"Pagamento adiantado": "0.00",
+					"12 meses": "321.60"
+				},
+				"Propriedades": {
+					"Número de Application Load Balancers": "1"
+				}
+			},
+			{
+				"Nome do serviço": "AWS Web Application Firewall (WAF)",
+				"Descrição": "3. AWS WAF",
+				"Região": "América do Sul (São Paulo)",
+				"Status": "",
+				"Custo do serviço": {
+					"mensal": "28.20",
+					"Pagamento adiantado": "0.00",
+					"12 meses": "338.40"
+				},
+				"Propriedades": {
+					"Número de listas de controle de acesso da web (ACLs da web) utilizadas": "1 por mês",
+					"Número de regras adicionadas por ACL da web": "4 por mês"
+				}
+			},
+			{
+				"Nome do serviço": "AWS Fargate",
+				"Descrição": "4. ECS Fargate",
+				"Região": "América do Sul (São Paulo)",
+				"Status": "",
+				"Custo do serviço": {
+					"mensal": "495.23",
+					"Pagamento adiantado": "0.00",
+					"12 meses": "5942.76"
+				},
+				"Propriedades": {
+					"Sistema operacional": "Linux",
+					"Arquitetura de CPU": "x86",
+					"Duração média": "730 horas",
+					"Número de tarefas ou pods": "8 por mês",
+					"Quantidade de memória alocada": "2 GB",
+					"Quantidade de armazenamento temporário alocada para o Amazon ECS": "20 GB"
+				}
+			},
+			{
+				"Nome do serviço": "Amazon Elastic Container Registry",
+				"Descrição": "5. ECR (Elastic Container Registry)",
+				"Região": "América do Sul (São Paulo)",
+				"Status": "",
+				"Custo do serviço": {
+					"mensal": "0.10",
+					"Pagamento adiantado": "0.00",
+					"12 meses": "1.20"
+				},
+				"Propriedades": {
+					"DT Entrada: Not selected": "0 TB por mês",
+					"DT Saída: Not selected": "0 TB por mês",
+					"Quantidade de dados armazenados": "1 GB por mês"
+				}
+			},
+			{
+				"Nome do serviço": "Amazon RDS for PostgreSQL",
+				"Descrição": "6. Amazon RDS PostgreSQL",
+				"Região": "América do Sul (São Paulo)",
+				"Status": "",
+				"Custo do serviço": {
+					"mensal": "584.73",
+					"Pagamento adiantado": "0.00",
+					"12 meses": "7016.76"
+				},
+				"Propriedades": {
+					"Quantidade de armazenamento": "500 GB",
+					"Volume de armazenamento": "SSD de uso geral (gp3)",
+					"Nós": "1",
+					"Tipo de instância": "db.m6g.large",
+					"Utilização (somente sob demanda)": "100 %Utilized/Month",
+					"Opção de implantação": "Multi-AZ",
+					"Modelo de preço": "OnDemand",
+					"SSD de uso geral (gp3) - IOPS": "12000",
+					"SSD de uso geral (gp3) - Throughput": "500 MiBps"
+				}
+			},
+			{
+				"Nome do serviço": "Amazon Managed Streaming for Apache Kafka (MSK)",
+				"Descrição": "7. Amazon MSK (Kafka)",
+				"Região": "América do Sul (São Paulo)",
+				"Status": "",
+				"Custo do serviço": {
+					"mensal": "790.65",
+					"Pagamento adiantado": "0.00",
+					"12 meses": "9487.80"
+				},
+				"Propriedades": {
+					"DT Entrada: Not selected": "0 TB por mês",
+					"DT Saída: Not selected": "0 TB por mês",
+					"DT Intrarregião:": "0 TB por mês",
+					"Armazenamento por operador": "100 GB",
+					"Número de nós de operador do Kafka": "3",
+					"Família de computação": "m5.large"
+				}
+			},
+			{
+				"Nome do serviço": "Amazon Cognito",
+				"Descrição": "8. Cognito User Pool",
+				"Região": "América do Sul (São Paulo)",
+				"Status": "",
+				"Custo do serviço": {
+					"mensal": "495.01",
+					"Pagamento adiantado": "0.00",
+					"12 meses": "5940.12"
+				},
+				"Propriedades": {
+					"Taxa de otimização para solicitações de token": "0",
+					"Taxa de otimização para clientes de aplicativo": "0",
+					"Recursos avançados de segurança": "Desabilitada",
+					"Número de usuários ativos mensalmente (MAU)": "100000"
+				}
+			},
+			{
+				"Nome do serviço": "AWS Secrets Manager",
+				"Descrição": "9. Secrets Manager",
+				"Região": "América do Sul (São Paulo)",
+				"Status": "",
+				"Custo do serviço": {
+					"mensal": "1.60",
+					"Pagamento adiantado": "0.00",
+					"12 meses": "19.20"
+				},
+				"Propriedades": {
+					"Número de segredos": "4",
+					"Duração média de cada segredo": "30 dias",
+					"Número de chamadas de API": "1 por mês"
+				}
+			},
+			{
+				"Nome do serviço": "AWS Key Management Service",
+				"Descrição": "10. KMS (Key Management Service)",
+				"Região": "América do Sul (São Paulo)",
+				"Status": "",
+				"Custo do serviço": {
+					"mensal": "9.00",
+					"Pagamento adiantado": "0.00",
+					"12 meses": "108.00"
+				},
+				"Propriedades": {
+					"Número de chaves mestra de cliente (CMK) gerenciadas pelo cliente": "3",
+					"Número de solicitações simétricas": "2000000"
+				}
+			},
+			{
+				"Nome do serviço": "Amazon CloudWatch",
+				"Descrição": "11. Amazon CloudWatch",
+				"Região": "América do Sul (São Paulo)",
+				"Status": "",
+				"Custo do serviço": {
+					"mensal": "106.56",
+					"Pagamento adiantado": "0.00",
+					"12 meses": "1278.68"
+				},
+				"Propriedades": {
+					"Número de eventos e spans de OTEL móvel ou spans por visita": "70",
+					"Taxa de amostragem móvel": "1",
+					"Logs padrão: dados consumidos": "100 GB",
+					"Número de métricas (inclui métricas detalhadas e personalizadas)": "50",
+					"Número de painéis": "1",
+					"Número das métricas do alarme de resolução padrão": "7"
+				}
+			},
+			{
+				"Nome do serviço": "Network Address Translation (NAT) Gateway",
+				"Descrição": "12. NAT Gateway",
+				"Região": "América do Sul (São Paulo)",
+				"Status": "",
+				"Custo do serviço": {
+					"mensal": "411.44",
+					"Pagamento adiantado": "0.00",
+					"12 meses": "4937.28"
+				},
+				"Propriedades": {
+					"Número de gateways NAT regionais": "2",
+					"Número de zonas de disponibilidade em que os gateways NAT regionais estão ativos": "2",
+					"Número de gateways NAT": "2"
+				}
+			},
+			{
+				"Nome do serviço": "AWS Data Transfer",
+				"Descrição": "13. Data Transfer",
+				"Região": "América do Sul (São Paulo)",
+				"Status": "",
+				"Custo do serviço": {
+					"mensal": "9.75",
+					"Pagamento adiantado": "0.00",
+					"12 meses": "117.00"
+				},
+				"Propriedades": {
+					"DT Entrada: Internet": "0 GB por mês",
+					"DT Saída: Internet": "65 GB por mês",
+					"DT Intrarregião:": "0 TB por mês",
+					"Custo de transferência de dados": "9.75"
+				}
+			}
+		]
+	}
+}
