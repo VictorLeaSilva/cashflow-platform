@@ -1,920 +1,173 @@
 # Fluxo de Caixa
 
-Controle de **lançamentos** (créditos e débitos) e **consolidado diário** (o resumo de cada dia), com dois serviços independentes que conversam por eventos. Case do desafio de Arquiteto de Soluções.
+Controle de **lançamentos** (créditos e débitos) e **consolidado diário** (o saldo de cada dia), com dois serviços independentes que conversam **só por eventos**. É a resposta ao case do desafio de Arquiteto de Soluções: código Java, testes, arquitetura-alvo, decisões justificadas e como rodar. Se o Consolidado cair, o Lançamentos continua gravando.
 
-> **Estado:** os dois serviços funcionam de ponta a ponta. O de **Lançamentos** registra, estorna e consulta lançamentos e publica um evento para cada um. O de **Consolidado** recebe esses eventos e responde o resumo diário com saldos. Há uma demo guiada em um comando (`scripts/demo.sh`); faltam as provas de carga e o *hardening* (Fase 3). O README final é da T-043; até lá, este documento é atualizado a cada tarefa (veja [Manter este README vivo](#manter-este-readme-vivo)).
+> **Comandos de copiar e colar:** cada bloco traz o rótulo do terminal. Use **bash** no Linux, no macOS e no Git Bash do Windows, e **PowerShell** no Windows. Quando o comando é igual nos dois, o rótulo diz **bash e PowerShell**. No PowerShell, `bash` solto pode ser o do WSL: use o Git Bash, como mostrado.
 
-## Sumário
+## O que o case pediu e onde está
 
-- [Veja funcionando em 5 minutos](#veja-funcionando-em-5-minutos)
-- [Para que serve cada peça](#para-que-serve-cada-peça)
-- [O que você precisa instalar](#o-que-você-precisa-instalar)
-- [Passo a passo: subir e usar a aplicação do zero](#passo-a-passo-subir-e-usar-a-aplicação-do-zero)
-- [Como funcionam os bancos de dados](#como-funcionam-os-bancos-de-dados)
-- [Se algo der errado](#se-algo-der-errado)
-- [Observabilidade: métricas, alertas e painel](#observabilidade-métricas-alertas-e-painel-opcional)
-- [Carga e desempenho (k6)](#carga-e-desempenho-k6)
-- [Rodar os testes e as verificações de qualidade](#rodar-os-testes-e-as-verificações-de-qualidade)
-- [Contêineres do ambiente local](#contêineres-do-ambiente-local)
-- [Documentação, método e status](#documentação)
+Estados: **provado** (teste ou script reproduzível), **medido** (número do [relatório de desempenho](docs/performance/relatorio.md)), **só desenho** (existe no desenho e não foi provisionado) e **pendente do GitHub** (falta o link do run). Detalhe em [`architecture.md` §1.2](docs/architecture/architecture.md).
 
-## Veja funcionando em 5 minutos
+| O case pediu | Onde está | Como conferir | Estado |
+|---|---|---|---|
+| Domínios e capacidades de negócio | [`01-domain-capabilities.md`](docs/specs/01-domain-capabilities.md) | ler | entregue |
+| Requisitos funcionais e não funcionais refinados | [`02-requirements.md`](docs/specs/02-requirements.md) (RF-001 a RF-010, RNF-001 a RNF-014) | ler; cada um liga a um teste na [matriz](docs/specs/traceability.md) | entregue |
+| Arquitetura-alvo completa | [`architecture.md` §6](docs/architecture/architecture.md) e [ADR-010](docs/architecture/decisions/ADR-010-plataforma-alvo-aws.md) | ler (diagrama AWS) | **só desenho** |
+| Justificativa de tecnologias e arquitetura | [ADR-001 a ADR-011](docs/architecture/decisions/) (com alternativas rejeitadas) | ler | entregue |
+| Linguagem à escolha | Java 25 e Spring Boot 4.1 | `./mvnw -v` | entregue |
+| Testes | [`traceability.md`](docs/specs/traceability.md); testes em `*/src/test` | `./mvnw verify` ([guia](docs/guia/testes-e-qualidade.md)) | provado |
+| README: como funciona e como rodar | este arquivo e [`docs/guia/`](docs/guia/README.md) | seção "Veja funcionando" | entregue |
+| Repositório público e toda a documentação nele | este repositório, pasta `docs/` | abrir `docs/` | entregue |
+| **Lançamentos não cai se o Consolidado cair** | [`demo.sh`](scripts/demo.sh) (passo do Consolidado parado) e `ConsolidadoParadoIT`, `KafkaForaIT` | etapa 5 abaixo | provado |
+| **50 req/s no Consolidado, perda até 5 %** | [relatório de desempenho](docs/performance/relatorio.md): 15.001 requisições, 0 falhas, p95 de 6,3 ms (case local, 2026-10-25) | [guia de carga](docs/guia/carga-e-desempenho.md) | medido; `loadtest.yml` pendente do GitHub |
+| Diferencial: arquitetura de transição | [`transition.md`](docs/architecture/transition.md) e [ADR-011](docs/architecture/decisions/ADR-011-arquitetura-de-transicao.md) | ler | **só desenho** (condicional) |
+| Diferencial: estimativa de custos | [`docs/cost/estimativa.md`](docs/cost/estimativa.md) (export do AWS Pricing Calculator, 2026-10-26) | ler; os JSON estão em `docs/cost/pricing-calculator/` | estimativa, não medição |
+| Diferencial: monitoramento e observabilidade | métricas, alertas e painel ([guia](docs/guia/observabilidade-e-alertas.md)); [ADR-008](docs/architecture/decisions/ADR-008-observabilidade.md) | profile `observability` | provado |
+| Diferencial: segurança para consumo | [ADR-007](docs/architecture/decisions/ADR-007-seguranca-e-integracao.md); [OWASP](docs/security/owasp-mapping.md), [ameaças](docs/security/ameacas.md), [ASVS](docs/security/asvs-l1.md) | ler; testes de segurança na matriz | provado local; CodeQL, Dependency-Check e Trivy pendentes do GitHub |
 
-**Para que serve:** subir os dois serviços e a infraestrutura em contêineres e ver, com um script, as garantias centrais do projeto: **idempotência**, **estorno**, **lançamento retroativo**, **isolamento entre comerciantes** e o **Consolidado parado** (o Lançamentos continua gravando e o Consolidado converge quando volta). Com a opção `--kafka-down`, também o **Kafka parado**. O passo a passo detalhado, pelo Maven, continua [mais abaixo](#passo-a-passo-subir-e-usar-a-aplicação-do-zero).
+## Veja funcionando em 5 etapas
 
-**Antes de começar** (uma vez): Git, Docker (ligado), Java 25 e o `jq`. O `jq` é o leitor de JSON que o script usa:
-- Windows: `winget install jqlang.jq` e depois **feche e abra o terminal** (o `PATH` só vale em terminais novos);
-- macOS: `brew install jq`; Linux: `sudo apt install jq` (ou o gerenciador da sua distribuição).
+Precisa de **Git**, **Docker ligado**, **Java 25** e **`jq`** (leitor de JSON da demo; no Windows: `winget install jqlang.jq` e abrir um terminal novo). Portas livres: `8081`, `8082`, `9081`, `9082`, e as do banco e do Kafka. No Windows, o script roda pelo Git Bash.
 
-No Windows, o script roda pelo **Git Bash** (instalado junto com o Git). As portas `8081`, `8082`, `9081` e `9082` precisam estar livres, assim como as do banco e do Kafka (veja o aviso do [passo 3](#3-subir-a-infraestrutura-banco-de-dados-e-kafka) para usar outras).
+**1. Baixar o projeto**
 
-**1. Baixar o projeto:**
+**bash (Linux, macOS e Git Bash)**
 
 ```bash
 git clone https://github.com/VictorLeaSilva/cashflow-platform.git
 cd cashflow-platform
 ```
 
+**PowerShell (Windows)**
+
 ```powershell
 git -c core.longpaths=true clone https://github.com/VictorLeaSilva/cashflow-platform.git
 cd cashflow-platform
 ```
 
-**2. Criar o arquivo de configuração `.env`:**
+**2. Criar o arquivo de configuração**
+
+**bash (Linux, macOS e Git Bash)**
 
 ```bash
 cp .env.example .env
 ```
 
+**PowerShell (Windows)**
+
 ```powershell
 Copy-Item .env.example .env
 ```
 
-**3. Compilar e gerar as imagens dos serviços** (a primeira vez baixa o *builder* do Paketo, centenas de MB, e leva vários minutos):
+**3. Compilar e gerar as imagens** (a primeira vez baixa o *builder*, centenas de MB, e leva vários minutos)
+
+**bash (Linux, macOS e Git Bash)**
 
 ```bash
 ./mvnw -q install -DskipTests -Pimagens
 ```
 
+**PowerShell (Windows)**
+
 ```powershell
 .\mvnw.cmd -q install "-DskipTests" "-Pimagens"
 ```
 
-**O que você deve ver:** o terminal volta sem erro, e `docker images fluxo-caixa/*` lista `fluxo-caixa/lancamentos` e `fluxo-caixa/consolidado` na versão `0.1.0-SNAPSHOT`. Se aparecer `Builder lifecycle 'creator' failed` ou `unexpected EOF`, foi uma falha de rede ao baixar camadas: rode o comando de novo.
+**4. Subir banco, Kafka e os dois serviços**
 
-**4. Subir tudo** (banco, Kafka, a chave de desenvolvimento e os dois serviços):
+**bash e PowerShell**
 
 ```bash
 docker compose --env-file .env -f deploy/docker-compose.yml --profile apps up -d --wait --remove-orphans
 ```
 
-```powershell
-docker compose --env-file .env -f deploy/docker-compose.yml --profile apps up -d --wait --remove-orphans
-```
+**5. Rodar a demonstração**
 
-**O que você deve ver:** linhas `Healthy` para `postgres`, `kafka`, `lancamentos` e `consolidado`, e `Started` para `dev-keys` e `kafka-topicos` (que terminam sozinhos). Os serviços levam cerca de meio minuto para ficar prontos; o script espera por eles.
-
-**5. Rodar a demonstração:**
+**bash (Linux, macOS e Git Bash)**
 
 ```bash
 scripts/demo.sh
 ```
 
+**PowerShell (Windows)**
+
 ```powershell
 & "C:\Program Files\Git\bin\bash.exe" scripts/demo.sh
 ```
 
-**O que você deve ver:** sete blocos, cada um com linhas `✔` (verde) e o valor conferido, e no fim:
+**O que você deve ver:** sete blocos com `✔` e, no fim, `Demonstração concluída: RF-007, RF-003, RF-009, RF-010 e RNF-001`. A demo prova idempotência, estorno, lançamento retroativo, isolamento entre comerciantes e o **Consolidado parado** (o Lançamentos segue gravando e o Consolidado converge quando volta). Com `--kafka-down` ela prova também o **Kafka parado**. Ela usa comerciantes novos a cada execução, então pode ser repetida.
 
-```text
-Demonstração concluída: RF-007, RF-003, RF-009, RF-010 e RNF-001
-```
+**Para desligar** (acrescente `-v` para apagar os dados):
 
-Para incluir a prova do Kafka parado (leva mais um ou dois minutos), use `scripts/demo.sh --kafka-down`; o final passa a citar também o `RNF-007`. A demo usa **comerciantes novos a cada execução**, então pode ser repetida. Se ela falhar no meio, o script religa o Consolidado e o Kafka antes de sair.
-
-**Para desligar:**
+**bash e PowerShell**
 
 ```bash
 docker compose --env-file .env -f deploy/docker-compose.yml --profile apps down
 ```
 
-```powershell
-docker compose --env-file .env -f deploy/docker-compose.yml --profile apps down
-```
-
-(Acrescente `-v` para apagar também os dados, como no [passo 14](#14-parar-e-limpar).) Os contêineres dos serviços rodam como usuário comum (não-root) e as portas de gestão (`9081` e `9082`) são as mesmas da [Observabilidade](#observabilidade-métricas-alertas-e-painel-opcional), então o Prometheus e o Grafana funcionam sem mudança: acrescente `--profile observability` ao comando do passo 4.
-
-## Para que serve cada peça
-
-Você não precisa conhecer as ferramentas abaixo para seguir o passo a passo. Esta seção só explica, em poucas palavras, o que cada uma faz.
-
-| Peça | O que é | Para que serve aqui |
-|---|---|---|
-| **Terminal** | Janela onde você digita comandos. No Windows, use o **PowerShell**. No Linux, no macOS ou no Windows com o **Git Bash**, use o **bash** | Rodar todos os comandos deste README |
-| **Docker** | Programa que roda outros programas em "caixas" isoladas, chamadas **contêineres** | Rodar o banco de dados e o Kafka sem instalar os dois no seu computador |
-| **PostgreSQL** | Banco de dados | Guardar os lançamentos (banco `lancamentos`) e o resumo diário (banco `consolidado`) |
-| **Kafka** | "Correio" de mensagens entre programas | Levar cada lançamento do serviço de Lançamentos para o de Consolidado |
-| **Maven** (`mvnw`) | Ferramenta que compila e roda programas Java. O `mvnw` já vem no projeto, sem instalar nada | Compilar o projeto e subir os dois serviços |
-| **Serviço de Lançamentos** | Programa Java, na porta **8081** | Registrar créditos, débitos e estornos e consultar o histórico |
-| **Serviço de Consolidado** | Programa Java, na porta **8082** | Mostrar o resumo de cada dia: totais, saldo do dia e saldo acumulado |
-| **Token (JWT)** | Uma "senha temporária" em forma de texto longo | Provar para os serviços quem é você (o comerciante) e o que pode fazer |
-| **Flyway** | Parte de cada serviço que cria as tabelas | Na primeira vez que cada serviço sobe, criar as tabelas do banco dele |
-
-O fluxo é este:
-1. você manda um lançamento para o **Lançamentos**;
-2. ele grava o lançamento no banco e publica um evento no **Kafka**;
-3. o **Consolidado** recebe o evento e atualiza o resumo do dia;
-4. você consulta esse resumo.
-
-Os dois serviços nunca chamam um ao outro diretamente. Por isso, o resumo pode levar cerca de 1 segundo para refletir um lançamento novo.
-
-## O que você precisa instalar
-
-| Programa | Onde baixar | Como conferir (bash e PowerShell) | O que deve aparecer |
-|---|---|---|---|
-| **JDK 25** (Java) | [Adoptium](https://adoptium.net/) ou [Oracle](https://www.oracle.com/java/technologies/downloads/) | `java -version` | `java version "25...` ou `openjdk version "25...` |
-| **Docker Desktop** (ou Docker Engine com Compose v2) | [docker.com](https://www.docker.com/products/docker-desktop/) | `docker compose version` | `Docker Compose version v2...` ou superior |
-| **curl** | Já vem no Windows 10 e 11, no macOS e na maioria dos Linux | bash: `curl --version`; PowerShell: `curl.exe --version` | `curl 8...` |
-| **Git** (no Windows, inclui o **Git Bash**) | [git-scm.com](https://git-scm.com/downloads) | `git --version` | `git version 2...` |
-
-> **Docker aberto.** No Windows e no macOS, abra o Docker Desktop e espere o status "Engine running" antes de começar.
-
-> **No PowerShell, use `curl.exe`, nunca só `curl`.** No Windows PowerShell, `curl` é outro comando (um apelido do `Invoke-WebRequest`) e não aceita as opções deste README.
-
-## Passo a passo: subir e usar a aplicação do zero
-
-Siga na ordem. Cada passo traz o comando em **bash** e em **PowerShell**: use só o do seu terminal. Os comandos foram executados de verdade nos dois terminais, e as saídas mostradas são as reais, só resumidas.
-
-Você vai usar **três terminais abertos ao mesmo tempo**, todos na pasta do projeto:
-- **Terminal 1:** infraestrutura e serviço de Lançamentos.
-- **Terminal 2:** serviço de Consolidado.
-- **Terminal 3:** token e chamadas à API.
-
-> Os números de porta e os valores de exemplo (comerciante, valores) podem ficar como estão.
-
-### 1. Baixar o projeto e abrir o terminal na pasta dele (Terminal 1)
-
-**Para que serve:** todos os comandos partem da pasta raiz do projeto, onde fica este README. Se você ainda não tem o projeto no computador, o `git clone` baixa uma cópia dele.
-
-Se você **ainda não tem** o projeto, abra o terminal na pasta onde quer guardá-lo e rode:
-
-```bash
-git clone https://github.com/VictorLeaSilva/cashflow-platform.git
-cd cashflow-platform
-```
-
-```powershell
-git -c core.longpaths=true clone https://github.com/VictorLeaSilva/cashflow-platform.git
-cd cashflow-platform
-```
-
-> **No Windows**, o `-c core.longpaths=true` evita o erro `Filename too long`: alguns caminhos do projeto passam do limite antigo de 260 caracteres do Windows, principalmente se a pasta escolhida já tiver um caminho longo (por exemplo, dentro do OneDrive). No Git Bash do Windows, use o mesmo comando do PowerShell.
-
-Se você **já tem** o projeto, só entre na pasta dele:
-
-```bash
-cd caminho/para/cashflow-platform
-```
-
-```powershell
-cd C:\caminho\para\cashflow-platform
-```
-
-**O que você deve ver:** o `git clone` mostra `Cloning into 'cashflow-platform'...` e termina sem erro. Para conferir que está na pasta certa, `ls` (bash) ou `dir` (PowerShell) lista, entre outros, `README.md`, `deploy`, `lancamentos-service` e `consolidado-service`.
-
-### 2. Criar o arquivo de configuração `.env` (só na primeira vez)
-
-**Para que serve:** o `.env` guarda as senhas e as portas do ambiente local. O projeto traz um modelo, o `.env.example`, com valores próprios para desenvolvimento. O `.env` não vai para o Git.
-
-```bash
-cp .env.example .env
-```
-
-```powershell
-Copy-Item .env.example .env
-```
-
-**O que você deve ver:** nada. O arquivo `.env` passa a existir na pasta.
-
-> Se a porta 5432 (PostgreSQL) ou 9092 (Kafka) já estiver em uso no seu computador, troque `POSTGRES_PORT` ou `KAFKA_PORT` no `.env` antes do próximo passo.
-
-### 3. Subir a infraestrutura (banco de dados e Kafka)
-
-**Para que serve:** liga, no Docker, o PostgreSQL (com os bancos `lancamentos` e `consolidado`) e o Kafka (com o tópico de eventos). O `--wait` só devolve o terminal quando tudo está pronto. Na primeira vez, o Docker baixa as imagens, o que pode levar alguns minutos.
-
-```bash
-docker compose --env-file .env -f deploy/docker-compose.yml up -d --wait --remove-orphans
-```
-
-```powershell
-docker compose --env-file .env -f deploy/docker-compose.yml up -d --wait --remove-orphans
-```
-
-**O que você deve ver:** ao final, três linhas `Healthy`:
-
-```text
- Container fluxo-caixa-postgres-1 Healthy
- Container fluxo-caixa-kafka-1 Healthy
- Container fluxo-caixa-kafka-topicos-1 Healthy
-```
-
-> No PowerShell, essas mensagens do Docker podem aparecer em vermelho. É normal: o Docker escreve o progresso na saída de erro. O que importa é o `Healthy` no fim.
-
-> **Já subiu este projeto antes nesta máquina?** O nome da stack é sempre `fluxo-caixa`. Se ela já existe, este passo **reaproveita** os bancos e as mensagens que ela já tem, e o `down -v` do passo 14 os **apaga**. Para fazer o passo a passo sem tocar nesses dados, use uma stack separada, com outro nome e outras portas:
-> 1. no `.env`, troque `POSTGRES_PORT` e `KAFKA_PORT` (por exemplo, `55432` e `59092`);
-> 2. em **cada** terminal, antes dos comandos, defina o nome da stack: bash `export COMPOSE_PROJECT_NAME=fluxo-caixa-teste`; PowerShell `$env:COMPOSE_PROJECT_NAME = "fluxo-caixa-teste"`;
-> 3. se os serviços da outra stack estiverem rodando, suba estes com outra porta (veja `SERVER_PORT` em [Se algo der errado](#se-algo-der-errado)) e use essa porta nas chamadas.
->
-> Os comandos `docker compose` deste README passam a valer para a stack `fluxo-caixa-teste`, inclusive o `down -v`.
-
-### 4. Conferir a infraestrutura
-
-**Para que serve:** um script confere que o banco e o Kafka estão saudáveis, que cada serviço só acessa o próprio banco e que os tópicos existem. O script é em bash. No PowerShell, ele é chamado pelo Git Bash.
-
-```bash
-deploy/verify-local.sh
-```
-
-```powershell
-& "C:\Program Files\Git\bin\bash.exe" deploy/verify-local.sh
-```
-
-**O que você deve ver:** só linhas com `✔`, terminando assim:
-
-```text
- ✔ cashflow.lancamentos.v1 com 3 partições
- ✔ cashflow.lancamentos.v1.DLT com 3 partições
-Infraestrutura local OK.
-```
-
-> **No PowerShell, não use só `bash`.** No Windows, `bash` costuma abrir o bash do WSL, que não enxerga o Docker do mesmo jeito. Use o caminho completo do Git Bash, como acima. Se o Git estiver instalado em outro lugar, ajuste o caminho.
-
-### 5. Compilar o projeto (só na primeira vez e depois de atualizar o código)
-
-**Para que serve:** compila os módulos e os guarda no repositório local do Maven. Sem isso, o serviço de Consolidado não sobe, porque depende do módulo `contracts`, onde fica o formato do evento. O `-DskipTests` pula os testes para ir mais rápido (os testes estão em [Rodar os testes](#rodar-os-testes-e-as-verificações-de-qualidade)).
-
-```bash
-./mvnw -q install -DskipTests
-```
-
-```powershell
-.\mvnw.cmd -q install "-DskipTests"
-```
-
-**O que você deve ver:** depois de 1 a 2 minutos, o terminal volta sem mensagem de erro. Na primeira vez, o Maven baixa as bibliotecas e demora mais.
-
-> Avisos que começam com `WARNING: A terminally deprecated method in sun.misc.Unsafe` são do próprio Maven e podem ser ignorados.
-
-### 6. Gerar a chave e o token de acesso (Terminal 3)
-
-**Para que serve:** os serviços só aceitam chamadas com um **token** válido. O script `DevToken.java` gera esse token só para o ambiente local. Na **primeira execução**, ele também cria um par de chaves em `deploy/dev-keys/`, que os serviços usam para conferir o token.
-
-> **Rode este passo antes de subir os serviços**, pelo menos uma vez. Sem a pasta `deploy/dev-keys/`, os serviços não sobem.
-
-Abra um **novo terminal (Terminal 3)** na pasta do projeto e rode:
-
-```bash
-TOKEN=$(java scripts/DevToken.java --merchant 0f8fad5b-d9cb-469f-a165-70867728950e --scopes lancamentos:write,lancamentos:read,consolidado:read --ttl 3600)
-echo "$TOKEN"
-```
-
-```powershell
-$TOKEN = java scripts/DevToken.java --merchant 0f8fad5b-d9cb-469f-a165-70867728950e --scopes lancamentos:write,lancamentos:read,consolidado:read --ttl 3600
-$TOKEN
-```
-
-O que cada opção quer dizer:
-- **`--merchant`:** o comerciante, ou seja, de quem são os dados. Cada comerciante só vê os próprios.
-- **`--scopes`:** as permissões. `lancamentos:write` registra e estorna, `lancamentos:read` consulta lançamentos, `consolidado:read` consulta o resumo.
-- **`--ttl 3600`:** a validade, em segundos (1 hora).
-
-**O que você deve ver:** na primeira vez, a linha `par de chaves gerado em ...\deploy\dev-keys` (no Linux e no macOS, `.../deploy/dev-keys`). Depois, um texto longo que começa com `eyJhbGciOiJSUzI1NiIs...`: é o token, guardado na variável `TOKEN` deste terminal.
-
-> O token vale 1 hora. Depois disso, as chamadas respondem **401**: rode este passo de novo para gerar outro. Se você fechar o terminal, a variável `TOKEN` se perde, e é preciso gerar de novo.
-
-### 7. Subir o serviço de Lançamentos (Terminal 1)
-
-**Para que serve:** liga o serviço de Lançamentos na porta 8081, usando as senhas do `.env`. A primeira linha carrega o `.env` neste terminal; repita-a sempre que abrir um terminal novo para subir um serviço. Na primeira subida, o Flyway cria as tabelas do banco `lancamentos`.
-
-Volte ao **Terminal 1**:
-
-```bash
-set -a; . ./.env; set +a
-./mvnw -pl lancamentos-service spring-boot:run -Dspring-boot.run.profiles=local
-```
-
-```powershell
-Get-Content .env | Where-Object { $_ -match '^\s*[A-Za-z_][A-Za-z0-9_]*=' } | ForEach-Object { $nome, $valor = $_ -split '=', 2; Set-Item -Path "env:$($nome.Trim())" -Value $valor.Trim() }
-.\mvnw.cmd -pl lancamentos-service spring-boot:run "-Dspring-boot.run.profiles=local"
-```
-
-**O que você deve ver:** o terminal fica ocupado mostrando o log do serviço, em linhas de JSON. Ele está pronto quando aparecer uma linha com:
-
-```text
-"message":"Started LancamentosApplication in 6.146 seconds ..."
-```
-
-**Deixe este terminal aberto:** fechar o terminal desliga o serviço.
-
-### 8. Subir o serviço de Consolidado (Terminal 2)
-
-**Para que serve:** liga o serviço de Consolidado na porta 8082. Ele tem duas partes no mesmo programa:
-- o **consumidor**, que lê os eventos do Kafka e atualiza o resumo;
-- a **API de consulta**.
-
-Na primeira subida, o Flyway cria as tabelas do banco `consolidado`. O consumidor começa lendo todos os eventos que o Kafka ainda guarda.
-
-Abra um **novo terminal (Terminal 2)** na pasta do projeto:
-
-```bash
-set -a; . ./.env; set +a
-./mvnw -pl consolidado-service spring-boot:run -Dspring-boot.run.profiles=local
-```
-
-```powershell
-Get-Content .env | Where-Object { $_ -match '^\s*[A-Za-z_][A-Za-z0-9_]*=' } | ForEach-Object { $nome, $valor = $_ -split '=', 2; Set-Item -Path "env:$($nome.Trim())" -Value $valor.Trim() }
-.\mvnw.cmd -pl consolidado-service spring-boot:run "-Dspring-boot.run.profiles=local"
-```
-
-**O que você deve ver:** linhas como estas, nesta ordem:
-
-```text
-"message":"Successfully applied 1 migration to schema \"public\" ..."      (só na primeira vez: tabelas criadas)
-"message":"Started ConsolidadoApplication in 6.509 seconds ..."
-"message":"consolidado-projecao: partitions assigned: [cashflow.lancamentos.v1-0, cashflow.lancamentos.v1-1, cashflow.lancamentos.v1-2]"
-```
-
-A última linha quer dizer que o consumidor está ligado ao Kafka. **Deixe este terminal aberto.**
-
-### 9. Registrar lançamentos (Terminal 3)
-
-**Para que serve:** criar dados de verdade. Toda criação leva um cabeçalho **`Idempotency-Key`**, uma etiqueta escolhida por você. Se a mesma requisição for enviada duas vezes com a mesma etiqueta (por exemplo, numa falha de rede), o lançamento não é duplicado.
-
-> **No PowerShell, o corpo JSON vai num arquivo**, criado com `Set-Content` na pasta temporária do Windows (`$env:TEMP`, fora do projeto), e é enviado com `-d "@arquivo.json"`. No Windows PowerShell 5.1, um JSON escrito direto na linha chega ao serviço sem as aspas, e a resposta é `400` com `json-malformado`.
-
-> **Use textos sem acento nos exemplos.** No Git Bash do Windows, acentos digitados no terminal podem não chegar como UTF-8, e a resposta é `400` com `json-malformado`.
-
-**9.1. Registrar um crédito de R$ 100,00 e guardar o `id` dele:**
-
-```bash
-RESPOSTA=$(curl -s -X POST http://localhost:8081/api/v1/lancamentos -H "Authorization: Bearer $TOKEN" -H "Content-Type: application/json" -H "Idempotency-Key: exemplo-credito-1" -d '{"tipo":"CREDITO","valor":"100.00","descricao":"Venda do dia"}')
-echo "$RESPOSTA"
-ID=$(echo "$RESPOSTA" | grep -o '"id":"[^"]*"' | cut -d'"' -f4)
-echo "ID=$ID"
-```
-
-```powershell
-Set-Content -Path "$env:TEMP\credito.json" -Encoding ascii -Value '{"tipo":"CREDITO","valor":"100.00","descricao":"Venda do dia"}'
-$RESPOSTA = curl.exe -s -X POST http://localhost:8081/api/v1/lancamentos -H "Authorization: Bearer $TOKEN" -H "Content-Type: application/json" -H "Idempotency-Key: exemplo-credito-1" -d "@$env:TEMP\credito.json"
-$RESPOSTA
-$ID = ($RESPOSTA | ConvertFrom-Json).id
-"ID=$ID"
-```
-
-**O que você deve ver:** o lançamento criado e, por último, o `id` dele (o valor muda a cada execução):
-
-```text
-{"id":"cb7c671c-ad5a-444d-b6db-01934763fe3d","comercianteId":"0f8fad5b-d9cb-469f-a165-70867728950e","tipo":"CREDITO","valor":"100.00","descricao":"Venda do dia","dataOcorrencia":"2026-10-24T12:24:59.191966Z","dataReferencia":"2026-10-24",...}
-ID=cb7c671c-ad5a-444d-b6db-01934763fe3d
-```
-
-A `dataReferencia` é o dia em que o lançamento conta no resumo, sempre no fuso de São Paulo.
-
-**9.2. Repetir o mesmo crédito (teste de idempotência):**
-
-```bash
-curl -i -X POST http://localhost:8081/api/v1/lancamentos -H "Authorization: Bearer $TOKEN" -H "Content-Type: application/json" -H "Idempotency-Key: exemplo-credito-1" -d '{"tipo":"CREDITO","valor":"100.00","descricao":"Venda do dia"}'
-```
-
-```powershell
-curl.exe -i -X POST http://localhost:8081/api/v1/lancamentos -H "Authorization: Bearer $TOKEN" -H "Content-Type: application/json" -H "Idempotency-Key: exemplo-credito-1" -d "@$env:TEMP\credito.json"
-```
-
-**O que você deve ver:** `HTTP/1.1 201`, o mesmo `id` do passo anterior e o cabeçalho `Idempotent-Replayed: true`. Nenhum lançamento novo foi criado.
-
-**9.3. Registrar um débito de R$ 30,00:**
-
-```bash
-curl -i -X POST http://localhost:8081/api/v1/lancamentos -H "Authorization: Bearer $TOKEN" -H "Content-Type: application/json" -H "Idempotency-Key: exemplo-debito-1" -d '{"tipo":"DEBITO","valor":"30.00","descricao":"Fornecedor"}'
-```
-
-```powershell
-Set-Content -Path "$env:TEMP\debito.json" -Encoding ascii -Value '{"tipo":"DEBITO","valor":"30.00","descricao":"Fornecedor"}'
-curl.exe -i -X POST http://localhost:8081/api/v1/lancamentos -H "Authorization: Bearer $TOKEN" -H "Content-Type: application/json" -H "Idempotency-Key: exemplo-debito-1" -d "@$env:TEMP\debito.json"
-```
-
-**O que você deve ver:** `HTTP/1.1 201` e um JSON com `"tipo":"DEBITO"` e `"valor":"30.00"`.
-
-**9.4. Estornar (desfazer) o crédito.** Um lançamento nunca é apagado nem editado: o estorno é um lançamento novo, que compensa o original. Este comando usa o `ID` guardado no passo 9.1, então rode-o no mesmo terminal.
-
-```bash
-curl -i -X POST http://localhost:8081/api/v1/lancamentos/$ID/estornos -H "Authorization: Bearer $TOKEN" -H "Idempotency-Key: exemplo-estorno-1"
-```
-
-```powershell
-curl.exe -i -X POST "http://localhost:8081/api/v1/lancamentos/$ID/estornos" -H "Authorization: Bearer $TOKEN" -H "Idempotency-Key: exemplo-estorno-1"
-```
-
-**O que você deve ver:** `HTTP/1.1 201` e um JSON com `"tipo":"ESTORNO"`, `"tipoOriginal":"CREDITO"` e `"referenciaLancamentoId"` igual ao `ID` do crédito. O estorno vale no dia de hoje, mesmo que o original seja de outro dia.
-
-> Se aparecer `401` aqui, o `ID` provavelmente ficou vazio, porque o passo 9.1 falhou. Rode `echo "$ID"` (bash) ou `$ID` (PowerShell) para conferir.
-
-**9.5. Tentar estornar o mesmo crédito de novo**, com outra etiqueta:
-
-```bash
-curl -i -X POST http://localhost:8081/api/v1/lancamentos/$ID/estornos -H "Authorization: Bearer $TOKEN" -H "Idempotency-Key: exemplo-estorno-2"
-```
-
-```powershell
-curl.exe -i -X POST "http://localhost:8081/api/v1/lancamentos/$ID/estornos" -H "Authorization: Bearer $TOKEN" -H "Idempotency-Key: exemplo-estorno-2"
-```
-
-**O que você deve ver:** `HTTP/1.1 409` e `"type":"/erros/lancamento-ja-estornado"`. Cada lançamento só pode ser estornado uma vez.
-
-**9.6. Registrar um crédito retroativo de R$ 50,00, com data de 3 dias atrás.** O sistema aceita lançamentos de até 30 dias atrás e nunca do futuro.
-
-```bash
-TRES_DIAS_ATRAS=$(TZ=America/Sao_Paulo date -d "3 days ago" +%F)
-curl -i -X POST http://localhost:8081/api/v1/lancamentos -H "Authorization: Bearer $TOKEN" -H "Content-Type: application/json" -H "Idempotency-Key: exemplo-passado-1" -d "{\"tipo\":\"CREDITO\",\"valor\":\"50.00\",\"dataOcorrencia\":\"${TRES_DIAS_ATRAS}T12:00:00-03:00\"}"
-```
-
-```powershell
-$agoraSP = [System.TimeZoneInfo]::ConvertTimeBySystemTimeZoneId([DateTime]::UtcNow, "E. South America Standard Time")
-$TRES_DIAS_ATRAS = $agoraSP.AddDays(-3).ToString("yyyy-MM-dd")
-Set-Content -Path "$env:TEMP\retroativo.json" -Encoding ascii -Value "{`"tipo`":`"CREDITO`",`"valor`":`"50.00`",`"dataOcorrencia`":`"$($TRES_DIAS_ATRAS)T12:00:00-03:00`"}"
-curl.exe -i -X POST http://localhost:8081/api/v1/lancamentos -H "Authorization: Bearer $TOKEN" -H "Content-Type: application/json" -H "Idempotency-Key: exemplo-passado-1" -d "@$env:TEMP\retroativo.json"
-```
-
-**O que você deve ver:** `HTTP/1.1 201`, com `"dataReferencia"` igual à data de 3 dias atrás.
-
-> **No macOS**, troque `date -d "3 days ago" +%F` por `date -v-3d +%F`.
-
-### 10. Consultar os lançamentos (Terminal 3)
-
-**Para que serve:** ver um lançamento pelo `id` e o histórico do comerciante.
-
-```bash
-curl -i http://localhost:8081/api/v1/lancamentos/$ID -H "Authorization: Bearer $TOKEN"
-curl -s "http://localhost:8081/api/v1/lancamentos?size=10" -H "Authorization: Bearer $TOKEN"
-```
-
-```powershell
-curl.exe -i "http://localhost:8081/api/v1/lancamentos/$ID" -H "Authorization: Bearer $TOKEN"
-curl.exe -s "http://localhost:8081/api/v1/lancamentos?size=10" -H "Authorization: Bearer $TOKEN"
-```
-
-**O que você deve ver:**
-- **o detalhe:** `HTTP/1.1 200` com o crédito do passo 9.1;
-- **o histórico:** `{"itens":[...],"page":0,"size":10,"total":4}`, com os 4 lançamentos (crédito, débito, estorno e retroativo). Eles vêm ordenados pela `dataReferencia`, do dia mais recente para o mais antigo: primeiro os três de hoje, depois o retroativo. Dentro do mesmo dia, a ordem é fixa, mas não é a ordem em que você os registrou.
-
-O histórico aceita os filtros `dataInicio`, `dataFim` (datas `AAAA-MM-DD`) e `tipo` (`CREDITO`, `DEBITO` ou `ESTORNO`), mais `page` (a partir de 0) e `size` (até 100). Por exemplo: `?tipo=CREDITO&dataInicio=2026-10-01`.
-
-### 11. Consultar o consolidado diário (Terminal 3)
-
-**Para que serve:** ver o resumo de cada dia. Para cada dia, a API mostra:
-- os totais de créditos, débitos e estornos;
-- o **saldo do dia**, que é (créditos − estornos de crédito) − (débitos − estornos de débito);
-- o **saldo acumulado**, que é tudo o que entrou e saiu até aquele dia.
-
-Dias sem movimento aparecem zerados.
-
-> Espere **1 a 2 segundos** depois de registrar um lançamento antes de consultar. O consolidado é atualizado a partir dos eventos e leva um instante para refletir o que acabou de acontecer.
-
-**11.1. O período de 3 dias atrás até hoje:**
-
-```bash
-HOJE=$(TZ=America/Sao_Paulo date +%F)
-TRES_DIAS_ATRAS=$(TZ=America/Sao_Paulo date -d "3 days ago" +%F)
-curl -s "http://localhost:8082/api/v1/consolidado?dataInicio=$TRES_DIAS_ATRAS&dataFim=$HOJE" -H "Authorization: Bearer $TOKEN"
-```
-
-```powershell
-$agoraSP = [System.TimeZoneInfo]::ConvertTimeBySystemTimeZoneId([DateTime]::UtcNow, "E. South America Standard Time")
-$HOJE = $agoraSP.ToString("yyyy-MM-dd")
-$TRES_DIAS_ATRAS = $agoraSP.AddDays(-3).ToString("yyyy-MM-dd")
-$periodo = curl.exe -s "http://localhost:8082/api/v1/consolidado?dataInicio=$TRES_DIAS_ATRAS&dataFim=$HOJE" -H "Authorization: Bearer $TOKEN" | ConvertFrom-Json
-"saldoAnterior=$($periodo.saldoAnterior)"
-$periodo.dias | Format-Table data, totalCreditos, totalDebitos, totalEstornosCredito, saldoDia, saldoAcumulado, qtdLancamentos -AutoSize
-```
-
-**O que você deve ver:** quatro dias. Este é o resultado real do teste, com hoje em 24/10 (os seus dias vão ser outros):
-
-```text
-saldoAnterior=0.00
-
-data       totalCreditos totalDebitos totalEstornosCredito saldoDia saldoAcumulado qtdLancamentos
-2026-10-21 50.00         0.00         0.00                 50.00    50.00                       1
-2026-10-22 0.00          0.00         0.00                 0.00     50.00                       0
-2026-10-23 0.00          0.00         0.00                 0.00     50.00                       0
-2026-10-24 100.00        30.00        100.00               -30.00   20.00                       3
-```
-
-Como ler esse resultado:
-- **3 dias atrás:** só o crédito retroativo de 50,00.
-- **Os dois dias do meio:** sem movimento, aparecem zerados.
-- **Hoje:** crédito de 100, débito de 30 e o estorno de 100. O saldo do dia é (100 − 100) − 30 = **−30,00**, e o acumulado é 50 − 30 = **20,00**.
-
-No bash, a resposta vem como um JSON numa linha só, com os mesmos números.
-
-**11.2. Um dia só:** o saldo acumulado do dia inclui tudo desde o início.
-
-```bash
-curl -i "http://localhost:8082/api/v1/consolidado/$HOJE" -H "Authorization: Bearer $TOKEN"
-```
-
-```powershell
-curl.exe -i "http://localhost:8082/api/v1/consolidado/$HOJE" -H "Authorization: Bearer $TOKEN"
-```
-
-**O que você deve ver:** `HTTP/1.1 200` e o dia de hoje, com `"saldoDia":"-30.00"`, `"saldoAcumulado":"20.00"` e `"qtdLancamentos":3`.
-
-Regras da consulta:
-- `dataInicio` e `dataFim` são obrigatórias, no formato `AAAA-MM-DD`;
-- o período tem no máximo 366 dias;
-- um parâmetro a mais ou errado responde `400`, explicando o problema no campo `errors`.
-
-Por exemplo, sem `dataFim` a resposta é `400` com `"campo":"dataFim","codigo":"obrigatorio"`.
-
-### 12. Explorar a API pelo navegador (Swagger UI)
-
-**Para que serve:** ver todas as operações, os campos e exemplos, e testar pelo navegador.
-
-- Lançamentos: <http://localhost:8081/swagger-ui/index.html>
-- Consolidado: <http://localhost:8082/swagger-ui/index.html>
-
-Para chamar uma operação, clique em **Authorize**, cole o token do passo 6 (só o texto, sem `Bearer`) e confirme.
-
-**O que você deve ver:** a página da API, com as operações listadas.
-
-### 13. Conferir os dados direto nos bancos (opcional)
-
-**Para que serve:** ver com os próprios olhos as tabelas e os dados que os serviços gravaram. O comando roda o `psql`, o cliente do PostgreSQL, dentro do contêiner do banco; não é preciso instalar nada. Os comandos são iguais em bash e em PowerShell.
-
-```bash
-docker compose --env-file .env -f deploy/docker-compose.yml exec postgres psql -U postgres -d consolidado -c "\dt"
-docker compose --env-file .env -f deploy/docker-compose.yml exec postgres psql -U postgres -d consolidado -c "SELECT data_referencia, total_creditos, total_debitos, total_estornos_credito, qtd_lancamentos FROM consolidado_diario ORDER BY data_referencia"
-docker compose --env-file .env -f deploy/docker-compose.yml exec postgres psql -U postgres -d lancamentos -c "SELECT tipo, valor, data_referencia FROM lancamento ORDER BY criado_em"
-```
-
-```powershell
-docker compose --env-file .env -f deploy/docker-compose.yml exec postgres psql -U postgres -d consolidado -c "\dt"
-docker compose --env-file .env -f deploy/docker-compose.yml exec postgres psql -U postgres -d consolidado -c "SELECT data_referencia, total_creditos, total_debitos, total_estornos_credito, qtd_lancamentos FROM consolidado_diario ORDER BY data_referencia"
-docker compose --env-file .env -f deploy/docker-compose.yml exec postgres psql -U postgres -d lancamentos -c "SELECT tipo, valor, data_referencia FROM lancamento ORDER BY criado_em"
-```
-
-**O que você deve ver:**
-- **o `\dt` do consolidado:** as tabelas `consolidado_diario`, `evento_processado` e `flyway_schema_history`. No banco `lancamentos`, as tabelas são `lancamento`, `outbox_event`, `idempotency_key` e `flyway_schema_history`;
-- **o consolidado:** uma linha por dia com movimento (no exemplo, 3 dias atrás e hoje);
-- **os lançamentos:** os 4 lançamentos, na ordem em que foram gravados: crédito, débito, estorno e retroativo.
-
-> O `-U postgres` é o usuário administrador definido em `POSTGRES_SUPERUSER` no `.env`. Se você trocou esse valor, use o seu.
-
-### 14. Parar e limpar
-
-**Para que serve:** desligar tudo quando terminar.
-
-**Desligar os serviços:** nos Terminais 1 e 2, aperte **Ctrl+C**. No PowerShell, se aparecer `Deseja finalizar o arquivo em lotes (S/N)?`, responda **S**.
-
-Os comandos abaixo podem ser rodados em qualquer terminal aberto na pasta do projeto (por exemplo, o Terminal 1, já livre). Se você usou uma stack separada (aviso do passo 3), o terminal precisa ter o mesmo `COMPOSE_PROJECT_NAME`. Se subiu também o Prometheus e o Grafana, acrescente `--profile observability` aos comandos `down` abaixo (veja [Observabilidade](#observabilidade-métricas-alertas-e-painel-opcional)); sem isso, esses dois contêineres continuam de pé.
-
-**Desligar a infraestrutura e guardar os dados** para a próxima vez:
-
-```bash
-docker compose --env-file .env -f deploy/docker-compose.yml down
-```
-
-```powershell
-docker compose --env-file .env -f deploy/docker-compose.yml down
-```
-
-**O que você deve ver:** linhas `Removed` para os contêineres e a rede. Os dados continuam nos volumes do Docker, e na próxima vez basta voltar ao passo 3.
-
-**Apagar tudo, inclusive os dados:**
-
-> **Cuidado:** apaga os dois bancos e as mensagens do Kafka, sem volta. Isso vale para **toda** a stack `fluxo-caixa` desta máquina, inclusive dados de antes deste passo a passo (veja o aviso do passo 3).
-
-```bash
-docker compose --env-file .env -f deploy/docker-compose.yml down -v
-```
-
-```powershell
-docker compose --env-file .env -f deploy/docker-compose.yml down -v
-```
-
-**O que você deve ver:** as linhas `Removed`, mais `Volume fluxo-caixa_postgres-data Removed` e `Volume fluxo-caixa_kafka-data Removed`.
-
-**Para recomeçar depois de um `down -v`:**
-1. refaça o passo 3, que recria os bancos e os usuários;
-2. refaça os passos 7 e 8, que recriam as tabelas.
-
-A compilação (passo 5) e a chave (passo 6) não se perdem.
-
-**Apagar os arquivos de exemplo do PowerShell (opcional):** os JSON do passo 9 ficaram na pasta temporária do Windows, fora do projeto. Para apagá-los:
-
-```powershell
-Remove-Item "$env:TEMP\credito.json", "$env:TEMP\debito.json", "$env:TEMP\retroativo.json" -ErrorAction SilentlyContinue
-```
-
-No bash não há nada a apagar: o corpo vai direto no comando.
-
-## Observabilidade: métricas, alertas e painel (opcional)
-
-**Para que serve:** ver o que os serviços estão fazendo (quantos lançamentos, idade da fila de eventos, atraso do consolidado, erros) e ser avisado quando algo foge do normal. Tudo é local; nada sai da sua máquina.
-
-**1. Conferir as métricas dos serviços.** Com os serviços de pé (passos 7 e 8), cada um tem uma **porta de gestão**, separada da API, que não pede token: `9081` no Lançamentos e `9082` no Consolidado. Só `health` e `prometheus` estão disponíveis; a porta da API (8081 e 8082) não serve `/actuator`.
-
-```bash
-curl -s http://localhost:9081/actuator/health
-curl -s http://localhost:9081/actuator/prometheus | grep -E '^(lancamentos_registrados_total|outbox_pending_events)'
-curl -s http://localhost:9082/actuator/prometheus | grep -E '^(consolidado_events_processed_total|consolidado_event_lag_seconds_count)'
-```
-
-```powershell
-curl.exe -s http://localhost:9081/actuator/health
-curl.exe -s http://localhost:9081/actuator/prometheus | Select-String '^(lancamentos_registrados_total|outbox_pending_events)'
-curl.exe -s http://localhost:9082/actuator/prometheus | Select-String '^(consolidado_events_processed_total|consolidado_event_lag_seconds_count)'
-```
-
-**O que você deve ver:** `{"groups":["liveness","readiness"],"status":"UP"}` (ou `"status":"DOWN"`, se o banco estiver fora) e linhas de métricas como `lancamentos_registrados_total{tipo="CREDITO",...} 3.0`, `outbox_pending_events 0.0` e `consolidado_events_processed_total 3.0`. Se os números estiverem em zero, registre um lançamento (passo 9) e consulte de novo.
-
-**2. Subir o Prometheus e o Grafana.** Eles só sobem com o *profile* `observability` e leem as portas de gestão dos serviços que estão rodando na sua máquina:
-
-```bash
-docker compose --env-file .env -f deploy/docker-compose.yml --profile observability up -d --wait --remove-orphans
-```
-
-```powershell
-docker compose --env-file .env -f deploy/docker-compose.yml --profile observability up -d --wait --remove-orphans
-```
-
-**O que você deve ver:** as linhas `Healthy` do passo 3 e mais duas: `Container fluxo-caixa-prometheus-1 Healthy` e `Container fluxo-caixa-grafana-1 Healthy`.
-
-**3. Olhar os resultados.**
-- <http://localhost:9090/targets> (Prometheus): os alvos `lancamentos` e `consolidado` devem estar `UP`. Um alvo `DOWN` quer dizer que o serviço não está rodando ou que a porta de gestão foi trocada.
-- <http://localhost:9090/alerts>: as sete regras de alerta (`deploy/prometheus/alertas.yml`). Todas devem estar `inactive` em operação normal; `OutboxComIdadeAlta` e `ConsolidadoForaDoAr` são as que acendem se você derrubar o Kafka ou o Consolidado. Se o Prometheus ficou de pé por mais de 2 minutos antes de os serviços subirem, `ConsolidadoForaDoAr` aparece `firing` até a próxima raspagem com o serviço no ar; isso é o alerta funcionando.
-- <http://localhost:3000> (Grafana, só leitura e sem login): o painel **Fluxo de Caixa - operação** mostra lançamentos por tipo, a fila da outbox, os eventos do Consolidado, o atraso da projeção (p95), o atraso do consumidor, os erros 5xx e a ocupação dos bancos de conexões.
-
-As portas do Prometheus e do Grafana podem ser trocadas no `.env` (`PROMETHEUS_PORT` e `GRAFANA_PORT`). Se você trocar as portas de gestão dos serviços (`LANCAMENTOS_MANAGEMENT_PORT` e `CONSOLIDADO_MANAGEMENT_PORT`), troque também os alvos em `deploy/prometheus/prometheus.yml`.
-
-**4. Seguir uma requisição pelos logs.** Todo erro da API traz `traceId` e `requestId` no corpo (`problem+json`), e a mesma linha de acesso nos logs do serviço leva os dois campos. O evento publicado leva o `traceId` da requisição, que o Consolidado registra como `traceIdOrigem` na linha do evento aplicado. Procure o valor nos logs dos dois terminais.
-
-**5. Testar as regras de alerta** (sem os serviços, só com o Docker; roda a partir da raiz do projeto):
-
-```bash
-MSYS_NO_PATHCONV=1 docker run --rm --entrypoint promtool -v "$PWD/deploy/prometheus:/work:ro" prom/prometheus:v3.15.1 test rules /work/alertas.test.yml
-```
-
-(O `MSYS_NO_PATHCONV=1` evita que o Git Bash do Windows converta `/work` num caminho do Windows; no Linux e no macOS ele não faz diferença.)
-
-```powershell
-docker run --rm --entrypoint promtool -v "${PWD}/deploy/prometheus:/work:ro" prom/prometheus:v3.15.1 test rules /work/alertas.test.yml
-```
-
-**O que você deve ver:** `SUCCESS`. Cada alerta tem um caso que dispara e um que não dispara.
-
-**6. Desligar.** O `down` do passo 14 só enxerga os serviços do *profile* que você informar; para desligar também o Prometheus e o Grafana, acrescente `--profile observability`:
-
-```bash
-docker compose --env-file .env -f deploy/docker-compose.yml --profile observability down
-```
-
-```powershell
-docker compose --env-file .env -f deploy/docker-compose.yml --profile observability down
-```
-
-## Carga e desempenho (k6)
-
-**Para que serve:** medir quanto o Consolidado aguenta (o enunciado pede 50 requisições por segundo, com perda de até 5 %) e quão fresco fica o consolidado enquanto o Lançamentos recebe escrita ao mesmo tempo. Os números e a leitura deles estão no [relatório de desempenho](docs/performance/relatorio.md); aqui está como repetir a medição.
-
-**Antes de começar:** a stack dos serviços no ar, como no [Veja funcionando em 5 minutos](#veja-funcionando-em-5-minutos) (passos 1 a 4, *profile* `apps`), e o `jq` instalado. Não precisa instalar o k6: o script usa a imagem `grafana/k6` do Docker (a primeira vez baixa a imagem). Para a medição valer, deixe a máquina quieta: feche o que consome CPU, pois o gerador de carga e os serviços dividem a mesma máquina.
-
-**1. Conferir os scripts** (só a sintaxe, não precisa da stack):
-
-```bash
-loadtest/run.sh inspect
-```
-
-```powershell
-& "C:\Program Files\Git\bin\bash.exe" loadtest/run.sh inspect
-```
-
-**O que você deve ver:** `✔ k6 inspect: smoke.js` e `✔ k6 inspect: load.js`.
-
-**2. Teste normal** (contrato ponta a ponta, uns 10 segundos):
-
-```bash
-loadtest/run.sh smoke
-```
-
-```powershell
-& "C:\Program Files\Git\bin\bash.exe" loadtest/run.sh smoke
-```
-
-**O que você deve ver:** uma lista de `✓` (um por verificação, todas em 100 %), `k6 terminou com exit 0` e `Resultados em docs/performance/results/smoke-...`.
-
-**3. Teste de carga** (50 req/s de leitura do consolidado e 10 req/s de escrita, por 5 minutos, mais o *seed* e a espera da drenagem; leva uns 7 minutos):
-
-```bash
-loadtest/run.sh load
-```
-
-```powershell
-& "C:\Program Files\Git\bin\bash.exe" loadtest/run.sh load
-```
-
-**O que você deve ver:** o k6 mostrando as duas cenas (`consolidado_read` a 50 iters/s e `lancamentos_write` a 10 iters/s), limiares com `✓` (os quatro que valem: `dropped_iterations`, p95 da leitura, falha da leitura e falha da escrita; os três `max>=0` só existem para exportar latências e sempre passam), `k6 terminou com exit 0` e uma linha `lag: p95=...s max=...s eventos=...` com o atraso da projeção (a meta é p95 ≤ 5 s e máximo ≤ 30 s). Se algum limiar falhar, o script termina com erro e o resultado fica gravado mesmo assim.
-
-Cada execução deixa arquivos em `docs/performance/results/`: o resumo do k6 (`.json`) e o ambiente (`.env.txt`) e, no teste de carga, também o atraso da projeção e a operação durante a carga (`.lag.json`) e o uso de CPU e memória dos contêineres (`.stats.txt`).
-
-**4. Rodadas informativas** (100 e 200 req/s, para ver até onde vai; não são a meta e o script não falha por limiar):
-
-```bash
-READ_RPS=100 loadtest/run.sh load
-READ_RPS=200 loadtest/run.sh load
-```
-
-```powershell
-$env:READ_RPS = "100"; & "C:\Program Files\Git\bin\bash.exe" loadtest/run.sh load
-$env:READ_RPS = "200"; & "C:\Program Files\Git\bin\bash.exe" loadtest/run.sh load
-Remove-Item Env:READ_RPS
-```
-
-**Se a stack usa outro arquivo de configuração ou outro nome de projeto** (por exemplo, uma stack isolada de teste), aponte o script para ela com `ENV_FILE=.env.outro` (no PowerShell, `$env:ENV_FILE = ".env.outro"`). O script descobre a rede do compose pelo contêiner do Lançamentos.
-
-**Cuidados:** `dropped_iterations` maior que zero invalida a rodada (a máquina não sustentou a taxa pedida). O teste usa um comerciante novo a cada execução, então pode ser repetido. Mais detalhes em [`loadtest/README.md`](loadtest/README.md).
-
-## Como funcionam os bancos de dados
-
-- **Uma instância de PostgreSQL com dois bancos:** `lancamentos` e `consolidado`. Cada serviço tem dois usuários:
-  - um "dono" (`*_owner`), que cria as tabelas;
-  - um "aplicação" (`*_app`), que só lê e grava.
-
-  Um serviço não consegue entrar no banco do outro. É isso que o passo 4 confere.
-- **Quem cria os bancos e os usuários:** o script `deploy/init/01-bancos-e-roles.sql`, executado pelo PostgreSQL **só na primeira vez** que o volume de dados é criado (o primeiro `up`, ou o primeiro depois de um `down -v`).
-- **Quem cria as tabelas:** cada serviço, pelo Flyway, **ao subir** (passos 7 e 8). As migrações ficam em `lancamentos-service/src/main/resources/db/migration/` e `consolidado-service/src/main/resources/db/migration/`. Se o serviço nunca subiu, o banco existe, mas está **vazio**. Nas subidas seguintes, o Flyway só aplica as migrações novas.
-- **De onde vêm os dados do consolidado:** dos eventos que o Lançamentos publica no Kafka. Na primeira subida, o Consolidado lê todos os eventos que o Kafka ainda guarda, desde o início.
-  - **O Kafka guarda os eventos por 7 dias.** Se o Consolidado subir pela primeira vez mais de 7 dias depois de um lançamento, esse lançamento não entra no resumo. Os 7 dias são o padrão do Kafka, não um valor fixado pelo projeto para o tópico principal (só a DLT tem retenção própria, de 30 dias, em `deploy/kafka/create-topics.sh`). Se a imagem do Kafka mudar esse padrão, este prazo muda junto.
-  - Reconstruir o consolidado a partir dos lançamentos é uma evolução prevista ([ADR-006](docs/architecture/decisions/ADR-006-estrategia-de-rebuild.md)), fora deste MVP.
-- **O que cada comando faz com os dados:**
-
-  | Comando | Contêineres | Dados (bancos e Kafka) | Para voltar a usar |
-  |---|---|---|---|
-  | `down` | removidos | **mantidos** | passo 3 e passos 7 e 8 |
-  | `down -v` | removidos | **apagados** | passo 3 (recria bancos e usuários) e passos 7 e 8 (recriam as tabelas) |
-
-## Se algo der errado
-
-| O que aparece | Causa provável | O que fazer |
-|---|---|---|
-| `Cannot connect to the Docker daemon` ou `error during connect` | Docker parado | Abra o Docker Desktop e espere "Engine running" |
-| `port is already allocated` no passo 3, ou `Port 8081 was already in use` | A porta já está em uso por outro programa | Feche o outro programa ou troque a porta: `POSTGRES_PORT`/`KAFKA_PORT` no `.env`; para os serviços, defina `SERVER_PORT` antes de subir (bash: `export SERVER_PORT=18081`; PowerShell: `$env:SERVER_PORT = "18081"`) e use a nova porta nas chamadas |
-| `Could not find artifact br.com.fluxocaixa:contracts` ao subir o Consolidado | O projeto não foi compilado | Rode o passo 5 |
-| `chave pública JWT ilegível em file:../deploy/dev-keys/jwt-public.pem` | A chave ainda não foi gerada | Rode o passo 6 uma vez e suba o serviço de novo |
-| Erro de senha do banco no log do serviço (`password authentication failed` ou `no password was provided`) | O `.env` não foi carregado neste terminal | Rode a linha que carrega o `.env` (passos 7 e 8) no mesmo terminal e suba de novo |
-| Resposta `401` | Token ausente, vencido (1 hora) ou com o `ID` vazio na URL | Gere outro token (passo 6) e confira `$ID` |
-| Resposta `403` | O token não tem a permissão (*scope*) da operação | Gere o token com os três *scopes* do passo 6 |
-| Resposta `400` com `json-malformado` | JSON escrito direto na linha no PowerShell 5.1, ou com acento no Git Bash | Use o arquivo com `-d "@arquivo.json"` no PowerShell e textos sem acento |
-| Resposta `422` com `data-retroativa-excedida` ou `data-futura` | Data de mais de 30 dias atrás ou no futuro | Use uma data dentro dos últimos 30 dias |
-| O consolidado não mostra um lançamento recente | Ele ainda está chegando pelo Kafka, ou o serviço de Consolidado não está rodando | Espere 1 a 2 segundos e consulte de novo; confira o Terminal 2 |
-| O `verify-local.sh` falha ou não encontra o Docker quando chamado com `bash` no PowerShell | O `bash` do WSL foi usado no lugar do Git Bash | Use `& "C:\Program Files\Git\bin\bash.exe" deploy/verify-local.sh` |
-
-## Rodar os testes e as verificações de qualidade
-
-O comando abaixo compila o projeto e roda todos os testes, inclusive os de integração. Esses testes sobem seus próprios bancos e Kafka temporários com o Docker, sem tocar nos contêineres do passo a passo. Ele também roda as verificações de qualidade:
-- formatação (Spotless) e estilo (Checkstyle);
-- regras de arquitetura (ArchUnit);
-- busca de bugs (SpotBugs/FindSecBugs);
-- cobertura de testes (JaCoCo).
-
-Leva alguns minutos.
-
-```bash
-./mvnw verify
-```
-
-```powershell
-.\mvnw.cmd verify
-```
-
-**O que você deve ver:** no fim, `BUILD SUCCESS`. Se a formatação falhar, corrija com `./mvnw spotless:apply` (bash) ou `.\mvnw.cmd spotless:apply` (PowerShell).
-
-O Maven Wrapper usa o modo `only-script`: nenhum JAR binário do Wrapper é versionado. Para ativar os *hooks* de Git do projeto, uma vez por clone:
-
-```bash
-git config core.hooksPath .githooks
-```
-
-```powershell
-git config core.hooksPath .githooks
-```
-
-O `pre-commit` roda o gitleaks (se instalado) e a checagem de formatação. O `pre-push` roda `./mvnw -q verify -DskipITs`. Os *hooks* podem ser contornados, por isso o CI repete tudo.
-
-### Verificar uma tarefa (gate do método)
-
-Quem implementa uma tarefa do projeto usa três scripts (precisam de Git, Java 25 e, para o gate completo, do Docker). No PowerShell, chame o `bash` do Git (o `bash` solto pode ser o do WSL).
-
-**1. Testar os próprios scripts** (leva de um a alguns minutos, conforme a máquina; não usa Docker nem altera a sua pasta de trabalho):
-
-```bash
-scripts/test/run-tests.sh
-```
-
-```powershell
-& "C:\Program Files\Git\bin\bash.exe" scripts/test/run-tests.sh
-```
-
-**O que você deve ver:** uma linha por cenário e, no fim, `OK: 84 conferências, 0 falhas` (o número de conferências cresce quando entram cenários novos).
-
-**2. Listar os requisitos sem teste** (sai com erro enquanto houver requisito obrigatório sem prova) e regenerar a matriz [`docs/specs/traceability.md`](docs/specs/traceability.md):
-
-```bash
-scripts/check-traceability.sh
-scripts/check-traceability.sh --write
-```
-
-```powershell
-& "C:\Program Files\Git\bin\bash.exe" scripts/check-traceability.sh
-& "C:\Program Files\Git\bin\bash.exe" scripts/check-traceability.sh --write
-```
-
-**O que você deve ver:** a primeira lista `FALTA RNF-xxx (tarefas: ...)` para cada requisito obrigatório que ainda não tem teste, e os que são provados por evidência, com o arquivo; ela termina com erro enquanto houver `FALTA`. A segunda imprime `gerado: docs/specs/traceability.md`.
-
-**3. Rodar o gate de uma tarefa**, a partir do branch da tarefa. `BASE` é o branch contra o qual o *diff* é calculado (o padrão é `main`; se o seu `main` local estiver defasado, use o branch base da tarefa):
-
-```bash
-BASE=main scripts/verify-task.sh T-003
-```
-
-```powershell
-$env:BASE = "main"
-& "C:\Program Files\Git\bin\bash.exe" scripts/verify-task.sh T-003
-Remove-Item Env:BASE
-```
-
-**O que você deve ver:** uma linha `OK item N (...)` ou `FALHA item N (...)` para cada um dos seis itens (build, escopo, dependências, rastreabilidade, padrões proibidos e artefatos), seguida de `RESULTADO: OK` ou `RESULTADO: FALHA`. O resultado também fica em `docs/specs/reviews/T-xxx.verify.log` (arquivo local, ignorado pelo Git). O gate lê os *commits*: faça o commit antes de rodar.
-
-## Contêineres do ambiente local
-
-| Serviço | Imagem | Papel | Porta no host | Profile | Ciclo de vida |
-|---|---|---|---|---|---|
-| `postgres` | `postgres:17.11-alpine` | Bancos `lancamentos` e `consolidado`, cada um com usuários próprios (`deploy/init/`) | `POSTGRES_PORT` (5432) | padrão | Contínuo, com *healthcheck* |
-| `kafka` | `apache/kafka:3.9.1` | Broker KRaft de nó único, sem criação automática de tópicos | `KAFKA_PORT` (9092) | padrão | Contínuo, com *healthcheck* |
-| `kafka-topicos` | `apache/kafka:3.9.1` | Cria o tópico `cashflow.lancamentos.v1` e a DLT (`deploy/kafka/create-topics.sh`) | — | padrão | Execução única: roda depois que o `kafka` fica saudável e termina com exit 0 |
-| `kafka-ui` | `kafbat/kafka-ui:v1.3.0` | Página para ver tópicos e mensagens | `KAFKA_UI_PORT` (8090) | `tools` | Contínuo, opcional |
-| `prometheus` | `prom/prometheus:v3.15.1` | Métricas e alertas dos dois serviços (`deploy/prometheus/`) | `PROMETHEUS_PORT` (9090) | `observability` | Contínuo, opcional, com *healthcheck* |
-| `grafana` | `grafana/grafana:13.2.4` | Painel de operação, só leitura e sem login (`deploy/grafana/`) | `GRAFANA_PORT` (3000) | `observability` | Contínuo, opcional, com *healthcheck* |
-| `dev-keys` | `eclipse-temurin:25.0.1_8-jdk-noble` | Cria a chave JWT de desenvolvimento em `deploy/dev-keys/` (`scripts/DevToken.java`), se ainda não existir | — | `apps` | Execução única: termina com exit 0 |
-| `lancamentos` | `fluxo-caixa/lancamentos:0.1.0-SNAPSHOT` | Serviço de Lançamentos, imagem do `spring-boot:build-image` (usuário não-root) | `LANCAMENTOS_PORT` (8081) e `LANCAMENTOS_MANAGEMENT_PORT` (9081) | `apps` | Contínuo; a saúde é `:9081/actuator/health` |
-| `consolidado` | `fluxo-caixa/consolidado:0.1.0-SNAPSHOT` | Serviço de Consolidado, mesma receita | `CONSOLIDADO_PORT` (8082) e `CONSOLIDADO_MANAGEMENT_PORT` (9082) | `apps` | Contínuo; a saúde é `:9082/actuator/health` |
-
-- **Kafka UI:** para ver as mensagens no navegador, acrescente `--profile tools` ao comando do passo 3 e abra <http://localhost:8090>.
-- **Observabilidade:** para ver as métricas e o painel, acrescente `--profile observability` ao comando do passo 3 (veja [Observabilidade](#observabilidade-métricas-alertas-e-painel-opcional)).
-- **Serviços em contêiner:** com `--profile apps`, os dois serviços sobem em contêineres (veja [Veja funcionando em 5 minutos](#veja-funcionando-em-5-minutos)); sem ele, sobem pelo Maven, como nos passos 7 e 8. Os dois modos usam as mesmas portas, então não rode os dois ao mesmo tempo.
-- **`--remove-orphans`:** remove contêineres de serviços que saíram do compose ou foram renomeados, como o de criação de tópicos na T-006.
-- **Volumes soltos:** a imagem do Kafka declara volumes próprios. Ao remover um contêiner órfão, ficam volumes anônimos soltos, que o `down -v` não alcança. Liste-os com `docker volume ls -f dangling=true` antes de apagar.
-
-## Documentação
-
-- [`docs/architecture/architecture.md`](docs/architecture/architecture.md): visão geral, diagramas C4, arquitetura-alvo AWS (**apenas desenho**; o case é implementado e provado só localmente) e tabela de requisitos não funcionais.
-- [`docs/architecture/decisions/`](docs/architecture/decisions/): decisões de arquitetura (ADR-001 a ADR-010), com alternativas rejeitadas e *trade-offs*.
-- [`docs/specs/`](docs/specs/): especificação (constituição, domínios e capacidades, requisitos, contratos, padrões de qualidade, backlog).
-- Contratos das APIs: [`lancamentos-v1.yaml`](lancamentos-service/src/main/resources/openapi/lancamentos-v1.yaml) e [`consolidado-v1.yaml`](consolidado-service/src/main/resources/openapi/consolidado-v1.yaml). Contrato do evento: [`lancamento-registrado.v1.schema.json`](contracts/src/main/resources/events/lancamento-registrado.v1.schema.json).
-- [Runbook da DLT](docs/runbooks/dlt-reprocessamento.md): o que fazer quando um evento não pode ser aplicado no Consolidado.
-- [Segurança](docs/security/): [mapeamento OWASP API Top 10](docs/security/owasp-mapping.md) (controle e teste de cada risco), [modelo de ameaças](docs/security/ameacas.md) e [lista ASVS nível 1](docs/security/asvs-l1.md). Os gates de segurança do CI (CodeQL, Dependency-Check, Trivy) estão em `.github/workflows/security.yml`; o Dependency-Check precisa do segredo `NVD_API_KEY` no GitHub.
-
-## Módulos
-
-- **`contracts/`:** o formato (JSON Schema) e os exemplos do evento `LancamentoRegistrado.v1`, sem código.
-- **`lancamentos-service/`:** registra, estorna e consulta lançamentos; publica os eventos (outbox).
-- **`consolidado-service/`:** consome os eventos, mantém o resumo diário e responde as consultas.
-
-## Método de desenvolvimento
-
-O projeto usa **Spec Driven Development (SDD)**, com implementação e revisão independente por tarefa. Antes de implementar uma tarefa, consulte:
-
-1. [`AGENTS.md`](AGENTS.md): instruções para agentes de código.
-2. [`docs/specs/00-constitution.md`](docs/specs/00-constitution.md): princípios e convenções.
-3. [`docs/specs/tasks/`](docs/specs/tasks): o arquivo da tarefa, por exemplo `T-023.md`.
-4. [`docs/specs/05-harness.md`](docs/specs/05-harness.md): verificação, testes e revisão.
-
-Cada tarefa é verificada pelo mesmo comando, `scripts/verify-task.sh T-xxx` (veja [Verificar uma tarefa](#verificar-uma-tarefa-gate-do-método)), e depois revisada por um subagente independente ([`.claude/agents/reviewer.md`](.claude/agents/reviewer.md)), que escreve o relatório em `docs/specs/reviews/T-xxx.md`. Os modelos da tarefa e da revisão estão em [`docs/specs/templates/`](docs/specs/templates/), o inventário de dependências em [`dependency-allowlist.md`](docs/specs/dependency-allowlist.md) e a matriz requisito → teste em [`traceability.md`](docs/specs/traceability.md).
-
-### Manter este README vivo
-
-Este README é parte do produto. Toda tarefa que muda **como subir ou usar a aplicação** atualiza o README no mesmo PR. Isso inclui:
-- comandos, portas e variáveis;
-- *profiles*, rotas e *scopes*;
-- serviços do compose e scripts.
-
-Os comandos afetados são **executados de novo, em bash e em PowerShell**, e o "o que você deve ver" é conferido com a saída real. A regra está no [`AGENTS.md`](AGENTS.md) e no [`05-harness.md`](docs/specs/05-harness.md), e a revisão independente a verifica (critério R10).
-
-## Status
-
-- **Concluído:**
-  - **Fundação:** build reproduzível e gates de qualidade (T-001, T-002); infraestrutura local (T-004, T-006); documentação de arquitetura (T-005); este README executável (T-007); gate por tarefa, matriz de rastreabilidade e subagente revisor (T-003).
-  - **Lançamentos (M1):** domínio, persistência, registro idempotente, API, estorno, consultas e publicador da outbox (T-010 a T-016).
-  - **Consolidado (M2):** domínio da projeção, persistência, consumidor Kafka com DLT e API de consulta (T-020 a T-023).
-  - **Fase 3 (parcial):** contrato do evento verificado nos dois lados (T-030), provas de resiliência (T-031), observabilidade com métricas, alertas e painel (T-032), a demo guiada com os serviços em contêiner (T-035) e a carga com k6 e o [relatório de desempenho](docs/performance/relatorio.md) (T-033).
-- **Parcial:** o caminho de 5 comandos está em [Veja funcionando em 5 minutos](#veja-funcionando-em-5-minutos); a prova final do README, a de clone limpo, é da T-043.
-- **Próximo:** o *hardening* (Fase 3). A ordem está em [`docs/specs/06-tasks.md`](docs/specs/06-tasks.md).
+Quer o caminho manual, com três terminais, token e chamadas à API? Veja o [passo a passo](docs/guia/passo-a-passo.md). Algo deu errado? [Solução de problemas](docs/guia/solucao-de-problemas.md).
+
+## Como funciona, em 5 passos
+
+```mermaid
+flowchart LR
+    C["Cliente"] -->|"1. POST /lancamentos"| L["Lançamentos :8081"]
+    L -->|"2. lançamento + evento, na mesma transação"| DL[("banco lancamentos")]
+    L -->|"3. publicador (a cada 500 ms)"| K[("Kafka")]
+    K -->|"4. consumidor"| S["Consolidado :8082"]
+    S --> DC[("banco consolidado")]
+    C -->|"5. GET /consolidado"| S
+```
+
+1. O cliente registra um lançamento no **Lançamentos**, com um token e uma chave de idempotência (repetir o pedido não duplica).
+2. O serviço grava o lançamento **e** o evento numa tabela de saída (*outbox*) numa só transação: ou os dois existem, ou nenhum.
+3. Um publicador lê essa tabela e envia o evento ao **Kafka**; se o Kafka estiver fora, o evento espera.
+4. O **Consolidado** lê o evento, ignora repetidos e soma no dia do lançamento.
+5. O cliente consulta o saldo do dia e o acumulado. Como os serviços nunca se chamam, o saldo pode levar cerca de 1 segundo para refletir um lançamento novo.
+
+## Decisões principais
+
+- **Dois serviços só por eventos, sem chamada entre eles:** o Lançamentos não depende do Consolidado ([ADR-001](docs/architecture/decisions/ADR-001-monorepo-e-dois-executaveis.md), [ADR-004](docs/architecture/decisions/ADR-004-kafka-e-contrato-de-evento.md)).
+- **Outbox transacional e idempotência:** nenhum lançamento confirmado se perde, e repetição não duplica ([ADR-003](docs/architecture/decisions/ADR-003-outbox-publicador-idempotencia.md)).
+- **Saldo por soma de movimentos, estorno como novo lançamento:** o fato financeiro nunca é editado ([ADR-005](docs/architecture/decisions/ADR-005-consistencia-eventual-e-projecao.md)).
+- **PostgreSQL com SQL explícito (sem JPA) e arquitetura hexagonal enxuta, verificada por ArchUnit** ([ADR-002](docs/architecture/decisions/ADR-002-postgresql-jdbcclient-flyway.md), [ADR-009](docs/architecture/decisions/ADR-009-hexagonal-enxuta-archunit.md)).
+- **JWT com escopos e isolamento por comerciante** ([ADR-007](docs/architecture/decisions/ADR-007-seguranca-e-integracao.md)); **métricas, alertas e painel** ([ADR-008](docs/architecture/decisions/ADR-008-observabilidade.md)).
+- **Alvo na AWS (ECS, RDS Multi-AZ, MSK, Cognito), só desenho:** nada foi provisionado ([ADR-010](docs/architecture/decisions/ADR-010-plataforma-alvo-aws.md)).
+
+## Resultados medidos
+
+Medidos no **case local** (notebook, gerador de carga e serviços na mesma máquina, uma rodada por taxa, um comerciante). **Não** valem para o alvo na AWS. Detalhe e limitações no [relatório](docs/performance/relatorio.md).
+
+| O que | Resultado |
+|---|---|
+| Leitura do consolidado a 50 req/s por 5 min (o pedido do case) | 15.001 requisições, 0 falhas, p95 de 6,3 ms |
+| Leitura a 100 e a 200 req/s (informativo) | 0 falhas nas duas; o teto não foi encontrado |
+| Atraso entre o lançamento e o consolidado (p95) | 0,69 s (meta: até 5 s) |
+| Custo mensal estimado do alvo ([estimativa](docs/cost/estimativa.md)) | cerca de 790 USD (MVP) e 1.966 USD (produção resiliente) |
+
+## O que eu faria com mais tempo
+
+- **Provar o alvo:** infraestrutura como código, multi-AZ, *failover* e restauração (hoje só desenho, [ADR-010](docs/architecture/decisions/ADR-010-plataforma-alvo-aws.md)).
+- **Medir o que faltou:** a drenagem de um acúmulo de eventos sob leitura, histórico longo, vários comerciantes e o teto de capacidade ([relatório](docs/performance/relatorio.md), [arquitetura §11](docs/architecture/architecture.md)).
+- **Reconstruir o consolidado** a partir dos lançamentos e guardar saldos periódicos quando o histórico crescer ([ADR-006](docs/architecture/decisions/ADR-006-estrategia-de-rebuild.md), [ADR-005](docs/architecture/decisions/ADR-005-consistencia-eventual-e-projecao.md)).
+- **Trocar o polling por CDC** se a latência de publicação pesar, e usar registro de esquemas com mais consumidores ([ADR-003](docs/architecture/decisions/ADR-003-outbox-publicador-idempotencia.md), [ADR-004](docs/architecture/decisions/ADR-004-kafka-e-contrato-de-evento.md)).
+- **Identidade real** (Cognito ou Keycloak) no lugar do token de desenvolvimento ([ADR-007](docs/architecture/decisions/ADR-007-seguranca-e-integracao.md)).
+- **Fechar as lacunas da revisão final:** *timeouts* dos pools, contagem do conflito de idempotência na métrica e a saída das *tasks* para a internet no desenho ([arquitetura §11](docs/architecture/architecture.md), [custos](docs/cost/estimativa.md)).
+- **Registrar os runs verdes do GitHub** (`security.yml`, `loadtest.yml`, `demo.yml`) para promover os itens "pendente do GitHub".
+- **Cortado por escopo:** ZAP, mutação com PIT e o IdP local com Keycloak ([backlog](docs/specs/06-tasks.md)).
+
+## Mapa da documentação e trilha de leitura
+
+- **5 minutos:** este README.
+- **15 minutos:** os diagramas e a visão geral em [`architecture.md`](docs/architecture/architecture.md) e o [passo a passo](docs/guia/passo-a-passo.md).
+- **1 hora:** os [ADRs](docs/architecture/decisions/), a [especificação](docs/specs/), a [segurança](docs/security/), a [carga](docs/performance/relatorio.md), os [custos](docs/cost/estimativa.md) e a [transição](docs/architecture/transition.md).
+
+| Pasta | O que tem |
+|---|---|
+| [`docs/guia/`](docs/guia/README.md) | Guias de uso: passo a passo, observabilidade, carga, bancos e contêineres, problemas, testes e glossário |
+| [`docs/architecture/`](docs/architecture/) | Arquitetura (C4, runtime, deploy, alvo AWS), 11 ADRs e a transição |
+| [`docs/specs/`](docs/specs/) | Especificação, requisitos, contratos, backlog, revisões e a matriz de rastreabilidade |
+| [`docs/security/`](docs/security/), [`docs/cost/`](docs/cost/), [`docs/performance/`](docs/performance/), [`docs/runbooks/`](docs/runbooks/) | Segurança, custos, medições e o runbook da DLT |
+| `lancamentos-service/`, `consolidado-service/`, `contracts/` | Os dois serviços e o contrato do evento (JSON Schema); as APIs estão em `*/src/main/resources/openapi/` |
+
+O projeto segue Spec Driven Development, com revisão independente por tarefa: veja o [método de desenvolvimento](docs/guia/metodo-de-desenvolvimento.md).
