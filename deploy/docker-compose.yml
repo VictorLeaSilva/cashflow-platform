@@ -103,7 +103,7 @@ services:
   # scripts/DevToken.java, que cria o par de chaves em deploy/dev-keys/ se ele ainda não existir (não
   # regrava um par existente) e termina. Os serviços esperam este término e montam a pasta só leitura.
   dev-keys:
-    image: eclipse-temurin:25.0.1_8-jdk-noble
+    image: eclipse-temurin:26.0.2_10-jdk-noble
     profiles: ["apps"]
     working_dir: /work
     volumes:
