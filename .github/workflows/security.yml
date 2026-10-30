@@ -86,6 +86,8 @@ jobs:
             --nvdApiKey "$NVD_API_KEY" \
             --failOnCVSS 7 \
             --disableOssIndex \
+            --nvdMaxRetryCount 10 \
+            --connectiontimeout 60000 \
             --suppression /src/docs/security/dependency-check-suppressions.xml \
             --format HTML --format JSON --out /report
       - name: Publicar o relatório
