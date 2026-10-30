@@ -87,7 +87,7 @@ jobs:
             --failOnCVSS 7 \
             --disableOssIndex \
             --nvdMaxRetryCount 10 \
-            --connectionTimeout 60000 \
+            --connectiontimeout 60000 \
             --suppression /src/docs/security/dependency-check-suppressions.xml \
             --format HTML --format JSON --out /report
       - name: Publicar o relatório
