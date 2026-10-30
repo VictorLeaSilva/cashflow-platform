@@ -53,6 +53,8 @@
     <json-schema-validator.version>3.0.8</json-schema-validator.version>
     <!-- T-037 (Q-081): versão corrigida do lz4-java (transitivo do kafka-clients; o BOM do Spring Boot não o gerencia). -->
     <lz4-java.version>1.11.4</lz4-java.version>
+    <!-- Versão corrigida do snappy-java (transitivo do kafka-clients; o BOM do Spring Boot não o gerencia). -->
+    <snappy-java.version>1.1.10.9</snappy-java.version>
     <!-- T-035: plataforma das imagens dos serviços; sem isso o build-image pode pegar o builder da arquitetura errada (arm64 sob emulação). -->
     <image.platform>linux/amd64</image.platform>
     <!-- Builder com tag fixa (04 §2.5): o :latest do Docker Hub resolveu para arm64 num daemon amd64. -->
@@ -83,6 +85,12 @@
         <groupId>at.yawk.lz4</groupId>
         <artifactId>lz4-java</artifactId>
         <version>${lz4-java.version}</version>
+      </dependency>
+      <!-- CVE-2026-108106 e CVE-2026-93451 no snappy-java 1.1.10.7 (HIGH, Trivy); só fixa a versão da dependência transitiva. -->
+      <dependency>
+        <groupId>org.xerial.snappy</groupId>
+        <artifactId>snappy-java</artifactId>
+        <version>${snappy-java.version}</version>
       </dependency>
     </dependencies>
   </dependencyManagement>
