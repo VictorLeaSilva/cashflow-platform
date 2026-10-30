@@ -49,7 +49,8 @@
     <jacoco-maven-plugin.version>0.8.14</jacoco-maven-plugin.version>
     <archunit.version>1.4.2</archunit.version>
     <!-- T-013: Swagger UI (só no profile local) e validação do contrato OpenAPI 3.1 (Q-002). -->
-    <swagger-ui.version>5.33.1</swagger-ui.version>
+    <!-- 5.34.1 empacota DOMPurify 3.4.17 (corrige CVE-2026-116803 e CVE-2026-116804; o 5.33.1 trazia o 3.4.13). -->
+    <swagger-ui.version>5.34.1</swagger-ui.version>
     <json-schema-validator.version>3.0.8</json-schema-validator.version>
     <!-- T-037 (Q-081): versão corrigida do lz4-java (transitivo do kafka-clients; o BOM do Spring Boot não o gerencia). -->
     <lz4-java.version>1.11.4</lz4-java.version>
