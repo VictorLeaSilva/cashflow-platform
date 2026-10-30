@@ -45,18 +45,19 @@ Ordem: *walking skeleton* (fundação e harness) → fatias verticais por servi�
 | T-040 | Completar `architecture.md` iniciado na T-005 (estados provados, visões de runtime e deploy local com números medidos, revisão cruzada final ADRs × código; alinha 4 frases do `03`, Q-086) | T-005, T-031, T-032, T-033, T-034, T-035 | Obrigatórios do enunciado | Revisão cruzada com as specs |
 | T-041 | Arquitetura de transição (enxuta): coexistência com processo legado, importação idempotente por `identificador_externo`, saldo de abertura e seu efeito no evento e no `saldoAnterior`, migração de identidade (usuários e comerciantes), *shadow mode* | T-040 | Diferencial | Até 3 páginas + 1 diagrama |
 | T-042 | Estimativa de custos (premissas + export da AWS Pricing Calculator, cenário MVP e produção resiliente) | T-040 | Diferencial | `docs/cost/` |
-| T-043 | README final (como funciona, como rodar, como testar, decisões, evolução e "o que faria com mais tempo") | todas | RNF-009 | Seguir o README do zero funciona |
-| T-044 | Release (imagens, SBOM, tag) e auditoria final de rastreabilidade | T-043 | Todos | `traceability.md` sem lacunas |
+| T-043 | README final curto (porta de entrada: o que o case pediu e onde está, 5 etapas para ver funcionando, fluxo, decisões, resultados medidos, "o que faria com mais tempo", trilha de leitura), conteúdo existente em `docs/guia/`, rótulos bash/PowerShell e prova em clone limpo (Q-091 a Q-094) | T-007, T-033, T-034, T-035, T-040, T-041, T-042 | RNF-009 | Seguir o README do zero funciona nos dois shells; `scripts/check-rotulos.sh` verde |
+| T-044 | Release (imagens, SBOM, tag) e auditoria final de rastreabilidade | T-043, T-045 | Todos | `traceability.md` sem lacunas |
+| T-045 | Guias de conceito para quem quer entender por dentro: como funciona, idempotência, outbox e publicador, consumidor e consolidado, observabilidade (o que cada métrica mede e como é calculada), com ponteiros ao código conferidos por script (Q-093) | T-043 | Apoia RNF-009 (README) | `docs/guia/`; `scripts/check-ponteiros.sh` verde |
 
 ## Marcos
 - **M0** (T-001..T-005): repositório com gates e harness funcionando; obrigatórios de documentação (ADRs e arquitetura-alvo) em primeira versão.
 - **M1** (T-010..T-016): Lançamentos completo, publica eventos.
 - **M2** (T-020..T-023): Consolidado completo, consome e consulta.
 - **M3** (T-030..T-035): provas de resiliência, carga, segurança e demo guiada. T-036 é opcional e não bloqueia o marco.
-- **M4** (T-040..T-044): documentação final e release.
+- **M4** (T-040..T-045): documentação final e release.
 
 ## Ordem de implementação da Fase 3 (Q-056, decidida em 2026-10-24)
-T-003 → T-030 → T-032 → T-031 → T-035 → T-033 → T-034. Cortados: T-036, PIT e ZAP (itens 1 e 2 do corte abaixo). A T-040 a T-044 são detalhadas depois da T-033, com os números medidos (P8).
+T-003 → T-030 → T-032 → T-031 → T-035 → T-033 → T-034. Cortados: T-036, PIT e ZAP (itens 1 e 2 do corte abaixo). A T-040 a T-045 são detalhadas depois da T-033, com os números medidos (P8).
 
 ## Corte de escopo (se o tempo apertar, nesta ordem)
 1. T-036 (Keycloak local; o `DevToken` cobre o case). 2. PIT e ZAP (G4). 3. Grafana provisionado (manter métricas e alertas em arquivo). 4. T-041/T-042 em versão mínima. **Nunca cortar:** T-005, T-031, T-033, T-035, T-040, T-043.

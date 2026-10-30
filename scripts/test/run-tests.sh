@@ -528,6 +528,118 @@ espera_texto "RF-001"
 confere
 grep -qF "| RF-001 | FALTA | 0 |" "$R/docs/specs/traceability.md" || falhou "RF-001 devia ter 0 testes (tag em comentário e string não conta)"
 
+# ---------------------------------------------------------------- AC-T043.5
+
+roda_rotulos() { # $@ = argumentos do check-rotulos.sh
+  SAIDA="$(bash "$SCRIPTS_SRC/check-rotulos.sh" "$@" 2>&1)"; CODIGO=$?
+}
+
+md_rotulos() { # $1 = nome do arquivo; o conteúdo vem da entrada padrão
+  mkdir -p "$TMP_ROOT/rotulos"
+  cat > "$TMP_ROOT/rotulos/$1"
+  MD_ARQ="$TMP_ROOT/rotulos/$1"
+}
+
+cenario "check-rotulos: par bash e PowerShell rotulado, na ordem, passa"
+md_rotulos par.md <<'MD'
+**bash (Linux, macOS e Git Bash)**
+
+```bash
+ls
+```
+
+**PowerShell (Windows)**
+
+```powershell
+Get-ChildItem
+```
+MD
+roda_rotulos "$MD_ARQ"
+espera_codigo 0
+espera_texto "OK"
+
+cenario "check-rotulos: bloco bash sem rótulo reprova e aponta a linha"
+md_rotulos sem.md <<'MD'
+Texto antes.
+
+```bash
+ls
+```
+MD
+roda_rotulos "$MD_ARQ"
+espera_codigo nz
+espera_texto "FALTA"
+espera_texto "sem.md:3"
+
+cenario "check-rotulos: rótulo do outro sistema reprova"
+md_rotulos trocado.md <<'MD'
+**bash (Linux, macOS e Git Bash)**
+
+```powershell
+Get-ChildItem
+```
+MD
+roda_rotulos "$MD_ARQ"
+espera_codigo nz
+espera_texto "outro sistema"
+
+cenario "check-rotulos: PowerShell antes de bash reprova (ordem)"
+md_rotulos ordem.md <<'MD'
+**PowerShell (Windows)**
+
+```powershell
+Get-ChildItem
+```
+
+**bash (Linux, macOS e Git Bash)**
+
+```bash
+ls
+```
+MD
+roda_rotulos "$MD_ARQ"
+espera_codigo nz
+espera_texto "ordem"
+
+cenario "check-rotulos: rótulo único 'bash e PowerShell' vale para um bloco; linhas em branco entre rótulo e bloco são aceitas"
+md_rotulos unico.md <<'MD'
+**bash e PowerShell**
+
+
+```bash
+docker compose version
+```
+MD
+roda_rotulos "$MD_ARQ"
+espera_codigo 0
+
+cenario "check-rotulos: blocos de outras linguagens não precisam de rótulo"
+md_rotulos outros.md <<'MD'
+```text
+saída qualquer
+```
+
+```yaml
+a: b
+```
+
+```mermaid
+flowchart LR
+  a --> b
+```
+MD
+roda_rotulos "$MD_ARQ"
+espera_codigo 0
+
+cenario "check-rotulos: sem argumentos confere README.md e docs/guia/ da raiz indicada"
+mkdir -p "$TMP_ROOT/raiz/docs/guia"
+printf '%s\n' '**bash (Linux, macOS e Git Bash)**' '' '```bash' 'ls' '```' > "$TMP_ROOT/raiz/README.md"
+printf '%s\n' '```powershell' 'dir' '```' > "$TMP_ROOT/raiz/docs/guia/x.md"
+roda_rotulos --raiz "$TMP_ROOT/raiz"
+espera_codigo nz
+espera_texto "x.md:1"
+espera_sem_texto "README.md:"
+
 # ---------------------------------------------------------------- resumo
 
 echo

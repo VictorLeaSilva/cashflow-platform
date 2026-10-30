@@ -39,7 +39,7 @@ A tarefa vem como ID (`T-xxx`). Leia, nesta ordem:
 | R7 | Qualidade dos testes | Teste que passaria com o código quebrado; `sleep`; sem asserção significativa |
 | R8 | Arquitetura | Regra ArchUnit contornada; dependência de camada invertida |
 | R9 | Observabilidade | Métrica/log previsto em `03 §8` ausente |
-| R10 | Documentação | README/OpenAPI/ADR/spec desatualizados pela mudança. Também falha em qualquer um de dois casos (Q-054): (1) um comando do README deixou de funcionar, ou falta um comando para usar o que a tarefa entregou; (2) a tarefa muda como subir ou usar a aplicação, e a evidência não registra os comandos afetados executados em bash **e** em PowerShell numa stack isolada (`05-harness.md §3`) |
+| R10 | Documentação | README/OpenAPI/ADR/spec desatualizados pela mudança. Também falha em qualquer um de dois casos (Q-054): (1) um comando do README ou do passo a passo (`docs/guia/passo-a-passo.md`) deixou de funcionar, ou falta um comando para usar o que a tarefa entregou; (2) a tarefa muda como subir ou usar a aplicação, e a evidência não registra os comandos afetados executados em bash **e** em PowerShell numa stack isolada (`05-harness.md §3`) |
 
 Para cada item, procure ativamente a falha: tente mutar mentalmente o código (ou de fato, em cópia fora do repositório) e veja se algum teste reprova. Um item só é "ok" com base no que você leu ou executou, não no que a evidência afirma.
 
