@@ -3,7 +3,37 @@
   Supressões do OWASP Dependency-Check (T-034, Q-076, 04 §5).
   Cada <suppress> exige: <notes> com o motivo, a tarefa que a criou e a validade (until="AAAA-MM-DD");
   depois da validade a supressão deixa de valer e o achado volta a falhar o gate.
-  Hoje não há nenhuma: o primeiro run do security.yml no GitHub decide se alguma é necessária.
+  As três abaixo vieram do primeiro run completo do security.yml: o Dependency-Check casou por CPE
+  uma CVE de outro produto (outra linguagem ou versão) com um jar Java do projeto. Cada uma foi
+  conferida no registro do NVD (services.nvd.nist.gov/rest/json/cves/2.0?cveId=...).
 -->
 <suppressions xmlns="https://jeremylong.github.io/DependencyCheck/dependency-suppression.1.3.xsd">
+  <suppress until="2027-04-30Z">
+    <notes><![CDATA[
+      T-034 (falso positivo): CVE-2026-39883 é do opentelemetry-go (CPE com target_sw go; PATH hijacking
+      em `kenv` no BSD/Solaris, corrigido na 1.43.0). O jar do projeto é opentelemetry-semconv, Java,
+      constantes de atributos sem execução de comandos. Revisar na validade.
+    ]]></notes>
+    <filePath regex="true">.*[\\/]opentelemetry-semconv-[0-9.]+\.jar</filePath>
+    <cve>CVE-2026-39883</cve>
+  </suppress>
+  <suppress until="2027-04-30Z">
+    <notes><![CDATA[
+      T-034 (falso positivo): CVE-2026-0994 é do protobuf para Python (google.protobuf.json_format.ParseDict,
+      RecursionError em Any aninhado). O projeto usa protobuf-java, transitivo do OpenTelemetry, e não
+      usa json_format do Python. Revisar na validade.
+    ]]></notes>
+    <filePath regex="true">.*[\\/]protobuf-java-[0-9.]+\.jar</filePath>
+    <cve>CVE-2026-0994</cve>
+  </suppress>
+  <suppress until="2027-04-30Z">
+    <notes><![CDATA[
+      T-034 (falso positivo): CVE-2018-1258 afeta o Spring Framework 5.0.5 usado com o Spring Security
+      (bypass de autorização em method security). O projeto roda o Spring Security 7.1.2 sobre o Spring
+      Framework 7; o CPE spring_security casa só pelo nome do produto, não pela versão afetada.
+      Revisar na validade.
+    ]]></notes>
+    <filePath regex="true">.*[\\/]spring-security-(core|crypto|web|oauth2-resource-server)-[0-9.]+\.jar</filePath>
+    <cve>CVE-2018-1258</cve>
+  </suppress>
 </suppressions>
