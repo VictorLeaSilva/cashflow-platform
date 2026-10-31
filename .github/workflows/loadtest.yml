@@ -38,6 +38,19 @@ jobs:
         run: loadtest/run.sh inspect
       - name: Subir o profile apps
         run: docker compose --env-file .env -f deploy/docker-compose.yml --profile apps up -d --wait --remove-orphans
+      - name: Esperar os serviços ficarem saudáveis
+        # Os apps não têm healthcheck no compose (a imagem não tem curl): o --wait acima só garante
+        # "running". A saúde vem do actuator nas portas de gestão publicadas no host.
+        run: |
+          for url in http://localhost:9081 http://localhost:9082; do
+            ok=false
+            for _ in $(seq 1 90); do
+              if curl -fsS --max-time 3 "$url/actuator/health" >/dev/null 2>&1; then ok=true; break; fi
+              sleep 2
+            done
+            $ok || { echo "✘ $url fora do ar após 180 s"; exit 1; }
+            echo "✔ $url saudável"
+          done
       - name: Teste normal (smoke)
         run: loadtest/run.sh smoke
       - name: Teste de carga (50 req/s)

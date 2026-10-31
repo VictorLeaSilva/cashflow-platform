@@ -47,7 +47,7 @@ jobs:
   dependency-check:
     name: OWASP Dependency-Check (CVSS >= 7 falha)
     runs-on: ubuntu-latest
-    timeout-minutes: 60
+    timeout-minutes: 90
     env:
       NVD_API_KEY: ${{ secrets.NVD_API_KEY }}
     steps:
@@ -75,21 +75,32 @@ jobs:
         run: |
           mkdir -p "${RUNNER_TEMP}/dc-data" "${RUNNER_TEMP}/dc-report"
           chmod -R 777 "${RUNNER_TEMP}/dc-data" "${RUNNER_TEMP}/dc-report"
-          docker run --rm \
-            -e NVD_API_KEY \
-            -v "${GITHUB_WORKSPACE}:/src:ro" \
-            -v "${RUNNER_TEMP}/dc-data:/usr/share/dependency-check/data" \
-            -v "${RUNNER_TEMP}/dc-report:/report" \
-            owasp/dependency-check:12.1.0 \
-            --scan /src/lancamentos-service/target/lancamentos-service-0.1.0-SNAPSHOT.jar \
-            --scan /src/consolidado-service/target/consolidado-service-0.1.0-SNAPSHOT.jar \
-            --nvdApiKey "${NVD_API_KEY}" \
-            --failOnCVSS 7 \
-            --disableOssIndex \
-            --nvdMaxRetryCount 10 \
-            --connectionTimeout 60000 \
-            --suppression /src/docs/security/dependency-check-suppressions.xml \
-            --format HTML --format JSON --out /report
+          # O NVD responde 524/reset de vez em quando durante a carga inicial (~417 mil registros) e o
+          # Dependency-Check sai com 13 (falha na atualização). Só esse código é repetido: 1 é achado
+          # de CVE (CVSS >= 7) e deve falhar de imediato. Os dados já baixados ficam em dc-data.
+          for tentativa in 1 2 3; do
+            rc=0
+            docker run --rm \
+              -e NVD_API_KEY \
+              -v "${GITHUB_WORKSPACE}:/src:ro" \
+              -v "${RUNNER_TEMP}/dc-data:/usr/share/dependency-check/data" \
+              -v "${RUNNER_TEMP}/dc-report:/report" \
+              owasp/dependency-check:12.1.0 \
+              --scan /src/lancamentos-service/target/lancamentos-service-0.1.0-SNAPSHOT.jar \
+              --scan /src/consolidado-service/target/consolidado-service-0.1.0-SNAPSHOT.jar \
+              --nvdApiKey "${NVD_API_KEY}" \
+              --failOnCVSS 7 \
+              --disableOssIndex \
+              --nvdMaxRetryCount 10 \
+              --connectiontimeout 60000 \
+              --suppression /src/docs/security/dependency-check-suppressions.xml \
+              --format HTML --format JSON --out /report || rc=$?
+            [ "$rc" -eq 13 ] || exit "$rc"
+            echo "::warning title=NVD instável::Atualização do NVD falhou (tentativa $tentativa de 3); repetindo em 60 s."
+            sleep 60
+          done
+          echo "::error title=NVD indisponível::A atualização do NVD falhou nas 3 tentativas."
+          exit 13
       - name: Publicar o relatório
         if: always()
         uses: actions/upload-artifact@v4
