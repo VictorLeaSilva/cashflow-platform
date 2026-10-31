@@ -33,7 +33,36 @@
       Framework 7; o CPE spring_security casa só pelo nome do produto, não pela versão afetada.
       Revisar na validade.
     ]]></notes>
-    <filePath regex="true">.*[\\/]spring-security-(core|crypto|web|oauth2-resource-server)-[0-9.]+\.jar</filePath>
+    <filePath regex="true">.*[\\/]spring-security-.+-[0-9.]+\.jar</filePath>
     <cve>CVE-2018-1258</cve>
+  </suppress>
+  <suppress until="2027-04-30Z">
+    <notes><![CDATA[
+      T-034 (falso positivo): CVE-2026-42154 é do servidor Prometheus (< 3.5.3 e 3.6.0 a < 3.11.3), no
+      endpoint /api/v1/read. O jar é o micrometer-registry-prometheus, biblioteca cliente cuja versão
+      (1.17.2) não tem relação com a do servidor; o CPE casou só pelo nome do produto. Revisar na validade.
+    ]]></notes>
+    <filePath regex="true">.*[\\/]micrometer-registry-prometheus-[0-9.]+\.jar</filePath>
+    <cve>CVE-2026-42154</cve>
+  </suppress>
+  <suppress until="2027-04-30Z">
+    <notes><![CDATA[
+      T-034 (falso positivo): CVE-2021-3918 é do pacote npm json-schema (prototype pollution, corrigido
+      na 0.4.0). O alvo é o módulo Java do próprio projeto (contracts), que só empacota os schemas
+      JSON; o CPE json-schema_project:json-schema casou pelo nome. Revisar na validade.
+    ]]></notes>
+    <packageUrl regex="true">^pkg:maven/br\.com\.fluxocaixa/contracts@.*$</packageUrl>
+    <cve>CVE-2021-3918</cve>
+  </suppress>
+  <suppress until="2027-01-31Z">
+    <notes><![CDATA[
+      T-034 (não aplicável, validade curta): CVE-2026-53914 é desserialização insegura no build cache
+      metadata do Kotlin anterior à 2.4.20, isto é, ferramenta de build/compilador. O jar é o
+      kotlin-stdlib, biblioteca de runtime transitiva do okhttp, que não contém nem executa esse
+      código; o NVD não cita o stdlib e o CPE jetbrains:kotlin casa só pelo nome. Reavaliar na validade
+      ou antes, se o projeto passar a compilar Kotlin ou subir o Kotlin para 2.4.20+.
+    ]]></notes>
+    <filePath regex="true">.*[\\/]kotlin-stdlib-[0-9.]+\.jar</filePath>
+    <cve>CVE-2026-53914</cve>
   </suppress>
 </suppressions>
