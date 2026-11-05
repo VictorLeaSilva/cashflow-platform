@@ -195,7 +195,7 @@ services:
   # acesso anônimo somente leitura e sem tela de login (nenhuma credencial no repositório).
   # Contínuo; http://localhost:${GRAFANA_PORT:-3000}.
   grafana:
-    image: grafana/grafana:13.2.4
+    image: grafana/grafana:13.3.0
     profiles: ["observability"]
     depends_on:
       prometheus:
