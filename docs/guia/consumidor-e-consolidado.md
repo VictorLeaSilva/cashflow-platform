@@ -82,7 +82,9 @@ curl -s http://localhost:9082/actuator/prometheus | grep -E '^(consolidado_event
 curl.exe -s http://localhost:9082/actuator/prometheus | Select-String '^(consolidado_events_processed_total|consolidado_events_duplicates_total|consolidado_events_dlt_total)'
 ```
 
-**O que você deve ver:** uma linha por dia com movimento (hoje e, se rodou a demo, três dias atrás), `eventos_vistos` igual ao número de eventos aplicados, `consolidado_events_processed_total` crescendo a cada lançamento novo e `consolidado_events_dlt_total` em `0.0`.
+**O que você deve ver:** uma linha por dia com movimento (hoje e, se rodou a demo, três dias atrás) e `eventos_vistos` igual ao total de eventos aplicados desde que o banco existe. Depois da demo, os totais de hoje incluem o débito de 10,00 que ela registra enquanto o Consolidado está parado (por isso 260,00 de débitos e 250,00 de estornos de débito, 5 lançamentos), e `eventos_vistos` é 6. `consolidado_events_dlt_total` fica em `0.0`.
+
+**Os contadores zeram quando o serviço reinicia.** A demo para e religa o Consolidado, então logo depois dela `consolidado_events_processed_total` mostra só os eventos aplicados desde a religação (no teste foi **1**, o evento que esperou), muito menos que os 6 de `eventos_vistos`. Quem guarda a verdade é o banco; a métrica serve para ver o ritmo.
 
 ## O que pode dar errado
 

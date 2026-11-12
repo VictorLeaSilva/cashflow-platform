@@ -108,7 +108,9 @@ curl.exe -s http://localhost:9081/actuator/prometheus | Select-String '^(lancame
 curl.exe -s http://localhost:9082/actuator/prometheus | Select-String '^(consolidado_events_processed_total|consolidado_event_lag_seconds_count|consolidado_event_lag_seconds_sum)'
 ```
 
-**O que você deve ver:** `lancamentos_registrados_total{tipo="CREDITO",...}` maior que zero depois dos registros, `idempotency_replays_total` maior que zero depois da demo, `outbox_pending_events 0.0`, e `consolidado_event_lag_seconds_sum` dividido por `_count` dando o atraso médio em segundos (por volta de décimos de segundo). Para testar as regras de alerta sem os serviços, use o comando `promtool` do [guia de uso](observabilidade-e-alertas.md).
+**O que você deve ver:** `lancamentos_registrados_total{tipo="CREDITO",...}` maior que zero depois dos registros, `idempotency_replays_total` e `idempotency_conflicts_total` em `1.0` depois da demo (ela faz uma repetição e um reuso de chave de propósito), `outbox_pending_events 0.0`, e `consolidado_event_lag_seconds_sum` dividido por `_count` dando o atraso médio em segundos.
+
+**Atenção ao ler logo depois da demo.** A demo religa o Consolidado, e os contadores dele zeram nesse momento. No teste, restou só 1 evento no `_count`, com média de **13,3 s**: era o evento registrado enquanto o Consolidado estava parado, e o atraso inclui a espera até ele voltar. É o atraso funcionando como descrito, não um defeito. Com o Consolidado de pé, o atraso fica em décimos de segundo. Para testar as regras de alerta sem os serviços, use o comando `promtool` do [guia de uso](observabilidade-e-alertas.md).
 
 ## O que pode dar errado
 
