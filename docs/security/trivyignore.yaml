@@ -1,17 +1,15 @@
 # Supressões do Trivy (T-034, Q-076, 04 §5).
 # Cada entrada exige: id da vulnerabilidade, statement com o motivo e a tarefa que a criou, e
 # expired_at (AAAA-MM-DD): depois da validade o achado volta a falhar o gate.
-vulnerabilities:
-  # T-037 (Q-081): stdlib do Go 1.27.2 em dois binários auxiliares do Paketo (HIGH, corrigido no Go
-  # 1.27.3). O builder 0.0.201 ainda traz esses dois binários com o Go 1.27.2 (conferido nas
-  # imagens: o do bellsoft-liberica já está no 1.27.3). Os binários são do buildpack, não do
-  # projeto: rodam só ao preparar e iniciar o contêiner, não escutam rede nem atendem requisições.
-  # A correção depende de um novo release do buildpack; revisar a cada novo builder.
-  - id: CVE-2026-111943
-    paths:
-      - "layers/paketo-buildpacks_ca-certificates/helper/helper"
-      - "layers/paketo-buildpacks_spring-boot/helper/helper"
-    statement: >-
-      T-037: binários auxiliares do Paketo com Go 1.27.2, sem correção no builder 0.0.201;
-      não atendem rede; trocar o builder quando o buildpack publicar o Go 1.27.3.
-    expired_at: 2026-11-24
+#
+# Hoje não há nenhuma. A T-047 (Q-095) subiu o builder do Paketo para a 0.0.213 e removeu as duas
+# supressões anteriores, porque os binários auxiliares das imagens passaram a vir corrigidos
+# (conferido nas imagens, por docker cp; a tabela está em docs/specs/reviews/T-047.evidence.md):
+#   - CVE-2026-111943 (stdlib do Go 1.27.2 nos helpers do ca-certificates e do spring-boot, T-037):
+#     os dois helpers agora usam o Go 1.27.3;
+#   - CVE-2026-78661 (golang.org/x/net 0.61.0 no helper do bellsoft-liberica, achado no PR #69):
+#     o helper agora usa o x/net 0.62.0.
+# Se um achado novo vier de um binário do buildpack, a regra é a de sempre: trocar o builder quando
+# houver release com a correção e, só se não houver, registrar aqui com motivo, tarefa e validade
+# de 30 dias.
+vulnerabilities: []

@@ -48,6 +48,7 @@ Ordem: *walking skeleton* (fundação e harness) → fatias verticais por servi�
 | T-043 | README final curto (porta de entrada: o que o case pediu e onde está, 5 etapas para ver funcionando, fluxo, decisões, resultados medidos, "o que faria com mais tempo", trilha de leitura), conteúdo existente em `docs/guia/`, rótulos bash/PowerShell e prova em clone limpo (Q-091 a Q-094) | T-007, T-033, T-034, T-035, T-040, T-041, T-042 | RNF-009 | Seguir o README do zero funciona nos dois shells; `scripts/check-rotulos.sh` verde |
 | T-044 | Release (imagens, SBOM, tag) e auditoria final de rastreabilidade | T-043, T-045 | Todos | `traceability.md` sem lacunas |
 | T-045 | Guias de conceito para quem quer entender por dentro: como funciona, idempotência, outbox e publicador, consumidor e consolidado, observabilidade (o que cada métrica mede e como é calculada), com ponteiros ao código conferidos por script (Q-093) | T-043 | Apoia RNF-009 (README) | `docs/guia/`; `scripts/check-ponteiros.sh` verde |
+| T-047 | Subir o builder do Paketo para 0.0.213 e rever as supressões do Trivy (CVE-2026-78661 no helper do bellsoft-liberica; vencimento da supressão de 2026-11-24; Q-095) | T-034, T-037 | RNF-005 | Versões dos helpers nas imagens (x/net 0.62, Go 1.27.3); `security.yml` sem achado de Trivy (run no PR) |
 
 ## Marcos
 - **M0** (T-001..T-005): repositório com gates e harness funcionando; obrigatórios de documentação (ADRs e arquitetura-alvo) em primeira versão.
