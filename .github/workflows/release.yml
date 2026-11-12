@@ -49,7 +49,10 @@ jobs:
           java-version: '25'
           cache: maven
       - name: Preparar a versão (a tag precisa coincidir com o pom.xml)
-        run: echo "VERSAO=$(scripts/release/preparar-versao.sh "$GITHUB_REF_NAME")" >> "$GITHUB_ENV"
+        run: |
+          # Atribuição em linha própria: dentro do argumento do echo, a falha do script não derrubaria o passo.
+          versao="$(scripts/release/preparar-versao.sh "$GITHUB_REF_NAME")"
+          echo "VERSAO=${versao}" >> "$GITHUB_ENV"
       - name: Gerar as imagens dos serviços
         run: ./mvnw -B -ntp -q install -DskipTests -Pimagens
       - name: Trivy nas duas imagens (falhou, nada é publicado)

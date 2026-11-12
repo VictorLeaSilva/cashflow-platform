@@ -825,6 +825,34 @@ confere; [ "$CODIGO" -eq 2 ] || falhou "esperava exit 2, veio $CODIGO"
 espera_texto "notas-0.1.0.md"
 confere; [ "$(pom_hash)" = "$ANTES" ] || falhou "pom.xml alterado numa falha"
 
+# O passo "Preparar a versão" do release.yml, extraído do próprio workflow e rodado com `bash -e`, como o runner faz.
+passo_preparar_versao() { # $1 = tag; usa a raiz $RR (com scripts/release copiado)
+  mkdir -p "$RR/scripts"; cp -r "$SCRIPTS_SRC/release" "$RR/scripts/release"
+  local passo
+  passo="$(awk '/- name: Preparar a versão/ { f = 1; next } f && /^      - / { exit } f && !/^        run:/' "$SCRIPTS_SRC/../.github/workflows/release.yml" | sed 's/^          //')"
+  : > "$RR/env.txt"
+  SAIDA="$(cd "$RR" && GITHUB_REF_NAME="$1" GITHUB_ENV="$RR/env.txt" bash -e -c "$passo" 2>&1)"; CODIGO=$?
+}
+
+cenario "release.yml: o passo 'Preparar a versão' com tag divergente derruba o passo e não grava VERSAO"
+mk_raiz_release 0.1.0-SNAPSHOT notas
+printf '%s\n' '# Notas' > "$RR/docs/release/notas-0.2.0.md"
+passo_preparar_versao v0.2.0
+espera_codigo nz
+confere; [ ! -s "$RR/env.txt" ] || falhou "VERSAO não devia ser gravada numa falha"
+
+cenario "release.yml: o passo 'Preparar a versão' com tag certa grava VERSAO=0.1.0"
+mk_raiz_release 0.1.0-SNAPSHOT notas
+passo_preparar_versao v0.1.0
+espera_codigo 0
+confere; [ "$(cat "$RR/env.txt")" = "VERSAO=0.1.0" ] || falhou "env.txt devia ter VERSAO=0.1.0"
+
+cenario "scripts/release: os scripts têm o bit de execução no Git (o workflow os chama pelo caminho)"
+confere
+if git -C "$SCRIPTS_SRC/.." ls-files -s -- scripts/release/preparar-versao.sh scripts/release/conferir-sbom.sh | grep -qv '^100755'; then
+  falhou "scripts/release/*.sh precisam estar 100755 no Git (git update-index --chmod=+x)"
+fi
+
 roda_sbom() { # $1 = arquivo
   SAIDA="$(bash "$SCRIPTS_SRC/release/conferir-sbom.sh" "$1" 2>&1)"; CODIGO=$?
 }
