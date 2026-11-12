@@ -125,6 +125,8 @@ flowchart LR
 4. O **Consolidado** lê o evento, ignora repetidos e soma no dia do lançamento.
 5. O cliente consulta o saldo do dia e o acumulado. Como os serviços nunca se chamam, o saldo pode levar cerca de 1 segundo para refletir um lançamento novo.
 
+Quer entender cada passo por dentro? Veja [como funciona](docs/guia/como-funciona.md), [idempotência](docs/guia/idempotencia.md), [outbox e publicador](docs/guia/outbox-e-publicador.md), [consumidor e consolidado](docs/guia/consumidor-e-consolidado.md) e [observabilidade por dentro](docs/guia/observabilidade-por-dentro.md).
+
 ## Decisões principais
 
 - **Dois serviços só por eventos, sem chamada entre eles:** o Lançamentos não depende do Consolidado ([ADR-001](docs/architecture/decisions/ADR-001-monorepo-e-dois-executaveis.md), [ADR-004](docs/architecture/decisions/ADR-004-kafka-e-contrato-de-evento.md)).
@@ -159,12 +161,12 @@ Medidos no **case local** (notebook, gerador de carga e serviços na mesma máqu
 ## Mapa da documentação e trilha de leitura
 
 - **5 minutos:** este README.
-- **15 minutos:** os diagramas e a visão geral em [`architecture.md`](docs/architecture/architecture.md) e o [passo a passo](docs/guia/passo-a-passo.md).
+- **15 minutos:** o guia [como funciona](docs/guia/como-funciona.md), os diagramas e a visão geral em [`architecture.md`](docs/architecture/architecture.md) e, para rodar à mão, o [passo a passo](docs/guia/passo-a-passo.md).
 - **1 hora:** os [ADRs](docs/architecture/decisions/), a [especificação](docs/specs/), a [segurança](docs/security/), a [carga](docs/performance/relatorio.md), os [custos](docs/cost/estimativa.md) e a [transição](docs/architecture/transition.md).
 
 | Pasta | O que tem |
 |---|---|
-| [`docs/guia/`](docs/guia/README.md) | Guias de uso: passo a passo, observabilidade, carga, bancos e contêineres, problemas, testes e glossário |
+| [`docs/guia/`](docs/guia/README.md) | Guias de uso (passo a passo, observabilidade, carga, problemas, testes, glossário) e de conceito ([como funciona](docs/guia/como-funciona.md), [idempotência](docs/guia/idempotencia.md), [outbox e publicador](docs/guia/outbox-e-publicador.md), [consumidor e consolidado](docs/guia/consumidor-e-consolidado.md), [observabilidade por dentro](docs/guia/observabilidade-por-dentro.md)) |
 | [`docs/architecture/`](docs/architecture/) | Arquitetura (C4, runtime, deploy, alvo AWS), 11 ADRs e a transição |
 | [`docs/specs/`](docs/specs/) | Especificação, requisitos, contratos, backlog, revisões e a matriz de rastreabilidade |
 | [`docs/security/`](docs/security/), [`docs/cost/`](docs/cost/), [`docs/performance/`](docs/performance/), [`docs/runbooks/`](docs/runbooks/) | Segurança, custos, medições e o runbook da DLT |

@@ -15,7 +15,15 @@ Documentos de apoio ao [README](../../README.md). O README é a porta de entrada
 | [Glossário](glossario.md) | Para que serve cada peça (terminal, Docker, Kafka, token...) | Um termo não ficou claro |
 | [Método de desenvolvimento](metodo-de-desenvolvimento.md) | Como o projeto foi construído: especificação, tarefas, gate e revisão | Quer saber como foi feito |
 
-Os guias que explicam **como a aplicação funciona por dentro** (idempotência, outbox e publicador, consumidor e consolidado, o que cada métrica mede) são da T-045 e entram nesta lista quando existirem.
+Os guias de **conceito**, para entender a aplicação por dentro:
+
+| Guia | Para quê | Quando ler |
+|---|---|---|
+| [Como funciona](como-funciona.md) | O caminho de um lançamento, do `POST` ao saldo, e o que acontece quando algo falha | Quer a visão geral antes dos detalhes |
+| [Idempotência](idempotencia.md) | Como repetir um pedido não duplica o lançamento | Quer entender a chave de idempotência |
+| [Outbox e publicador](outbox-e-publicador.md) | Como o evento chega ao Kafka sem se perder | Quer entender a caixa de saída e o publicador |
+| [Consumidor e consolidado](consumidor-e-consolidado.md) | Como o evento vira saldo e como o saldo é calculado | Quer entender a leitura da fila e as somas |
+| [Observabilidade por dentro](observabilidade-por-dentro.md) | O que cada métrica e cada alerta mede, e como seguir um pedido nos logs | Quer entender os números do painel |
 
 ## Módulos do repositório
 

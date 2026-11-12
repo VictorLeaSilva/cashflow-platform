@@ -640,6 +640,123 @@ espera_codigo nz
 espera_texto "x.md:1"
 espera_sem_texto "README.md:"
 
+# ---------------------------------------------------------------- AC-T045.2
+
+roda_ponteiros() { # $@ = argumentos do check-ponteiros.sh
+  SAIDA="$(bash "$SCRIPTS_SRC/check-ponteiros.sh" "$@" 2>&1)"; CODIGO=$?
+}
+
+# Raiz de teste com uma classe, um arquivo de configuração e guias; $1 = nome do guia, conteúdo na entrada padrão.
+mk_raiz_ponteiros() {
+  PR="$TMP_ROOT/ponteiros"
+  rm -rf "$PR"
+  mkdir -p "$PR/servico/src/main/java/a" "$PR/servico/src/test/java/a" "$PR/deploy" "$PR/docs/guia"
+  printf '%s\n' 'package a;' 'public class Foo {' '  public void registrar() {}' '  void marcarPublicado() {}' '}' > "$PR/servico/src/main/java/a/Foo.java"
+  printf '%s\n' 'package a;' 'class FooTest {}' > "$PR/servico/src/test/java/a/FooTest.java"
+  printf '%s\n' 'a: b' > "$PR/deploy/regras.yml"
+  cat > "$PR/docs/guia/$1"
+  PR_ARQ="$PR/docs/guia/$1"
+}
+
+cenario "check-ponteiros: classe, classe#método e caminho existentes passam"
+mk_raiz_ponteiros ok.md <<'MD'
+## Onde está no código
+
+| Peça | Onde |
+|---|---|
+| Registro | `Foo#registrar` |
+| Publicação | `Foo#marcarPublicado` e `Foo` |
+| Regras | `deploy/regras.yml` |
+
+## Ligações
+
+Teste: `FooTest`.
+MD
+roda_ponteiros --raiz "$PR" "$PR_ARQ"
+espera_codigo 0
+espera_texto "OK"
+
+cenario "check-ponteiros: classe inexistente reprova e aponta a linha"
+mk_raiz_ponteiros classe.md <<'MD'
+## Onde está no código
+
+| Peça | Onde |
+|---|---|
+| Registro | `ClasseQueNaoExiste` |
+MD
+roda_ponteiros --raiz "$PR" "$PR_ARQ"
+espera_codigo nz
+espera_texto "FALTA"
+espera_texto "classe.md:5"
+espera_texto "ClasseQueNaoExiste"
+
+cenario "check-ponteiros: método inexistente reprova"
+mk_raiz_ponteiros metodo.md <<'MD'
+## Onde está no código
+
+| Peça | Onde |
+|---|---|
+| Registro | `Foo#naoExiste` |
+MD
+roda_ponteiros --raiz "$PR" "$PR_ARQ"
+espera_codigo nz
+espera_texto "método"
+espera_texto "naoExiste"
+
+cenario "check-ponteiros: caminho inexistente reprova"
+mk_raiz_ponteiros caminho.md <<'MD'
+## Onde está no código
+
+| Peça | Onde |
+|---|---|
+| Regras | `deploy/outro.yml` |
+MD
+roda_ponteiros --raiz "$PR" "$PR_ARQ"
+espera_codigo nz
+espera_texto "outro.yml"
+
+cenario "check-ponteiros: fora das seções 'Onde está no código' e 'Ligações' nada é conferido; tokens que não são ponteiros são ignorados"
+mk_raiz_ponteiros fora.md <<'MD'
+## Em uma frase
+
+Texto com `ClasseQueNaoExiste` e `Foo#naoExiste` fora da seção.
+
+| Coluna | Outra |
+|---|---|
+| `ClasseQueNaoExiste` | `x` |
+
+## Onde está no código
+
+| Peça | Onde |
+|---|---|
+| SQL | `FOR UPDATE SKIP LOCKED` e `published_at IS NULL` |
+| Cabeçalho | `Idempotency-Key` e `outbox_event` |
+| Registro | `Foo#registrar` |
+MD
+roda_ponteiros --raiz "$PR" "$PR_ARQ"
+espera_codigo 0
+
+cenario "check-ponteiros: sem argumentos confere docs/guia/ da raiz; sem nenhum ponteiro reprova (não passa vazio)"
+mk_raiz_ponteiros nada.md <<'MD'
+## Em uma frase
+
+Sem tabela de ponteiros.
+MD
+roda_ponteiros --raiz "$PR"
+espera_codigo nz
+espera_texto "nenhum ponteiro"
+
+cenario "check-ponteiros: sem argumentos, guia com ponteiro válido passa"
+mk_raiz_ponteiros bom.md <<'MD'
+## Onde está no código
+
+| Peça | Onde |
+|---|---|
+| Registro | `Foo#registrar` |
+MD
+roda_ponteiros --raiz "$PR"
+espera_codigo 0
+
 # ---------------------------------------------------------------- resumo
 
 echo
