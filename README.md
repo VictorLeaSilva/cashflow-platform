@@ -161,7 +161,7 @@ Medidos no **case local** (notebook, gerador de carga e serviços na mesma máqu
 ## Mapa da documentação e trilha de leitura
 
 - **5 minutos:** este README.
-- **15 minutos:** o guia [como funciona](docs/guia/como-funciona.md), mais os diagramas e a visão geral em [`architecture.md`](docs/architecture/architecture.md).
+- **15 minutos:** o guia [como funciona](docs/guia/como-funciona.md), os diagramas e a visão geral em [`architecture.md`](docs/architecture/architecture.md) e, para rodar à mão, o [passo a passo](docs/guia/passo-a-passo.md).
 - **1 hora:** os [ADRs](docs/architecture/decisions/), a [especificação](docs/specs/), a [segurança](docs/security/), a [carga](docs/performance/relatorio.md), os [custos](docs/cost/estimativa.md) e a [transição](docs/architecture/transition.md).
 
 | Pasta | O que tem |

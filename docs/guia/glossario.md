@@ -51,3 +51,7 @@ Os termos abaixo aparecem nos guias [como funciona](como-funciona.md), [idempot�
 | **Percentil (p95)** | "Em 95% dos casos, o valor ficou abaixo deste número" |
 | **Alerta** | Uma regra que "acende" quando uma métrica passa de um limite por um tempo |
 | **`requestId` e `traceId`** | Identificadores que seguem um pedido pelos serviços e pelo evento, para achá-lo nos logs |
+| **Restrição adiada** (FK adiada) | Uma regra do banco que só é conferida no `COMMIT`, não a cada gravação; aqui garante que a chave de idempotência só exista se o lançamento existir |
+| **`ON CONFLICT DO NOTHING`** | Um comando do banco que tenta inserir e, se a linha já existe, não faz nada em vez de dar erro; é como o serviço descobre que uma chave já foi usada |
+| **`acks=all`** | Um ajuste do envio ao Kafka: o publicador só considera o evento enviado depois que **todas** as réplicas exigidas confirmaram o recebimento |
+| **SHA-256 / *hash*** | Uma "impressão digital" de tamanho fixo calculada a partir de um texto; textos iguais dão a mesma impressão, e qualquer diferença muda tudo (usada para saber se dois pedidos são o mesmo) |
