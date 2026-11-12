@@ -117,7 +117,7 @@ Hooks são contornáveis; por isso o CI repete tudo (G2/G3).
 - `ci.yml` (PR/push): *build + verify* (com Testcontainers), docs-lint.
 - `security.yml` (PR + diário): CodeQL, Dependency-Check, gitleaks, Trivy.
 - `loadtest.yml` (manual/noturno): compose + k6 + relatório como artefato.
-- `release.yml` (tag): imagens (Spring Boot *build-image*), SBOM, publicação em GHCR.
+- `release.yml` (tag `vX.Y.Z`, que deve coincidir com a versão do `pom.xml` sem `-SNAPSHOT`): `verify`; imagens (Spring Boot *build-image*) com Trivy **antes** de publicar; SBOM CycloneDX (plugin Maven); publicação em GHCR com tag pinada (sem `latest`, só `linux/amd64`) e GitHub Release com o SBOM e os *digests* (T-044, Q-096..Q-098).
 - Proteção do `main`: PR obrigatório, checks obrigatórios, histórico linear.
 - **Deploy em AWS:** apenas desenho (CD) na documentação; sem IaC no MVP.
 
