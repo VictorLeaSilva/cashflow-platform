@@ -1,0 +1,98 @@
+name: Release
+
+# Release por tag (T-044, Q-096..Q-098, 04 §4): a tag vX.Y.Z deve coincidir com a versão do pom.xml sem -SNAPSHOT.
+# verify -> imagens X.Y.Z -> Trivy (antes de publicar) -> SBOM CycloneDX -> GHCR (tag pinada, sem latest,
+# só linux/amd64) -> GitHub Release com o SBOM e os digests. O repositório continua em -SNAPSHOT:
+# scripts/release/preparar-versao.sh troca a versão só no runner, sem commit. Passo a passo em docs/release/.
+on:
+  push:
+    tags:
+      - 'v*.*.*'
+
+permissions:
+  contents: read
+
+concurrency:
+  group: release-${{ github.ref }}
+  cancel-in-progress: false
+
+jobs:
+  verificar:
+    name: Verify (a mesma coisa do ci.yml)
+    runs-on: ubuntu-latest
+    timeout-minutes: 60
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: '25'
+          cache: maven
+      - name: ./mvnw verify
+        run: ./mvnw -B -ntp verify
+
+  publicar:
+    name: Imagens, Trivy, SBOM, GHCR e GitHub Release
+    needs: verificar
+    runs-on: ubuntu-latest
+    timeout-minutes: 60
+    permissions:
+      contents: write
+      packages: write
+    env:
+      GHCR: ghcr.io/victorleasilva/cashflow-platform
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: '25'
+          cache: maven
+      - name: Preparar a versão (a tag precisa coincidir com o pom.xml)
+        run: echo "VERSAO=$(scripts/release/preparar-versao.sh "$GITHUB_REF_NAME")" >> "$GITHUB_ENV"
+      - name: Gerar as imagens dos serviços
+        run: ./mvnw -B -ntp -q install -DskipTests -Pimagens
+      - name: Trivy nas duas imagens (falhou, nada é publicado)
+        run: |
+          for servico in lancamentos consolidado; do
+            docker run --rm \
+              -v /var/run/docker.sock:/var/run/docker.sock \
+              -v "${GITHUB_WORKSPACE}/docs/security:/security:ro" \
+              aquasec/trivy:0.67.2 image \
+              --severity HIGH,CRITICAL \
+              --ignore-unfixed \
+              --exit-code 1 \
+              --ignorefile /security/trivyignore.yaml \
+              "fluxo-caixa/${servico}:${VERSAO}"
+          done
+      - name: SBOM CycloneDX
+        run: |
+          ./mvnw -B -ntp org.cyclonedx:cyclonedx-maven-plugin:2.9.3:makeAggregateBom \
+            -DoutputFormat=json -DschemaVersion=1.6 -DoutputName=bom
+          scripts/release/conferir-sbom.sh target/bom.json
+          cp target/bom.json "fluxo-caixa-${VERSAO}.cdx.json"
+      - uses: docker/login-action@v3
+        with:
+          registry: ghcr.io
+          username: ${{ github.actor }}
+          password: ${{ secrets.GITHUB_TOKEN }}
+      - name: Publicar no GHCR e anotar os digests
+        run: |
+          {
+            cat "docs/release/notas-${VERSAO}.md"
+            printf '\n## Imagens publicadas\n\n'
+          } > notas-do-release.md
+          for servico in lancamentos consolidado; do
+            docker tag "fluxo-caixa/${servico}:${VERSAO}" "${GHCR}/${servico}:${VERSAO}"
+            docker push "${GHCR}/${servico}:${VERSAO}"
+            digest="$(docker inspect --format '{{index .RepoDigests 0}}' "${GHCR}/${servico}:${VERSAO}")"
+            printf -- '- `%s`\n' "$digest" >> notas-do-release.md
+          done
+      - name: GitHub Release
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          gh release create "$GITHUB_REF_NAME" \
+            --title "$GITHUB_REF_NAME" \
+            --notes-file notas-do-release.md \
+            "fluxo-caixa-${VERSAO}.cdx.json"
