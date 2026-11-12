@@ -34,9 +34,9 @@ Este documento usa quatro estados, e nada é afirmado além do estado indicado:
 
 | Estado | Significado | Exemplos hoje |
 |---|---|---|
-| **Provado** | Existe no repositório e há teste ou script reproduzível, com evidência em `docs/specs/reviews/T-xxx.evidence.md` e revisão PASS | APIs, publicador, consumidor, JWT, métricas, retry e DLT, idempotência concorrente, resiliência com o Consolidado parado e com o Kafka fora (§8) |
+| **Provado** | Existe no repositório e há teste ou script reproduzível, com evidência em `docs/specs/reviews/T-xxx.evidence.md` e revisão PASS | APIs, publicador, consumidor, JWT, métricas, retry e DLT, idempotência concorrente, resiliência com o Consolidado parado e com o Kafka fora (§8); `demo.yml` e `loadtest.yml` com *run* verde no GitHub ([demo](https://github.com/VictorLeaSilva/cashflow-platform/actions/runs/43296061612), [carga](https://github.com/VictorLeaSilva/cashflow-platform/actions/runs/43230211929); links informados pelo autor) |
 | **Medido** | Número do relatório de desempenho, com data e ambiente | 50, 100 e 200 req/s de leitura; frescor da projeção (§5.2) |
-| **Pendente do GitHub** | Implementado e verificado localmente, mas a prova final é um *run* no GitHub que só o autor confirma | `security.yml` verde no PR (CodeQL, Dependency-Check, Trivy), `loadtest.yml` e `demo.yml` (RNF-005, RNF-002) |
+| **Pendente do GitHub** | Implementado e verificado localmente, mas a prova final é um *run* no GitHub que só o autor confirma | `security.yml` verde no PR (CodeQL, Dependency-Check, Trivy), sem o link do *run* no repositório (RNF-005) |
 | **Só desenho** | Existe apenas na arquitetura-alvo; não será provado no case | Multi-AZ, *failover*, RPO/RTO, WAF, Cognito, CloudWatch |
 
 **Regra para mudar um item para "provado":** só com evidência reproduzível registrada — o comando ou teste que prova (`classe#método`, script, cenário k6) e o arquivo de evidência da tarefa (`docs/specs/reviews/T-xxx.evidence.md`) com a revisão independente. Testes de risco contam como prova só na forma exigida (por exemplo, idempotência **concorrente**, não apenas sequencial — `04 §2.7`); carga conta só com resultado medido e versionado (`docs/performance/results/`). Ao concluir cada tarefa, esta tabela e as de §7 e §8 são atualizadas (a T-040 fez a atualização geral até a T-038).
@@ -316,6 +316,10 @@ flowchart TB
     ECS -.->|"valida JWT (JWKS)"| cognito
 ```
 
+![Desenho da arquitetura-alvo na AWS, com frontend e API Gateway como opções](arquitetura-alvo.png)
+
+*Mesmo alvo em desenho de blocos (imagem). Estado: **só desenho**; frontend e API Gateway aparecem como opções, fora do escopo do case ([constituição §7](../specs/00-constitution.md)).*
+
 | Componente | Responsabilidade | RNF atendido | Meta |
 |---|---|---|---|
 | Route 53 + ACM | DNS da API e certificados TLS da borda | RNF-005, RNF-011 | — |
@@ -352,7 +356,7 @@ Estados conforme §1.2: **provado**, **medido**, **pendente do GitHub** e **só 
 | Cabeçalhos seguros, CORS fechado, limites de cabeçalho e `OPTIONS` → 405 nos serviços | TLS, HSTS, WAF e *rate limit* no ALB | Cabeçalhos, CORS, limites e `OPTIONS`: **provados** (T-034: `CabecalhosDeSegurancaWebTest`, `CorsEOptionsWebTest`, `LimitesHttpWebTest`). TLS, HSTS, WAF, *rate limit*: **só desenho** |
 | `.env` local (fora do Git) | Secrets Manager + KMS | Senhas fora do repositório: **provado** (T-004, compose falha sem as variáveis). Gestão de segredos e KMS: **só desenho** |
 | Prometheus + Grafana (profile `observability`) | CloudWatch | Métricas, logs com `requestId` e `traceId`, regras de alerta: **provados** (T-032: `GestaoActuatorWebTest`, `MetricasDosPoolsEDoKafkaIT`, `RastroDoConsumoIT`; regras checadas e testadas por `promtool` no CI). CloudWatch: **só desenho** |
-| k6 local (`loadtest/`) | Carga contra o ambiente real | Carga de 50 req/s e rodadas de 100 e 200 req/s: **medidas** (T-033, §5.2); medem o código, não a infraestrutura-alvo. `loadtest.yml` no GitHub: **pendente do GitHub** |
+| k6 local (`loadtest/`) | Carga contra o ambiente real | Carga de 50 req/s e rodadas de 100 e 200 req/s: **medidas** (T-033, §5.2); medem o código, não a infraestrutura-alvo. `loadtest.yml` no GitHub: **provado** ([run](https://github.com/VictorLeaSilva/cashflow-platform/actions/runs/43230211929), informado pelo autor) |
 | CodeQL, Dependency-Check, Trivy (`security.yml`), Dependabot | O mesmo pipeline de CI; nada específico do alvo foi desenhado para isto | Workflows e supressões com validade: existem (T-034, T-037, T-038). O resultado verde de cada job num PR é **pendente do GitHub** |
 
 ## 8. Requisitos não funcionais: mecanismo e verificação
@@ -362,7 +366,7 @@ Cada estado cita a prova. Onde há `@Tag`, a lista completa de testes por requis
 | RNF | Mecanismo | Como é verificado | Estado hoje |
 |---|---|---|---|
 | RNF-001 Isolamento de falha | Nenhuma chamada síncrona; outbox + Kafka; eventos acumulam no Kafka com o Consolidado parado. Limites em §1.3 | `ConsolidadoParadoIT`, `KafkaForaIT`, `BacklogDoConsumidorIT`, `ConsumidorReiniciadoIT`; `scripts/demo.sh` | **Provado** (T-031, T-035) |
-| RNF-002 Capacidade do Consolidado (50 req/s, taxa de requisições com falha < 5 %) | Leitura de uma projeção pré-agregada; pools dimensionados; serviço *stateless* | k6 `loadtest/load.js` com *thresholds*; `docs/performance/relatorio.md` | **Medido**: 0 falhas em 15 001 requisições, p95 de 6,3 ms (T-033). `loadtest.yml` no GitHub: pendente do GitHub |
+| RNF-002 Capacidade do Consolidado (50 req/s, taxa de requisições com falha < 5 %) | Leitura de uma projeção pré-agregada; pools dimensionados; serviço *stateless* | k6 `loadtest/load.js` com *thresholds*; `docs/performance/relatorio.md` | **Medido**: 0 falhas em 15 001 requisições, p95 de 6,3 ms (T-033). `loadtest.yml` no GitHub: provado ([run](https://github.com/VictorLeaSilva/cashflow-platform/actions/runs/43230211929), informado pelo autor) |
 | RNF-003 Frescor da projeção (meta p95 ≤ 5 s) | Publicador a cada 500 ms e consumidor contínuo; tempo total inclui *polling*, publicação, entrega, lote, gravação e filas | Histograma `consolidado_event_lag_seconds` (`occurredAt` até o commit da projeção), testado por `HistogramaDoLagTest` e `MetricasDoConsumidorIT`; medido sob carga | **Medido**: p95 de 0,69 s e máximo de 2,22 s (T-033). p95 aproximado pelos buckets |
 | RNF-004 Integridade e não duplicidade | `Idempotency-Key` + FK diferida; `eventId` + `evento_processado`; índices únicos | `IdempotenciaConcorrenteIT`, `EstornoConcorrenteIT`, `DeduplicacaoConcorrenteIT`, `ProjecaoPostgresPropertiesIT`, `FalhaEntreEnvioEMarcacaoIT` | **Provado** (T-011, T-012, T-014, T-016, T-021, T-022) |
 | RNF-005 Segurança | JWT validado, *scopes*, comerciante só do token, cabeçalhos e limites, gates de segurança | `SegurancaJwtWebTest`, `CabecalhosDeSegurancaWebTest`, `LimitesHttpWebTest`, `DependenciasSemCveTest`, `IsolamentoPorComercianteIT` | Código e testes **provados** (T-013, T-015, T-023, T-034, T-037). Gates CodeQL, Dependency-Check e Trivy: **pendente do GitHub** (o repositório não guarda o link dos *runs*; o Dependency-Check aguarda o run da T-038) |

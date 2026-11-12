@@ -3,7 +3,7 @@
 #   docker compose --env-file .env -f deploy/docker-compose.yml up -d --wait --remove-orphans
 # Sem as variáveis, o compose falha cedo pedindo as senhas (nenhum segredo fica no repositório).
 #
-# Serviços (tabela completa no README, "Infraestrutura local"):
+# Serviços (tabela completa em docs/guia/bancos-de-dados-e-conteineres.md, "Contêineres do ambiente local"):
 #   postgres       contínuo         banco das duas aplicações (bancos e roles separados)
 #   kafka          contínuo         broker KRaft de nó único
 #   kafka-topicos  execução única   cria o tópico de eventos e a DLT, termina com exit 0

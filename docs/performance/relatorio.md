@@ -37,7 +37,7 @@ Medição de **RNF-002** (capacidade do Consolidado), **RNF-003** (frescor da pr
 
 ## 3. Como foi medido
 
-Comandos (a partir da raiz, com a stack `apps` no ar; o README tem o passo a passo em bash e PowerShell):
+Comandos (a partir da raiz, com a stack `apps` no ar; o [guia de carga](../guia/carga-e-desempenho.md) tem o passo a passo em bash e PowerShell):
 
 ```bash
 loadtest/run.sh inspect
