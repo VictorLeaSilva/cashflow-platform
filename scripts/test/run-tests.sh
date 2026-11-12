@@ -795,6 +795,7 @@ confere; grep -q '<version>4.1.2</version>' "$RR/pom.xml" || falhou "a versão d
 
 cenario "preparar-versao: tag de outra versão reprova (exit 2) e não altera nenhum arquivo"
 mk_raiz_release 0.1.0-SNAPSHOT notas
+printf '%s\n' '# Notas' > "$RR/docs/release/notas-0.2.0.md"   # só a checagem da tag pode barrar o v0.2.0
 ANTES="$(pom_hash)"
 roda_versao v0.2.0 "$RR"
 confere; [ "$CODIGO" -eq 2 ] || falhou "esperava exit 2, veio $CODIGO"
