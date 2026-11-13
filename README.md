@@ -19,7 +19,7 @@ Estados: **provado** (teste ou script reproduzível), **medido** (número do [re
 | README: como funciona e como rodar | este arquivo e [`docs/guia/`](docs/guia/README.md) | seção "Veja funcionando" | entregue |
 | Repositório público e toda a documentação nele | este repositório, pasta `docs/` | abrir `docs/` | entregue |
 | **Lançamentos não cai se o Consolidado cair** | [`demo.sh`](scripts/demo.sh) (passo do Consolidado parado) e `ConsolidadoParadoIT`, `KafkaForaIT` | etapa 5 abaixo | provado |
-| **50 req/s no Consolidado, perda até 5 %** | [relatório de desempenho](docs/performance/relatorio.md): 15.001 requisições, 0 falhas, p95 de 6,3 ms (case local, 2026-10-25) | [guia de carga](docs/guia/carga-e-desempenho.md) | medido; `loadtest.yml` pendente do GitHub |
+| **50 req/s no Consolidado, perda até 5 %** | [relatório de desempenho](docs/performance/relatorio.md): 15.001 requisições, 0 falhas, p95 de 6,3 ms (case local, 2026-10-25) | [guia de carga](docs/guia/carga-e-desempenho.md) | medido; `loadtest.yml` com [run verde no GitHub](https://github.com/VictorLeaSilva/cashflow-platform/actions/runs/43230211929) |
 | Diferencial: arquitetura de transição | [`transition.md`](docs/architecture/transition.md) e [ADR-011](docs/architecture/decisions/ADR-011-arquitetura-de-transicao.md) | ler | **só desenho** (condicional) |
 | Diferencial: estimativa de custos | [`docs/cost/estimativa.md`](docs/cost/estimativa.md) (export do AWS Pricing Calculator, 2026-10-26) | ler; os JSON estão em `docs/cost/pricing-calculator/` | estimativa, não medição |
 | Diferencial: monitoramento e observabilidade | métricas, alertas e painel ([guia](docs/guia/observabilidade-e-alertas.md)); [ADR-008](docs/architecture/decisions/ADR-008-observabilidade.md) | profile `observability` | provado |
@@ -155,7 +155,7 @@ Medidos no **case local** (notebook, gerador de carga e serviços na mesma máqu
 - **Trocar o polling por CDC** se a latência de publicação pesar, e usar registro de esquemas com mais consumidores ([ADR-003](docs/architecture/decisions/ADR-003-outbox-publicador-idempotencia.md), [ADR-004](docs/architecture/decisions/ADR-004-kafka-e-contrato-de-evento.md)).
 - **Identidade real** (Cognito ou Keycloak) no lugar do token de desenvolvimento ([ADR-007](docs/architecture/decisions/ADR-007-seguranca-e-integracao.md)).
 - **Fechar as lacunas da revisão final:** *timeouts* dos pools, contagem do conflito de idempotência na métrica e a saída das *tasks* para a internet no desenho ([arquitetura §11](docs/architecture/architecture.md), [custos](docs/cost/estimativa.md)).
-- **Registrar os runs verdes do GitHub** (`security.yml`, `loadtest.yml`, `demo.yml`) para promover os itens "pendente do GitHub".
+- **Registrar o run verde do `security.yml`** (CodeQL, Dependency-Check e Trivy) para promover os itens "pendente do GitHub"; os runs de [`loadtest.yml`](https://github.com/VictorLeaSilva/cashflow-platform/actions/runs/43230211929) e [`demo.yml`](https://github.com/VictorLeaSilva/cashflow-platform/actions/runs/43296061612) já estão registrados.
 - **Cortado por escopo:** ZAP, mutação com PIT e o IdP local com Keycloak ([backlog](docs/specs/06-tasks.md)).
 
 ## Mapa da documentação e trilha de leitura
@@ -170,6 +170,7 @@ Medidos no **case local** (notebook, gerador de carga e serviços na mesma máqu
 | [`docs/architecture/`](docs/architecture/) | Arquitetura (C4, runtime, deploy, alvo AWS), 11 ADRs e a transição |
 | [`docs/specs/`](docs/specs/) | Especificação, requisitos, contratos, backlog, revisões e a matriz de rastreabilidade |
 | [`docs/security/`](docs/security/), [`docs/cost/`](docs/cost/), [`docs/performance/`](docs/performance/), [`docs/runbooks/`](docs/runbooks/) | Segurança, custos, medições e o runbook da DLT |
+| [`docs/release/`](docs/release/README.md) | Como é feito e conferido o release (imagens no GHCR, SBOM), as notas da 0.1.0 e a auditoria final |
 | `lancamentos-service/`, `consolidado-service/`, `contracts/` | Os dois serviços e o contrato do evento (JSON Schema); as APIs estão em `*/src/main/resources/openapi/` |
 
 O projeto segue Spec Driven Development, com revisão independente por tarefa: veja o [método de desenvolvimento](docs/guia/metodo-de-desenvolvimento.md).

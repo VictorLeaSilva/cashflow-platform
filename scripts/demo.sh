@@ -5,7 +5,7 @@
 #   RNF-001 Lançamentos segue de pé com o Consolidado parado
 #   RNF-007 (opcional, --kafka-down) Lançamentos segue de pé com o Kafka parado
 # Uso: scripts/demo.sh [--kafka-down]
-# Pré-requisitos: bash, curl, jq, java e docker; stack no ar com o profile "apps" (ver README).
+# Pré-requisitos: bash, curl, jq, java e docker; stack no ar com o profile "apps" (ver docs/guia/passo-a-passo.md).
 # Roda no Linux, no macOS e no Git Bash do Windows (Q-065). Cada execução usa comerciantes novos.
 # Variáveis opcionais: LANC_URL, CONS_URL, MGMT_LANC, MGMT_CONS, COMPOSE, ENV_FILE.
 set -euo pipefail

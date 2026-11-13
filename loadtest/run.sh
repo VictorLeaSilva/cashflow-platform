@@ -51,7 +51,7 @@ fi
 
 # Rede do compose: a mesma em que os serviços "lancamentos" e "consolidado" respondem pelo nome.
 CID="$($COMPOSE ps -q lancamentos 2>/dev/null || true)"
-[[ -n "$CID" ]] || die "Lançamentos não está no ar. Suba o profile apps (README: Carga e desempenho)."
+[[ -n "$CID" ]] || die "Lançamentos não está no ar. Suba o profile apps (docs/guia/carga-e-desempenho.md)."
 NET="${K6_NETWORK:-$(dk inspect -f '{{range $k, $v := .NetworkSettings.Networks}}{{$k}} {{end}}' "$CID" | awk '{print $1}')}"
 [[ -n "$NET" ]] || die "Rede do compose não encontrada (defina K6_NETWORK)."
 

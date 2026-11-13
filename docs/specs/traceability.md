@@ -21,8 +21,8 @@ Gerada por `scripts/check-traceability.sh --write`; não edite à mão. Requisit
 | RNF-005 | @Tag + evidência | 23; docs/specs/reviews/T-038.evidence.md; docs/specs/reviews/T-047.evidence.md | T-013, T-015, T-023, T-034, T-036, T-037, T-038, T-047 |
 | RNF-006 | @Tag | 10 | T-032 |
 | RNF-007 | @Tag + evidência | 12; docs/specs/reviews/T-035.evidence.md | T-016, T-031, T-035 |
-| RNF-008 | @Tag + evidência | 4; docs/specs/reviews/T-003.evidence.md | T-001, T-002, T-003 |
-| RNF-009 | @Tag + evidência | 2; docs/specs/reviews/T-001.evidence.md; docs/specs/reviews/T-004.evidence.md; docs/specs/reviews/T-006.evidence.md; docs/specs/reviews/T-007.evidence.md; docs/specs/reviews/T-035.evidence.md; docs/specs/reviews/T-043.evidence.md | T-001, T-004, T-006, T-007, T-035, T-043 |
+| RNF-008 | @Tag + evidência | 4; docs/specs/reviews/T-003.evidence.md; docs/specs/reviews/T-044.evidence.md | T-001, T-002, T-003, T-044 |
+| RNF-009 | @Tag + evidência | 2; docs/specs/reviews/T-001.evidence.md; docs/specs/reviews/T-004.evidence.md; docs/specs/reviews/T-006.evidence.md; docs/specs/reviews/T-007.evidence.md; docs/specs/reviews/T-035.evidence.md; docs/specs/reviews/T-043.evidence.md; docs/specs/reviews/T-044.evidence.md | T-001, T-004, T-006, T-007, T-035, T-043, T-044 |
 | RNF-010 | evidência | docs/specs/reviews/T-033.evidence.md | T-033 |
 | RNF-011 | só desenho | — |  |
 | RNF-012 | @Tag | 16 | T-013, T-014, T-015, T-016, T-022, T-023, T-032 |

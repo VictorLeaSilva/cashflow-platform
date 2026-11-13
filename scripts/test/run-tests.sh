@@ -757,6 +757,147 @@ MD
 roda_ponteiros --raiz "$PR"
 espera_codigo 0
 
+# ---------------------------------------------------------------- AC-T044.2 e AC-T044.3
+
+roda_versao() { # $1 = tag; $2 = raiz
+  SAIDA="$(bash "$SCRIPTS_SRC/release/preparar-versao.sh" "$1" --raiz "$2" 2>&1)"; CODIGO=$?
+}
+
+# Repositório Git descartável com 4 pom.xml na versão $1 e, se $2 = notas, o arquivo de notas de 0.1.0.
+mk_raiz_release() {
+  RR="$TMP_ROOT/release"
+  rm -rf "$RR"
+  mkdir -p "$RR/contracts" "$RR/lancamentos-service" "$RR/consolidado-service" "$RR/docs/release" "$RR/lancamentos-service/target"
+  printf '%s\n' '<project>' '  <parent>' '    <artifactId>spring-boot-starter-parent</artifactId>' '    <version>4.1.2</version>' '  </parent>' \
+    '  <artifactId>fluxo-caixa</artifactId>' "  <version>$1</version>" '</project>' > "$RR/pom.xml"
+  for m in contracts lancamentos-service consolidado-service; do
+    printf '%s\n' '<project>' '  <parent>' '    <artifactId>fluxo-caixa</artifactId>' "    <version>$1</version>" '  </parent>' \
+      "  <artifactId>$m</artifactId>" '</project>' > "$RR/$m/pom.xml"
+  done
+  printf '%s\n' '<project><version>0.1.0-SNAPSHOT</version></project>' > "$RR/lancamentos-service/target/pom.xml"
+  [ "${2:-}" = notas ] && printf '%s\n' '# Notas' > "$RR/docs/release/notas-0.1.0.md"
+  git -C "$RR" init -q && git -C "$RR" add -A -f . >/dev/null 2>&1
+  git -C "$RR" rm -q --cached -r lancamentos-service/target >/dev/null 2>&1
+  return 0
+}
+
+pom_hash() { (cd "$RR" && cat pom.xml contracts/pom.xml lancamentos-service/pom.xml consolidado-service/pom.xml | cksum); }
+
+cenario "preparar-versao: v0.1.0 troca 0.1.0-SNAPSHOT por 0.1.0 nos quatro pom.xml e não mexe em target/"
+mk_raiz_release 0.1.0-SNAPSHOT notas
+roda_versao v0.1.0 "$RR"
+espera_codigo 0
+espera_texto "0.1.0"
+confere; [ "$(grep -h -c '<version>0.1.0</version>' "$RR/pom.xml" "$RR/contracts/pom.xml" "$RR/lancamentos-service/pom.xml" "$RR/consolidado-service/pom.xml" | tr -d '\n')" = 1111 ] || falhou "os quatro pom.xml deviam ter <version>0.1.0</version>"
+confere; ! grep -rq 'SNAPSHOT' "$RR/pom.xml" "$RR/contracts/pom.xml" "$RR/lancamentos-service/pom.xml" "$RR/consolidado-service/pom.xml" || falhou "sobrou SNAPSHOT nos pom.xml"
+confere; grep -q 'SNAPSHOT' "$RR/lancamentos-service/target/pom.xml" || falhou "target/ não devia ser alterado"
+confere; grep -q '<version>4.1.2</version>' "$RR/pom.xml" || falhou "a versão do parent não devia mudar"
+
+cenario "preparar-versao: tag de outra versão reprova (exit 2) e não altera nenhum arquivo"
+mk_raiz_release 0.1.0-SNAPSHOT notas
+printf '%s\n' '# Notas' > "$RR/docs/release/notas-0.2.0.md"   # só a checagem da tag pode barrar o v0.2.0
+ANTES="$(pom_hash)"
+roda_versao v0.2.0 "$RR"
+confere; [ "$CODIGO" -eq 2 ] || falhou "esperava exit 2, veio $CODIGO"
+espera_texto "0.2.0"
+confere; [ "$(pom_hash)" = "$ANTES" ] || falhou "pom.xml alterado numa falha"
+
+cenario "preparar-versao: tag sem o v reprova (exit 2)"
+mk_raiz_release 0.1.0-SNAPSHOT notas
+ANTES="$(pom_hash)"
+roda_versao 0.1.0 "$RR"
+confere; [ "$CODIGO" -eq 2 ] || falhou "esperava exit 2, veio $CODIGO"
+confere; [ "$(pom_hash)" = "$ANTES" ] || falhou "pom.xml alterado numa falha"
+
+cenario "preparar-versao: pom.xml já sem -SNAPSHOT reprova (exit 2)"
+mk_raiz_release 0.1.0 notas
+ANTES="$(pom_hash)"
+roda_versao v0.1.0 "$RR"
+confere; [ "$CODIGO" -eq 2 ] || falhou "esperava exit 2, veio $CODIGO"
+espera_texto "SNAPSHOT"
+confere; [ "$(pom_hash)" = "$ANTES" ] || falhou "pom.xml alterado numa falha"
+
+cenario "preparar-versao: sem docs/release/notas-X.Y.Z.md reprova (exit 2) e não altera nenhum arquivo"
+mk_raiz_release 0.1.0-SNAPSHOT
+ANTES="$(pom_hash)"
+roda_versao v0.1.0 "$RR"
+confere; [ "$CODIGO" -eq 2 ] || falhou "esperava exit 2, veio $CODIGO"
+espera_texto "notas-0.1.0.md"
+confere; [ "$(pom_hash)" = "$ANTES" ] || falhou "pom.xml alterado numa falha"
+
+# O passo "Preparar a versão" do release.yml, extraído do próprio workflow e rodado com `bash -e`, como o runner faz.
+passo_preparar_versao() { # $1 = tag; usa a raiz $RR (com scripts/release copiado)
+  mkdir -p "$RR/scripts"; cp -r "$SCRIPTS_SRC/release" "$RR/scripts/release"
+  local passo
+  passo="$(awk '/- name: Preparar a versão/ { f = 1; next } f && /^      - / { exit } f && !/^        run:/' "$SCRIPTS_SRC/../.github/workflows/release.yml" | sed 's/^          //')"
+  : > "$RR/env.txt"
+  SAIDA="$(cd "$RR" && GITHUB_REF_NAME="$1" GITHUB_ENV="$RR/env.txt" bash -e -c "$passo" 2>&1)"; CODIGO=$?
+}
+
+cenario "release.yml: o passo 'Preparar a versão' com tag divergente derruba o passo e não grava VERSAO"
+mk_raiz_release 0.1.0-SNAPSHOT notas
+printf '%s\n' '# Notas' > "$RR/docs/release/notas-0.2.0.md"
+passo_preparar_versao v0.2.0
+espera_codigo nz
+confere; [ ! -s "$RR/env.txt" ] || falhou "VERSAO não devia ser gravada numa falha"
+
+cenario "release.yml: o passo 'Preparar a versão' com tag certa grava VERSAO=0.1.0"
+mk_raiz_release 0.1.0-SNAPSHOT notas
+passo_preparar_versao v0.1.0
+espera_codigo 0
+confere; [ "$(cat "$RR/env.txt")" = "VERSAO=0.1.0" ] || falhou "env.txt devia ter VERSAO=0.1.0"
+
+cenario "scripts/release: os scripts têm o bit de execução no Git (o workflow os chama pelo caminho)"
+confere
+if git -C "$SCRIPTS_SRC/.." ls-files -s -- scripts/release/preparar-versao.sh scripts/release/conferir-sbom.sh | grep -qv '^100755'; then
+  falhou "scripts/release/*.sh precisam estar 100755 no Git (git update-index --chmod=+x)"
+fi
+
+roda_sbom() { # $1 = arquivo
+  SAIDA="$(bash "$SCRIPTS_SRC/release/conferir-sbom.sh" "$1" 2>&1)"; CODIGO=$?
+}
+
+# SBOM sintético: $1 = nome do arquivo; $2 = bomFormat; $3 = quantidade de componentes; $4 = 1 inclui spring-boot e postgresql.
+mk_sbom() {
+  mkdir -p "$TMP_ROOT/sbom"
+  SB="$TMP_ROOT/sbom/$1"
+  jq -n --arg f "$2" --argjson n "$3" --argjson sp "$4" '
+    {bomFormat: $f, specVersion: "1.6",
+     components: ([range(0; $n)] | map({type: "library", name: ("lib-" + (. | tostring))}))
+       + (if $sp == 1 then [{type: "library", name: "spring-boot"}, {type: "library", name: "postgresql"}] else [] end)}' > "$SB"
+}
+
+cenario "conferir-sbom: CycloneDX com 50 ou mais componentes, spring-boot e postgresql passa"
+mk_sbom ok.json CycloneDX 50 1
+roda_sbom "$SB"
+espera_codigo 0
+espera_texto "OK"
+
+cenario "conferir-sbom: sem bomFormat CycloneDX reprova (exit 2)"
+mk_sbom formato.json SPDX 50 1
+roda_sbom "$SB"
+confere; [ "$CODIGO" -eq 2 ] || falhou "esperava exit 2, veio $CODIGO"
+espera_texto "bomFormat"
+
+cenario "conferir-sbom: menos de 50 componentes reprova (exit 2)"
+mk_sbom pouco.json CycloneDX 10 1
+roda_sbom "$SB"
+confere; [ "$CODIGO" -eq 2 ] || falhou "esperava exit 2, veio $CODIGO"
+espera_texto "componentes"
+
+cenario "conferir-sbom: sem spring-boot reprova (exit 2)"
+mk_sbom semspring.json CycloneDX 60 0
+roda_sbom "$SB"
+confere; [ "$CODIGO" -eq 2 ] || falhou "esperava exit 2, veio $CODIGO"
+espera_texto "spring-boot"
+
+cenario "conferir-sbom: arquivo inexistente ou que não é JSON reprova (exit 2)"
+roda_sbom "$TMP_ROOT/sbom/nao-existe.json"
+confere; [ "$CODIGO" -eq 2 ] || falhou "esperava exit 2, veio $CODIGO"
+printf 'isto nao e json\n' > "$TMP_ROOT/sbom/lixo.json"
+roda_sbom "$TMP_ROOT/sbom/lixo.json"
+confere; [ "$CODIGO" -eq 2 ] || falhou "esperava exit 2, veio $CODIGO"
+
 # ---------------------------------------------------------------- resumo
 
 echo
