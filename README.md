@@ -173,4 +173,6 @@ Medidos no **case local** (notebook, gerador de carga e serviços na mesma máqu
 | [`docs/release/`](docs/release/README.md) | Como é feito e conferido o release (imagens no GHCR, SBOM), as notas da 0.1.0 e a auditoria final |
 | `lancamentos-service/`, `consolidado-service/`, `contracts/` | Os dois serviços e o contrato do evento (JSON Schema); as APIs estão em `*/src/main/resources/openapi/` |
 
-O projeto segue Spec Driven Development, com revisão independente por tarefa: veja o [método de desenvolvimento](docs/guia/metodo-de-desenvolvimento.md).
+## Como este projeto foi feito
+
+O projeto segue **Spec Driven Development**: a especificação (requisitos, contratos e critérios de aceite) vem primeiro; cada tarefa escreve os testes antes do código, passa por uma **revisão independente**, e a matriz de rastreabilidade liga cada requisito a um teste. Usei o **Claude (IA da Anthropic) como apoio** para escrever código, testes e documentação, sempre dentro dessa especificação; as decisões de desenho e a aprovação de cada tarefa são minhas, e a coautoria aparece nos commits (`Co-Authored-By`). Detalhes no [método de desenvolvimento](docs/guia/metodo-de-desenvolvimento.md).
