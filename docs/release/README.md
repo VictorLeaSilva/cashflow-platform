@@ -35,7 +35,9 @@ git push origin v0.1.0
 
 **2. Acompanhar o run:** no GitHub, aba **Actions**, workflow **Release**. Os dois jobs devem ficar verdes (o segundo leva mais: baixa o *builder*, constrói as imagens e roda o Trivy).
 
-**3. Deixar os pacotes públicos:** em *Packages* do seu perfil, abra cada pacote (`cashflow-platform/lancamentos` e `cashflow-platform/consolidado`), *Package settings*, *Change visibility*, *Public*. Sem isso, quem não tem login não consegue baixar a imagem.
+**3. Deixar os pacotes públicos:** em *Packages* do seu perfil, abra cada pacote (`cashflow-platform/lancamentos` e `cashflow-platform/consolidado`), *Package settings*, *Change visibility*, *Public*. Sem isso, quem não tem login não consegue baixar a imagem. Na `v0.1.0` os dois pacotes já nasceram **públicos** (conferido em 2026-11-12), então este passo só confirma o estado.
+
+**Conhecido na `v0.1.0`:** a seção "Imagens publicadas" da página do release mostra os *digests* com o prefixo `fluxo-caixa/…@sha256:…`. Os valores `sha256` estão corretos; para baixar pelo *digest*, use `ghcr.io/victorleasilva/cashflow-platform/<serviço>@sha256:<valor>`.
 
 ## Como conferir um release
 
