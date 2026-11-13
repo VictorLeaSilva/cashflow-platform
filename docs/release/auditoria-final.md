@@ -32,9 +32,9 @@ O `sdd-status` (harness do autor, fora do repositório) resume o estado de cada 
 | T-004 | `sem-revisao` | **Real.** Idem (checklist com "revisão independente PASS" desmarcado) | Registrada; idem |
 | T-001 | `pronta-com-pendencia`, 0/0 | **Formato.** O checklist usa `[ x ]` (com espaços), que o script não conta | Cosmético; nenhuma ação |
 | T-010 | `pronta-com-pendencia`, 0/3 | **Real.** Revisão PASS_WITH_NOTES existe, mas o checklist do arquivo da tarefa nunca foi marcado | O autor decide se marca (é ele quem registra a aprovação) |
-| T-035 | `pronta-com-pendencia`, 0/5 | **Real.** Idem: revisão PASS_WITH_NOTES e evidência existem, checklist sem marcação | Idem |
+| T-035 | `pronta-com-pendencia`, 0/5 | **Real.** Idem: revisão PASS_WITH_NOTES e evidência existem, checklist sem marcação | Idem (Success, disparado à mão no commit `dae95e8`) |
 | T-045 | `pronta-com-pendencia`, 0/5 | **Real.** O PR #69 foi mesclado sem o commit `e352044`, que marcava o checklist após a sua aprovação; ele existe só no branch local `task/T-045-guias` | Marcação pronta para publicar (ver abaixo) |
-| T-047 | `pronta-com-pendencia`, 0/5 | **Real.** O PR #70 foi mesclado sem o commit `ee75685` (checklist marcado após a sua aprovação); ele existe só no branch local `task/T-047-builder-paketo` | Idem |
+| T-047 | `pronta-com-pendencia`, 0/5 | **Real.** O PR #70 foi mesclado sem o commit `ee75685` (checklist marcado após a sua aprovação); ele existe só no branch local `task/T-047-builder-paketo` | Idem (Success, disparado à mão no commit `dae95e8`) |
 
 **Sobre T-045 e T-047:** as duas tarefas foram aprovadas por você no chat, e a revisão de cada uma é PASS_WITH_NOTES. O que falta é só o commit de marcação chegar ao `main`. Como esses arquivos estão fora dos `allowed_paths` da T-044, a marcação foi deixada para um PR pequeno à parte, se você quiser.
 
@@ -42,9 +42,9 @@ O `sdd-status` (harness do autor, fora do repositório) resume o estado de cada 
 
 | Item | Estado | Falta |
 |---|---|---|
-| `loadtest.yml` | **Provado** no run informado pelo autor: [43230211929](https://github.com/VictorLeaSilva/cashflow-platform/actions/runs/43230211929) | O link foi informado por você; a auditoria não consegue abrir o GitHub para conferir |
-| `demo.yml` | **Provado** no run informado pelo autor: [43296061612](https://github.com/VictorLeaSilva/cashflow-platform/actions/runs/43296061612) | Idem |
-| `security.yml` (CodeQL, Dependency-Check, Trivy) | **Provado** no run informado pelo autor (PR #70): [43284923724](https://github.com/VictorLeaSilva/cashflow-platform/actions/runs/43284923724) | O link foi informado por você; a auditoria não consegue abrir o GitHub. O README e o `architecture.md` foram atualizados depois da auditoria, num PR à parte |
+| `loadtest.yml` | **Provado** no run (conferido no GitHub em 2026-11-12): [43230211929](https://github.com/VictorLeaSilva/cashflow-platform/actions/runs/43230211929) | Os três runs foram abertos no GitHub e estão com status Success; a auditoria de 2026-11-12 só os conhecia por link |
+| `demo.yml` | **Provado** no run (conferido no GitHub em 2026-11-12): [43296061612](https://github.com/VictorLeaSilva/cashflow-platform/actions/runs/43296061612) | Idem (Success, disparado à mão no commit `dae95e8`) |
+| `security.yml` (CodeQL, Dependency-Check, Trivy) | **Provado** no run (conferido no GitHub em 2026-11-12) (PR #70): [43284923724](https://github.com/VictorLeaSilva/cashflow-platform/actions/runs/43284923724) | Status Success nos 3 jobs (CodeQL, Dependency-Check, Trivy). O README e o `architecture.md` foram atualizados depois da auditoria, num PR à parte |
 | `release.yml` na tag `v0.1.0` | Preparado e provado localmente (versão, imagens `0.1.0`, SBOM); o run só existe depois da tag | O autor cria a tag e informa o link ([passo a passo](README.md)) |
 | Visibilidade pública dos dois pacotes no GHCR | Não verificável aqui | O autor confere em *Package settings* depois do primeiro release |
 
