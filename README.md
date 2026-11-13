@@ -23,7 +23,7 @@ Estados: **provado** (teste ou script reproduzível), **medido** (número do [re
 | Diferencial: arquitetura de transição | [`transition.md`](docs/architecture/transition.md) e [ADR-011](docs/architecture/decisions/ADR-011-arquitetura-de-transicao.md) | ler | **só desenho** (condicional) |
 | Diferencial: estimativa de custos | [`docs/cost/estimativa.md`](docs/cost/estimativa.md) (export do AWS Pricing Calculator, 2026-10-26) | ler; os JSON estão em `docs/cost/pricing-calculator/` | estimativa, não medição |
 | Diferencial: monitoramento e observabilidade | métricas, alertas e painel ([guia](docs/guia/observabilidade-e-alertas.md)); [ADR-008](docs/architecture/decisions/ADR-008-observabilidade.md) | profile `observability` | provado |
-| Diferencial: segurança para consumo | [ADR-007](docs/architecture/decisions/ADR-007-seguranca-e-integracao.md); [OWASP](docs/security/owasp-mapping.md), [ameaças](docs/security/ameacas.md), [ASVS](docs/security/asvs-l1.md) | ler; testes de segurança na matriz | provado local; CodeQL, Dependency-Check e Trivy pendentes do GitHub |
+| Diferencial: segurança para consumo | [ADR-007](docs/architecture/decisions/ADR-007-seguranca-e-integracao.md); [OWASP](docs/security/owasp-mapping.md), [ameaças](docs/security/ameacas.md), [ASVS](docs/security/asvs-l1.md) | ler; testes de segurança na matriz | provado; CodeQL, Dependency-Check e Trivy com [run verde no GitHub](https://github.com/VictorLeaSilva/cashflow-platform/actions/runs/43284923724) |
 
 ## Veja funcionando em 5 etapas
 
@@ -155,7 +155,7 @@ Medidos no **case local** (notebook, gerador de carga e serviços na mesma máqu
 - **Trocar o polling por CDC** se a latência de publicação pesar, e usar registro de esquemas com mais consumidores ([ADR-003](docs/architecture/decisions/ADR-003-outbox-publicador-idempotencia.md), [ADR-004](docs/architecture/decisions/ADR-004-kafka-e-contrato-de-evento.md)).
 - **Identidade real** (Cognito ou Keycloak) no lugar do token de desenvolvimento ([ADR-007](docs/architecture/decisions/ADR-007-seguranca-e-integracao.md)).
 - **Fechar as lacunas da revisão final:** *timeouts* dos pools, contagem do conflito de idempotência na métrica e a saída das *tasks* para a internet no desenho ([arquitetura §11](docs/architecture/architecture.md), [custos](docs/cost/estimativa.md)).
-- **Registrar o run verde do `security.yml`** (CodeQL, Dependency-Check e Trivy) para promover os itens "pendente do GitHub"; os runs de [`loadtest.yml`](https://github.com/VictorLeaSilva/cashflow-platform/actions/runs/43230211929) e [`demo.yml`](https://github.com/VictorLeaSilva/cashflow-platform/actions/runs/43296061612) já estão registrados.
+- **Registrar o run do release** (`release.yml`, tag `v0.1.0`) e deixar os dois pacotes públicos no GHCR: é o único item que ainda depende do GitHub ([passo a passo](docs/release/README.md)). Os runs de [`security.yml`](https://github.com/VictorLeaSilva/cashflow-platform/actions/runs/43284923724), [`loadtest.yml`](https://github.com/VictorLeaSilva/cashflow-platform/actions/runs/43230211929) e [`demo.yml`](https://github.com/VictorLeaSilva/cashflow-platform/actions/runs/43296061612) já estão registrados.
 - **Cortado por escopo:** ZAP, mutação com PIT e o IdP local com Keycloak ([backlog](docs/specs/06-tasks.md)).
 
 ## Mapa da documentação e trilha de leitura
