@@ -11,6 +11,15 @@ O release publica, a partir de uma **tag** `vX.Y.Z`, as duas imagens no GHCR, o 
 | SBOM CycloneDX | anexo da página do release (`fluxo-caixa-0.1.0.cdx.json`) | dependências Maven dos dois serviços |
 | Notas e *digests* | página do release | notas de [`notas-0.1.0.md`](notas-0.1.0.md) mais o *digest* de cada imagem |
 
+## O que é o SBOM e para que serve
+
+O **SBOM** (*Software Bill of Materials*) é a "lista de ingredientes" do software: todas as bibliotecas de terceiros que os dois serviços carregam (Spring Boot, driver do PostgreSQL, Jackson e assim por diante), cada uma com nome e versão. Está no formato CycloneDX, um padrão da indústria.
+
+- **Para que serve:** saber o que há dentro sem abrir o código; descobrir se você é afetado quando sai um alerta de vulnerabilidade ("a biblioteca X, versão Y, tem uma falha"); e atender quem audita ou avalia (empresas costumam pedir SBOM). Ferramentas de segurança leem o arquivo automaticamente.
+- **Onde está:** é um **arquivo separado**, anexado à página do release. Ele **não vem dentro da imagem** nem com o `docker pull`: para consultá-lo, baixe `fluxo-caixa-0.1.0.cdx.json` em *Assets*, no fim da [página do release](https://github.com/VictorLeaSilva/cashflow-platform/releases/tag/v0.1.0).
+- **O que ele cobre:** as dependências Maven dos dois serviços. Não cobre as camadas do sistema da imagem (isso é uma evolução, abaixo).
+- **Você não precisa usá-lo no dia a dia.** Para o case, ele é a prova de que o release carrega a lista; os comandos de "Como conferir" só checam que o arquivo existe e tem conteúdo.
+
 ## Como o workflow funciona
 
 1. **`verificar`:** roda `./mvnw verify`, como o `ci.yml`.
@@ -35,7 +44,9 @@ git push origin v0.1.0
 
 **2. Acompanhar o run:** no GitHub, aba **Actions**, workflow **Release**. Os dois jobs devem ficar verdes (o segundo leva mais: baixa o *builder*, constrói as imagens e roda o Trivy).
 
-**3. Deixar os pacotes públicos:** em *Packages* do seu perfil, abra cada pacote (`cashflow-platform/lancamentos` e `cashflow-platform/consolidado`), *Package settings*, *Change visibility*, *Public*. Sem isso, quem não tem login não consegue baixar a imagem.
+**3. Deixar os pacotes públicos:** em *Packages* do seu perfil, abra cada pacote (`cashflow-platform/lancamentos` e `cashflow-platform/consolidado`), *Package settings*, *Change visibility*, *Public*. Sem isso, quem não tem login não consegue baixar a imagem. Na `v0.1.0` os dois pacotes já nasceram **públicos** (conferido em 2026-11-12), então este passo só confirma o estado.
+
+**Conhecido na `v0.1.0`:** a seção "Imagens publicadas" da página do release mostra os *digests* com o prefixo `fluxo-caixa/…@sha256:…`. Os valores `sha256` estão corretos; para baixar pelo *digest*, use `ghcr.io/victorleasilva/cashflow-platform/<serviço>@sha256:<valor>`.
 
 ## Como conferir um release
 
@@ -52,17 +63,29 @@ docker pull ghcr.io/victorleasilva/cashflow-platform/lancamentos:0.1.0
 **bash e PowerShell**
 
 ```bash
-docker inspect --format '{{.Config.User}}' ghcr.io/victorleasilva/cashflow-platform/lancamentos:0.1.0
+docker inspect --format "{{.Config.User}}" ghcr.io/victorleasilva/cashflow-platform/lancamentos:0.1.0
 ```
 
 O resultado deve ser um número diferente de `0` (na construção feita para esta tarefa, `1002:1001`).
 
-**Contar os componentes do SBOM** (baixe o arquivo na página do release)
+Os comandos desta seção usam aspas duplas, que funcionam no bash, no PowerShell e também no CMD do Windows (aspas simples não funcionam no CMD).
+
+**Contar os componentes do SBOM.** Primeiro baixe `fluxo-caixa-0.1.0.cdx.json` em *Assets*, no fim da página do release, e abra o terminal na pasta onde o arquivo ficou. Precisa do `jq` instalado (no Windows: `winget install jqlang.jq` e abrir um terminal novo).
 
 **bash e PowerShell**
 
 ```bash
-jq '.components | length' fluxo-caixa-0.1.0.cdx.json
+jq ".components | length" fluxo-caixa-0.1.0.cdx.json
+```
+
+O resultado é a quantidade de bibliotecas listadas: **128** na `v0.1.0`.
+
+**Listar os nomes das bibliotecas**
+
+**bash e PowerShell**
+
+```bash
+jq -r ".components[].name" fluxo-caixa-0.1.0.cdx.json
 ```
 
 ## O que o release não faz (evolução)
