@@ -44,7 +44,7 @@ O `sdd-status` (harness do autor, fora do repositório) resume o estado de cada 
 |---|---|---|
 | `loadtest.yml` | **Provado** no run informado pelo autor: [43230211929](https://github.com/VictorLeaSilva/cashflow-platform/actions/runs/43230211929) | O link foi informado por você; a auditoria não consegue abrir o GitHub para conferir |
 | `demo.yml` | **Provado** no run informado pelo autor: [43296061612](https://github.com/VictorLeaSilva/cashflow-platform/actions/runs/43296061612) | Idem |
-| `security.yml` (CodeQL, Dependency-Check, Trivy) | O autor informou que o PR #70 ficou verde | **O link do run ainda não foi passado**; por isso o estado continua "pendente do GitHub" no README e no `architecture.md` |
+| `security.yml` (CodeQL, Dependency-Check, Trivy) | **Provado** no run informado pelo autor (PR #70): [43284923724](https://github.com/VictorLeaSilva/cashflow-platform/actions/runs/43284923724) | O link foi informado por você; a auditoria não consegue abrir o GitHub. O README e o `architecture.md` foram atualizados depois da auditoria, num PR à parte |
 | `release.yml` na tag `v0.1.0` | Preparado e provado localmente (versão, imagens `0.1.0`, SBOM); o run só existe depois da tag | O autor cria a tag e informa o link ([passo a passo](README.md)) |
 | Visibilidade pública dos dois pacotes no GHCR | Não verificável aqui | O autor confere em *Package settings* depois do primeiro release |
 
