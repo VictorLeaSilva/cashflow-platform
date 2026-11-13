@@ -54,17 +54,19 @@ docker pull ghcr.io/victorleasilva/cashflow-platform/lancamentos:0.1.0
 **bash e PowerShell**
 
 ```bash
-docker inspect --format '{{.Config.User}}' ghcr.io/victorleasilva/cashflow-platform/lancamentos:0.1.0
+docker inspect --format "{{.Config.User}}" ghcr.io/victorleasilva/cashflow-platform/lancamentos:0.1.0
 ```
 
 O resultado deve ser um número diferente de `0` (na construção feita para esta tarefa, `1002:1001`).
 
-**Contar os componentes do SBOM** (baixe o arquivo na página do release)
+Os comandos desta seção usam aspas duplas, que funcionam no bash, no PowerShell e também no CMD do Windows (aspas simples não funcionam no CMD).
+
+**Contar os componentes do SBOM** (baixe `fluxo-caixa-0.1.0.cdx.json` em *Assets*, no fim da página do release, e rode o comando na pasta onde ele ficou; precisa do `jq` instalado)
 
 **bash e PowerShell**
 
 ```bash
-jq '.components | length' fluxo-caixa-0.1.0.cdx.json
+jq ".components | length" fluxo-caixa-0.1.0.cdx.json
 ```
 
 ## O que o release não faz (evolução)
