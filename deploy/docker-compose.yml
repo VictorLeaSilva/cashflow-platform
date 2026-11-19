@@ -173,7 +173,7 @@ services:
   # Raspa as portas de gestão dos serviços no host (9081 e 9082) por host.docker.internal, que o
   # host-gateway resolve no Docker Desktop e no Linux. Contínuo; http://localhost:${PROMETHEUS_PORT:-9090}.
   prometheus:
-    image: prom/prometheus:v3.15.1
+    image: prom/prometheus:v3.16.0
     profiles: ["observability"]
     command:
       - "--config.file=/etc/prometheus/prometheus.yml"
